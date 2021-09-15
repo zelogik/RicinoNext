@@ -31,3 +31,4 @@ PC/Tablet/Smartphone is only needed if you want bigger screen by HTML/JAVASCRIPT
 Update:
  
 15/09/21: Only IRDA emitter code/wiring/pcb uploaded
+          Size is approx: 12mm x 9mm (jtag, 1.27 spacing)
