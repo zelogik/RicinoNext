@@ -15,13 +15,13 @@ PC/Tablet/Smartphone is only needed if you want bigger screen by HTML/JAVASCRIPT
   * UFHD : AMB-rc, no work
   
 
-1. Receiver Side:
+2. Receiver Side:
   * 3 bridges for check point : 3x 1 master + 3 or more slave.. oups... "secondary" units, master is around 6Euros/unit and slave 2euros/unit
   * Hardware : Design PCB : done, need ordering, consist of 1 atmega16 for irda decoding/uart + 1 atmega328 for i2c/uart
   * Software : 95% done, miss some testing
   * The 3 main bridges are connected by i2c to the Display, main Control unit
 
-1. Control Unit:
+3. Control Unit:
   * Hardware: ESP32 + display and http/websocket server
 
   * 60% done. Old concept worked, need to add i2c communication AND checkpoint algo
@@ -30,4 +30,4 @@ PC/Tablet/Smartphone is only needed if you want bigger screen by HTML/JAVASCRIPT
 
 Update:
  
-2. Only IRDA emitter uploaded
+15/09/21: Only IRDA emitter code/wiring/pcb uploaded
