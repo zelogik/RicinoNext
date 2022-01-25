@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Ricino_ESP beta</title>
+
+	<!-- <meta name="description" content="Source code generated using layoutit.com">
+	<meta name="author" content="LayoutIt!"> -->
+
+    <link href="css/bootstrap.min.css" type="text/css" rel="stylesheet">
+    <link href="css/style.css" type="text/css" rel="stylesheet">
+
+  </head>
+  <body>
+
+    <div class="container-fluid">
+		<div id="snackbar"></div>
+
+	<div class="row">
+			<div class="col-md-2" id="menu">
+				<p>websockTimer: <span id="websockTimer">NaN</span></p>
+				<p>websockCount: <span id="lapCounter">NaN</span> : <span id="textSliderValue">10</span></p>
+				<p>websockMessage: <span id="websockConsole">NULL</span></p> 
+
+				<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">
+					Start
+				</button> 
+				<button id="light" type="button" class="btn btn-info" onclick="lightToggle()">
+					On
+				</button> 
+				<button id="connect" type="button" class="btn btn-danger" onclick="connectToggle()">
+					Connect
+				</button>
+
+				<div class="progress" style="height:24px">
+					<div id="percentLap" class="progress-bar" style="width:0%;height:24px"></div>
+				  </div>
+				<!-- <progress id="percentLap" value="0"></progress> -->
+
+				<div class="slidecontainer">
+					<input type="range" oninput="updateLaps(this)" onchange="updateLaps(this)" id="lapsSlider" min="1" max="100" value="10" step="1" class="slider">
+				</div>
+				<!-- <input type="range" onchange="updateLaps(this)" id="lapsSlider" min="1" max="100" value="10" step="1" class="slider"> -->
+
+				<!-- <button id="snackBbutton" type="button" class="btn btn-success" onclick="snackBar()">
+					Show Snackbar?
+				</button> -->
+				<!-- <nav class="controls">
+					<a href="#" class="button" onClick="stopwatch.start();">Start</a>
+					<a href="#" class="button" onClick="stopwatch.stop();">Stop</a>
+					<a href="#" class="button" onClick="stopwatch.restart();">Restart</a>
+				</nav>
+				<div class="stopwatch"></div> -->
+
+				<p> Time: <span id="stopwatch">00:00.000</span></p>
+				<p>ATime: <span id="debugtime">00:00.000</span></p>
+
+				<!-- <input type="text" name="chronotime" id="chronotime" value="00:00.000"/> -->
+				<!-- <button id="startstop_watch" type="button" class="btn btn-primary" onclick="watchToggle_temp()">
+					Start
+				</button>
+				<button id="reset_watch" type="button" class="btn btn-secondary" onclick="chronoReset()">
+					Reset
+				</button> -->
+				
+			</div>
+		<div class="col-md-10">
+				<div class="row-title">
+					<div class="col-md-1">
+						ID
+					</div>
+					<div class="col-md-1">
+						Lap
+					</div>
+					<div class="col-md-2">
+						Last
+					</div>
+					<div class="col-md-2">
+						Best
+					</div>
+					<div class="col-md-2">
+						Mean
+					</div>
+					<div class="col-md-2">
+						Total
+					</div>
+					<div class="col-md-2">
+						Current
+					</div>
+				</div>
+				<div class="one_class">
+					<div class="col-md-1">
+						<span id="one_id">0</span>
+					</div>
+					<div class="col-md-1">
+						<span id="one_lap">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="one_last">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="one_best">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="one_mean">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="one_total">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="one_current">0</span>
+					</div>
+				</div>
+				<div class="two_class">
+					<div class="col-md-1">
+						<span id="two_id">0</span>
+					</div>
+					<div class="col-md-1">
+						<span id="two_lap">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="two_last">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="two_best">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="two_mean">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="two_total">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="two_current">0</span>
+					</div>
+				</div>
+				<div class="three_class">
+					<div class="col-md-1">
+						<span id="three_id">0</span>
+					</div>
+					<div class="col-md-1">
+						<span id="three_lap">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="three_last">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="three_best">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="three_mean">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="three_total">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="three_current">0</span>
+					</div>
+				</div>
+				<div class="four_class">
+					<div class="col-md-1">
+						<span id="four_id">0</span>
+					</div>
+					<div class="col-md-1">
+						<span id="four_lap">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="four_last">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="four_best">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="four_mean">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="four_total">0</span>
+					</div>
+					<div class="col-md-2">
+						<span id="four_current">0</span>
+					</div>
+				</div>
+			</div>
+
+		</div>
+	</div>
+</div>
+
+	<script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+	<script src="js/scripts.js"></script>
+	<!-- <script src="js/popper.min.js"></script> -->
+</body>
+</html>
