@@ -41,19 +41,20 @@ volatile uint8_t incomingTransmission = 0; // 1, rising ; 2, falling
 
 volatile uint32_t offsetTime; //set when master send start
 
-typedef struct Data_T {
+//typedef 
+struct Data_T {
     uint32_t id = 0;
     uint32_t first_mS = 0; //uint24...to convert
     uint32_t last_mS = 0;
     uint8_t quality = 0;
     uint8_t counter = 0;
     bool isReady = false;
-}; // dataBuf[BUFFER_LEN];
+}dataBuf[BUFFER_LEN];
 
 //static const Data_T dataBufTmp;
 
-static const Data_T dataBufReset;
-Data_T dataBuf[BUFFER_LEN];
+//static const Data_T dataBufReset;
+//Data_T dataBuf[BUFFER_LEN];
 
 //RingBufCPP<struct Data, 8> buf; // increase buffer length (check memory...)
 //CircularBuffer<Data_t, 10> structs;
@@ -112,6 +113,7 @@ Led ledStatus = Led(LED_PIN);
 void pushSignal() {
     incomingTransmission = (PIND & (1<<PD2)) ? 2 : 1;
     // (digitalRead(GATE_PIN)) ? 2 : 1;
+//    Serial.println(incomingTransmission);
 }
 
 bool recordId(uint32_t Id){
@@ -142,11 +144,12 @@ bool recordId(uint32_t Id){
             }
         }
     }
+    incomingTransmission = 0;
 }
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(9600); // connect to lapcounter after first debug...(
   Wire.begin(I2C_ADDRESS);    // join i2c bus with address #8
   Wire.onRequest(requestEvent); // register event  
   Wire.onReceive(receiveEvent); // register event
@@ -157,6 +160,9 @@ void setup() {
 void loop() {
     static uint32_t fastLoopTimer = millis();
     const uint32_t fastLoopDelay = 100;
+
+
+    bridgeReadLoop();
 
     if (incomingTransmission > 0){
         //IR, RFID, other decode process function...
@@ -173,36 +179,40 @@ void loop() {
             uint16_t onLed = 250 * (receiverState + 1);
             uint16_t offLed = 500 * (3 - receiverState);
             ledStatus.set(onLed, offLed);
-//            if (receiverState == CONNECTED)
-//            {
-//                ledStatus.set(500,500);
-//            }
-//            else if (receiverState == RACE)
-//            {
-//                ledStatus.set(1000,1000);
-//            }
-//            else
-//            {
-//                ledStatus.set(250,2000);
-//            }
         }
     }
 }
 
+void bridgeReadLoop(){
+  // start 03 B9 01
+  // stop 03 B0 02
+      uint8_t buf[12];
+
+      while (Serial.available() > 0) {
+         uint8_t lengthByte = Serial.readBytes(buf, 1);
+         for (uint8_t i = 1 ; i < lengthByte; i++){
+            Serial.readBytes(buf, lengthByte);
+         }
+      }
+      //  processingData
+}
 
 void readyLoop(){
-    const uint8_t debounceDelay = 10;
-    const uint8_t staticDataDelay = 1000;
-    const uint16_t oldDataDelay = 4000;
+    const uint8_t debounceDelay = 50;
+    const uint16_t staticDataDelay = 400;
+    const uint16_t oldDataDelay = 4000; //purge ?
 
     uint32_t currentTime = millis() - offsetTime;
     
     for( uint8_t i = 0; i < BUFFER_LEN; i++){
         if( dataBuf[i].id != 0 && dataBuf[i].isReady != true){
-            if(currentTime - dataBuf[i].last_mS > staticDataDelay){
+//          Serial.print("Current Time: ");
+//          Serial.println(currentTime);
+//          Serial.print("Last_mS: ");
+//          Serial.println(dataBuf[i].last_mS);
+            if(currentTime - dataBuf[i].last_mS > staticDataDelay && dataBuf[i].last_mS != 0){
                 if(dataBuf[i].last_mS - dataBuf[i].first_mS > debounceDelay){
                     dataBuf[i].isReady = true;
-//                    Serial.println(dataBuf[i].last_mS);
                 }
             }
             
@@ -218,18 +228,18 @@ void readyLoop(){
     
 }
 
-//void resetDataBuf(uint8_t number){
-//    // two way... create a static zero dataBuf, or change each value one by one...
-//    static const Data_T dataBufTmp;
-//
-//    dataBuf[number] = dataBufTmp;
-////    dataBuf[number].id = 0;
-////    dataBuf[number].first_mS = 0;
-////    dataBuf[number].last_mS = 0;
-////    dataBuf[number].quality = 0;
-////    dataBuf[number].counter = 0;
-////    dataBuf[number].isReady = false;
-//}
+void resetDataBuf(uint8_t number){
+    // two way... create a static zero dataBuf, or change each value one by one...
+    static const Data_T dataBufTmp;
+
+    dataBuf[number] = dataBufTmp;
+//    dataBuf[number].id = 0;
+//    dataBuf[number].first_mS = 0;
+//    dataBuf[number].last_mS = 0;
+//    dataBuf[number].quality = 0;
+//    dataBuf[number].counter = 0;
+//    dataBuf[number].isReady = false;
+}
 
 // if no Data, just send 0x82 and pseudo checksum...
 // if buffer have data, master will request that time ID, TIME, (3bytes (ID) + 4bytes (uint32_t) + 1byte Checksum? + 1byte signal Strenght ? + ) 
@@ -299,8 +309,8 @@ void requestEvent() {
         
         Wire.write(I2C_Packet, PACKET_SIZE); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
 
-        dataBuf[bufNumber] = dataBufReset;
-//        resetDataBuf(bufNumber);
+//        dataBuf[bufNumber] = dataBufReset;
+        resetDataBuf(bufNumber);
 //        dataBuf[bufNumber].isReady = false;
     }
 }

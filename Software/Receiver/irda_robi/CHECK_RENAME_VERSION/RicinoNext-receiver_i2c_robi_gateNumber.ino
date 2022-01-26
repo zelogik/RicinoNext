@@ -38,6 +38,7 @@ uint8_t idInfo[PACKET_SIZE] = {};
 uint8_t loopTime = 0;
 
 
+// ADD an automatic address set with shunt/pin
 uint8_t setup_gate_id(){
   uint8_t id_gate = 0;
   const uint8_t i2c_address[] = {20,21,22,23,24,25,26,27,28};
