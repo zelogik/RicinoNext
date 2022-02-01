@@ -17,7 +17,6 @@ const uint32_t idList[] = { 0x1234, 0x666, 0x1337, 0x2468}; // 0x4321, 0x2222, 0
 uint16_t idListTimer[] = { 2000, 2050, 2250, 2125}; // , 2050, 2150, 2250, 2350}; // used for the first lap!
 uint32_t idListLastMillis[] = { 0, 0, 0, 0}; // , 0, 0, 0, 0,};
 uint8_t idGateNumber[] = { 20, 20, 20, 20}; // , 19, 19, 19, 19}; // Address of first gate - 1
-// bool idChanged = false;
 // END DEBUG value
 
 /* AsyncWebServer Stuff */
@@ -58,9 +57,8 @@ void fakeIDtrigger(int ms); //debug function (replace i2c connection)
 
 
 /*================ UI Config struct =========================*/
-// That part is directly changed JSON client.
-// Auto send to client when isChanged or at connection
-
+// That struct is directly changed from client UI.
+// Auto send to client when isChanged or at new connection
 
 struct UI_config{
     bool isChanged = false;
@@ -588,11 +586,6 @@ void server_init()
     request->send(SPIFFS, "/js/scripts.js", "text/javascript");
   });
 
-//  server.on("/pressure", HTTP_GET, [](AsyncWebServerRequest *request){
-//    request->send_P(200, "text/plain", getPressure().c_str());
-//  });
-//  server.on("/",HTTP_GET, handleRoot);
-
   server.begin();
 
   ws.onEvent(readJsonInterrupt);
@@ -679,7 +672,7 @@ void setup(void) {
 //  ESPAsync_wifiManager.resetSettings();   //reset saved settings
   ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
   ESPAsync_wifiManager.autoConnect("RicinoNextAP");
-//
+
 //  if (WiFi.status() == WL_CONNECTED) { Serial.print(F("Connected. Local IP: ")); Serial.println(WiFi.localIP()); }
 //  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
   // Route to index.html + favicon.ico
@@ -719,15 +712,13 @@ void loop() {
 
   race.loop();
 
-
-//  WriteJSONLive(millis(), 1);
+  // add in a class ?
+  WriteJSONLive(millis(), 1);
   WriteJSONRace(millis());
 
+  // same here. make a class ?
   WriteSerialLive(millis(), 0);
-
   ReadSerial();
-// ReadJSONInterrupt, don't need to be called on each loop.
-
 }
 
 // Function below need to be/get called at each triggered gate.
@@ -766,7 +757,7 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
 // The most important loop,need to be the fastest possible (idBuffer overflow? bad sorting? who know...)
 // This function checking new data in bufferingID()/idBuffer[i]
 // sorting struct/table and process idBuffer -> idData.
-// don't know if it's add value to integrating directly in race class...
+// don't know if it's add value to integrating directly in the race private class...
 
 void sortIDLoop(){
 
@@ -898,9 +889,6 @@ void WriteJSONRace(uint32_t ms){
   }
 
 
-
-
-
 // ----------------------------------------------------------------------------
 // WebSocket initialization
 // ----------------------------------------------------------------------------
@@ -996,109 +984,6 @@ void WriteJSONRace(uint32_t ms){
 // config_players_conf_3["color"] = "yellow";
 // config["detected_ID"] = "XXXX";
 
-
-
-
-
-//// void updateDataLoop(){ //run at each interval OR/AND at each event (updateRacer), that is the question...
-//    bool trigger = false;
-//    static uint8_t posUpdate = 0;
-//    static bool needJsonUpdate = false;
-//    static bool needLapUpdate = false;
-//    static uint32_t websockCount = 0;
-//    const uint16_t websockDelay = 200;
-//    static uint32_t websockTimer = millis();
-//    static uint32_t websockTimerFast = millis();
-//    static uint16_t lastTotalLap = 0;
-//    static uint8_t biggestTotalLap = 0;
-////    struct racerMemory tmpRacerBuffer;
-//    uint32_t tmpRacerBuffer[9] = {0}; // id, numberLap, offsetLap, lastLap, bestLap, meanLap, totalLap
-//    const String orderString[] = {"one", "two", "three", "four"}; //change by char...
-//    uint16_t tmpTotalLap = 0;
-//
-//    for (uint8_t i = 0; i < NUM_BUFFER; i++){
-//        tmpTotalLap += racerBuffer[i].numberLap;
-//        if (racerBuffer[i].numberLap > raceLoop.getBiggestLap()){
-//            raceLoop.setBiggestLap(racerBuffer[i].numberLap);
-//        }
-//
-//       if ( i < NUM_BUFFER - 1){
-//            if (racerBuffer[i + 1].numberLap > racerBuffer[i].numberLap)
-//            { // My worst code ever, but working code... a way to copy a complete struct without got an esp exception...
-//                tmpRacerBuffer[0] = racerBuffer[i].id;
-//                tmpRacerBuffer[1] = racerBuffer[i].numberLap; 
-//                tmpRacerBuffer[2] = racerBuffer[i].offsetLap;
-//                tmpRacerBuffer[3] = racerBuffer[i].lastLap;
-//                tmpRacerBuffer[4] = racerBuffer[i].bestLap;
-//                tmpRacerBuffer[5] = racerBuffer[i].meanLap;
-//                tmpRacerBuffer[6] = racerBuffer[i].totalLap;
-//                tmpRacerBuffer[7] = racerBuffer[i]._tmpLast;
-//                tmpRacerBuffer[8] = racerBuffer[i].color;
-//                
-//                racerBuffer[i].id = racerBuffer[i + 1].id;
-//                racerBuffer[i].numberLap = racerBuffer[i + 1].numberLap;
-//                racerBuffer[i].offsetLap = racerBuffer[i + 1].offsetLap;
-//                racerBuffer[i].lastLap = racerBuffer[i + 1].lastLap;
-//                racerBuffer[i].bestLap = racerBuffer[i + 1].bestLap;
-//                racerBuffer[i].meanLap= racerBuffer[i + 1].meanLap;
-//                racerBuffer[i].totalLap = racerBuffer[i + 1].totalLap;
-//                racerBuffer[i]._tmpLast = racerBuffer[i + 1]._tmpLast;
-//                racerBuffer[i].color = racerBuffer[i + 1].color;
-//                
-//                racerBuffer[i + 1].id = tmpRacerBuffer[0];
-//                racerBuffer[i + 1].numberLap = tmpRacerBuffer[1];
-//                racerBuffer[i + 1].offsetLap = tmpRacerBuffer[2];
-//                racerBuffer[i + 1].lastLap = tmpRacerBuffer[3];
-//                racerBuffer[i + 1].bestLap = tmpRacerBuffer[4];
-//                racerBuffer[i + 1].meanLap = tmpRacerBuffer[5];
-//                racerBuffer[i + 1].totalLap = tmpRacerBuffer[6];
-//                racerBuffer[i + 1]._tmpLast = tmpRacerBuffer[7];
-//                racerBuffer[i + 1].color = tmpRacerBuffer[8];
-//                break;
-//            }
-//       }
-//    }
-//    
-//    if (tmpTotalLap != lastTotalLap || tmpTotalLap == 0){
-//        lastTotalLap = tmpTotalLap;
-//        needJsonUpdate = true;
-//    }
-//    
-//    DynamicJsonDocument doc(JSON_BUFFER);
-//
-//    if( millis() - websockTimerFast > websockDelay){
-//        currentRaceMillis = millis() - startRaceMillis;
-//        websockTimerFast = millis();
-//        doc["websockTimer"] = websockTimer;
-//
-//        JsonObject data = doc.createNestedObject("data");
-//
-//        if (millis() - websockTimer > websockDelay / 2 && needJsonUpdate){ //change condition by time to totalLap changed
-//            websockTimer = millis();
-//            data[orderString[posUpdate] + "_class"] = racerBuffer[posUpdate].color;
-//            data[orderString[posUpdate] + "_id"] = racerBuffer[posUpdate].id;
-//            data[orderString[posUpdate] + "_lap"] = racerBuffer[posUpdate].numberLap;
-//            data[orderString[posUpdate] + "_last"] = millisToMSMs(racerBuffer[posUpdate].lastLap);
-//            data[orderString[posUpdate] + "_best"] = millisToMSMs(racerBuffer[posUpdate].bestLap);
-//            data[orderString[posUpdate] + "_mean"] = millisToMSMs(racerBuffer[posUpdate].meanLap);
-//            data[orderString[posUpdate] + "_total"] = millisToMSMs(racerBuffer[posUpdate].totalLap);
-//            data[orderString[posUpdate] + "_current"] = racerBuffer[posUpdate].totalLap; //yes i know...
-//            posUpdate++; 
-////            if (posUpdate == NUM_BUFFER){
-////              posUpdate = 0;
-////              needJsonUpdate = false;
-////            }
-//        }
-// 
-//        trigger = true;
-//    }
-//
-//    char json[JSON_BUFFER];
-//    serializeJsonPretty(doc, json);
-//
-//    if (trigger){
-//        ws.textAll(json);
-//    }
 }
 
 // Debug Loop, simulate the gates
@@ -1217,12 +1102,6 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
             Serial.print(timeChar);
         }
         Serial.println();
-
-        // Serial.print(F(" |1: "));
-        // Serial.print(F(" |2: "));
-        // Serial.print(millisToMSMs(idData[j].lastCheckPoint[2]));
-        // Serial.print(F(" |3: "));
-        // Serial.print(millisToMSMs(idData[j].lastCheckPoint[0]));
       }
       break; // don't flood, only one message at a time!
     }
@@ -1261,13 +1140,13 @@ void ReadSerial(){
 
 // Better to process on the mcu c++ or the browser javascript side... ??
 // But as there is already an identical function on the javascript side used for current time, remove that one ?
-
-void timeToChar(char *buf, int len, uint32_t tmpMillis) {
+// ie: that function take 80usec to change millis() to human readable time.
+void timeToChar(char *buf, int len, uint32_t tmpMillis) { // the len is always 10... "00:00.000"
   unsigned long nowMillis = tmpMillis;
   uint32_t tmp_seconds = nowMillis / 1000;
   uint32_t seconds = tmp_seconds % 60;
   uint16_t ms = nowMillis % 1000;
   uint32_t minutes = tmp_seconds / 60;
-  //strcat(postStr, dtostrf(rainHour,6,2,charDummy));
+
   snprintf(buf, len, "%02d:%02d.%03d", minutes, seconds, ms);
 }
