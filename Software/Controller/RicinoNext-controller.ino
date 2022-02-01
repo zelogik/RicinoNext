@@ -24,6 +24,7 @@ uint8_t idGateNumber[] = { 20, 20, 20, 20}; // , 19, 19, 19, 19}; // Address of 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 DNSServer dns;
+
 #define JSON_BUFFER 512
 
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
@@ -31,15 +32,15 @@ DNSServer dns;
 #include "Button2.h"
 
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h
-
 //#define TFT_GREY 0x5AEB // New colour
 
-#define NUMBER_RACER 4 // backend should work with 4 to endless (memory limit) racer without problem, frontend is fixed to 4 players...
+#define NUMBER_RACER 4 // todo/future: set a fixed 32 struct BUT dynamic player number? to avoiding malloc/free etc..
 #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
 
-const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final Gate!
+const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final Gate! | define number in UI ?
 #define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
-#define NUMBER_PROTOCOL 3 // 0:serial, 1:ESP, 2:tft
+
+#define NUMBER_PROTOCOL 3 // 0:serial, 1:ESP/JSON, 2:tft
 
 
 // Physical Button on TTGO Display
@@ -52,20 +53,48 @@ Button2 btn2(BUTTON_2);
 uint16_t ledPin = 13;
 
 // prototype
-void sortIDLoop();
-void fakeIDtrigger(int ms);
+void sortIDLoop(); // maybe add to Race class in future
+void fakeIDtrigger(int ms); //debug function (replace i2c connection)
 
-/* =============== config section start =============== */
-// enum State {
-//   DISCONNECTED, // Disconnected, only allow connection
-//   CONNECTED, // connected ( start to test alive ping )
-//   SET,      // Set RACE init.
-//   START, // When START add 20s timeout for RACE
-//   RACE, // RACE, update dataRace()...
-//   END,  // RACE finish, wait 20sec all players
-//   RESET  // RACE finished auto/manual, reset every parameters
-// };
 
+/*================ UI Config struct =========================*/
+// That part is directly changed JSON client.
+// Auto send to client when isChanged or at connection
+
+
+struct UI_config{
+    bool isChanged = false;
+
+    uint16_t set_laps = 10; // 1 - ? unlimited ?
+    uint8_t set_number_players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
+    uint8_t set_number_gates = NUMBER_GATES; // 1…?8 max?
+
+    bool set_light = 0;
+    uint8_t set_brightness_light = 255;
+
+    // Todo Add sound/voice/etc... here
+
+    enum state_t {
+        RESET,     // 
+        START,     // forbid any UI modifiction except STOP!
+        STOP       // only allow UI modification
+    }setState = RESET;
+
+    bool read_ID = 0;
+
+    struct Player
+    {
+        // uint8_t position;
+        uint32_t ID;
+        char name[16];
+        char color[8];
+    }player[NUMBER_RACER];
+};
+
+UI_config uiConfig;
+
+
+/* =============== Main Data struct =============== */
 
 // One Struct to keep every player data + sorted at each loop.
 typedef struct {
@@ -234,6 +263,8 @@ typedef struct {
 
 ID_Data_sorted idData[NUMBER_RACER + 1]; // number + 1, [0] is the tmp for rank change, and so 1st is [1] and not [0] and so on...
 
+
+/* ================ Buffer Struct ====================*/
 // Sort-Of simple buffer
 // Need to add color/name here ?
 typedef struct {
@@ -244,7 +275,6 @@ typedef struct {
 } ID_buffer;
 
 ID_buffer idBuffer[NUMBER_RACER];
-
 
 //=============== Race Class =================================
 
@@ -258,8 +288,8 @@ enum race_state_t {
 };
 
 race_state_t raceState = RESET;
-
-const char* stateDebugStr[] = {"Reset", "Wait", "Start", "Race", "Finish", "Stop"};
+// Human readable ENUM.
+const char* raceStateChar[] = {"RESET", "WAIT", "START", "RACE", "FINISH", "STOP"};
 
 
 class Race {
@@ -269,11 +299,15 @@ class Race {
     uint16_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    uint16_t numberTotalLaps = 5;
+    uint16_t numberTotalLaps = 5; // add pointer to uiConfig
     uint32_t finishRaceMillis;
-    uint32_t finishRaceDelay = 2 * 1000; // 10sec
+    uint32_t finishRaceDelay = 2 * 1000; // 10sec, need changeable from UI
     race_state_t oldRaceState;
-    
+    const uint8_t messageLength = 128;
+    char message[128] = "test Char pointer";
+    uint32_t startTimeOffset;
+
+
 //      APP_Data *app_ptr;
 //      app_ptr = &appData;
 
@@ -290,13 +324,10 @@ class Race {
         }
     }
 
-    void checkLap(){
-
-    }
     void printSerialDebug(){
         if (oldRaceState != raceState)
         {
-            Serial.println(stateDebugStr[oldRaceState]);
+            Serial.println(raceStateChar[oldRaceState]);
             oldRaceState = raceState;
         }
     }
@@ -340,6 +371,7 @@ class Race {
                 // }
                 // app_ptr->startOffset = millis();  //(*ptr).offsetLap;
 
+                startTimeOffset = millis();
                 raceState = RACE;
             }
             break;
@@ -398,8 +430,39 @@ class Race {
         }
     }
 
+    uint16_t getBiggestLaps(){
+      return biggestLap;
+    }
+
+    uint32_t getCurrentTime(){
+      if (raceState == RACE || raceState == FINISH)
+      {
+        return ( millis() - startTimeOffset );
+      }
+      else
+      {
+        return 0;
+      }
+    }
+
     bool isIdRunning(uint8_t lap){
         return ( lap ==  numberTotalLaps )  ? false : true;
+    }
+
+    void setMessage(char *test_char[128]){
+      memcpy(message, test_char, sizeof(test_char[0])*128);
+    }
+
+    char* getMessage(){
+      char message_tmp[128];
+
+//      if (message[0] != 0)
+//      {
+//          memcpy(message_tmp, message, sizeof(message[0])*128);
+//          message[0] = 0;
+//          return NULL;
+//      }
+      return message;
     }
 };
 
@@ -612,8 +675,8 @@ void setup(void) {
     return;
   }
 
-  ESPAsync_WiFiManager ESPAsync_wifiManager(&server, &dns, "RicinoNextAP");
-  //ESPAsync_wifiManager.resetSettings();   //reset saved settings
+  ESPAsync_WiFiManager ESPAsync_wifiManager(&server, NULL , "RicinoNextAP"); // &dns
+//  ESPAsync_wifiManager.resetSettings();   //reset saved settings
   ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
   ESPAsync_wifiManager.autoConnect("RicinoNextAP");
 //
@@ -656,9 +719,11 @@ void loop() {
 
   race.loop();
 
-  WriteSerial(millis());
 
-  WriteJSON();
+//  WriteJSONLive(millis(), 1);
+  WriteJSONRace(millis());
+
+  WriteSerialLive(millis(), 0);
 
   ReadSerial();
 // ReadJSONInterrupt, don't need to be called on each loop.
@@ -758,9 +823,183 @@ void sortIDLoop(){
 }
 
 
-// completely change this algo!!!
-// OUTDATED!!! bad reference etc...
-void WriteJSON(){
+// Send JSON if idData change.
+void WriteJSONLive(uint32_t ms, uint8_t protocol){
+
+  // Send "live" JSON section
+  // todo: maybe add a millis delay to don't DDOS client :-D
+  for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++){
+    if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
+    {
+      idData[i].positionChange[protocol] = false;
+      StaticJsonDocument<JSON_BUFFER> doc;
+
+      // Need to fill now...
+      JsonObject live = doc.createNestedObject("live");
+
+      live["rank"] = i;
+      live["id"] = idData[i].ID;
+      live["lap"] = idData[i].laps;
+      live["best"] = idData[i].bestLapTime;
+      live["last"] = idData[i].lastLapTime;
+      live["mean"] = idData[i].meanLapTime;
+      live["total"] = idData[i].lastTotalTime;
+
+      JsonArray live_gate = live.createNestedArray("gate");
+      for ( uint8_t i = 0; i < NUMBER_GATES; i++)
+      {
+        uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
+        live_gate.add(idData[i].lastCheckPoint[shiftGate]);
+      }
+
+      char json[JSON_BUFFER];
+      serializeJsonPretty(doc, json); // todo: remove the pretty after
+      ws.textAll(json);
+      break;
+    }
+  }
+}
+
+
+// Send Race state.
+void WriteJSONRace(uint32_t ms){
+
+  // Send "Race" JSON section
+
+  static race_state_t oldRaceState = raceState;
+  static uint32_t lastMillis = 0;
+  uint32_t delayMillis;
+  
+  delayMillis = (race.getCurrentTime() == 0) ? 5000 : 1000;
+
+  if (ms - lastMillis > delayMillis || oldRaceState != raceState)
+  {
+    lastMillis = millis();
+    oldRaceState = raceState;
+
+    // Need to feel now...
+
+    StaticJsonDocument<JSON_BUFFER> doc;
+    JsonObject race_json = doc.createNestedObject("race");
+
+    race_json["state"] = raceStateChar[raceState];
+    race_json["lap"] = race.getBiggestLaps();
+    race_json["time"] = race.getCurrentTime();
+ 
+    char *valueMessage = race.getMessage();
+    if (valueMessage != NULL)
+    {
+       race_json["message"] = valueMessage;
+    }
+
+    char json[JSON_BUFFER];
+    serializeJsonPretty(doc, json); // todo: remove the pretty after
+    ws.textAll(json);
+  }
+
+
+
+
+
+// ----------------------------------------------------------------------------
+// WebSocket initialization
+// ----------------------------------------------------------------------------
+
+// void notifyClients() {
+//     const uint8_t size = JSON_OBJECT_SIZE(1);
+//     StaticJsonDocument<size> json;
+//     json["status"] = led.on ? "on" : "off";
+
+//     char buffer[17];
+//     size_t len = serializeJson(json, buffer);
+//     ws.textAll(buffer, len);
+// }
+
+// void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+//     AwsFrameInfo *info = (AwsFrameInfo*)arg;
+//     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+
+//         const uint8_t size = JSON_OBJECT_SIZE(1);
+//         StaticJsonDocument<size> json;
+//         DeserializationError err = deserializeJson(json, data);
+//         if (err) {
+//             Serial.print(F("deserializeJson() failed with code "));
+//             Serial.println(err.c_str());
+//             return;
+//         }
+
+//         const char *action = json["action"];
+//         if (strcmp(action, "toggle") == 0) {
+//             led.on = !led.on;
+//             notifyClients();
+//         }
+
+//     }
+// }
+
+// void onEvent(AsyncWebSocket       *server,
+//              AsyncWebSocketClient *client,
+//              AwsEventType          type,
+//              void                 *arg,
+//              uint8_t              *data,
+//              size_t                len) {
+
+//     switch (type) {
+//         case WS_EVT_CONNECT:
+//             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+//             break;
+//         case WS_EVT_DISCONNECT:
+//             Serial.printf("WebSocket client #%u disconnected\n", client->id());
+//             break;
+//         case WS_EVT_DATA:
+//             handleWebSocketMessage(arg, data, len);
+//             break;
+//         case WS_EVT_PONG:
+//         case WS_EVT_ERROR:
+//             break;
+//     }
+// }
+
+// void initWebSocket() {
+//     ws.onEvent(onEvent);
+//     server.addHandler(&ws);
+// }
+
+
+// JsonObject config = doc.createNestedObject("config");
+// config["lap_total"] = 10;
+// config["players_number"] = 4;
+// config["gate_number"] = 3;
+// config["light_state"] = 0;
+// config["light_brightness"] = 0;
+
+// JsonArray config_players_conf = config.createNestedArray("players_conf");
+
+// JsonObject config_players_conf_0 = config_players_conf.createNestedObject();
+// config_players_conf_0["id"] = "xxxxxxx";
+// config_players_conf_0["name"] = "player01";
+// config_players_conf_0["color"] = "blue";
+
+// JsonObject config_players_conf_1 = config_players_conf.createNestedObject();
+// config_players_conf_1["id"] = "xxxxxxx";
+// config_players_conf_1["name"] = "player02";
+// config_players_conf_1["color"] = "red";
+
+// JsonObject config_players_conf_2 = config_players_conf.createNestedObject();
+// config_players_conf_2["id"] = "xxxxxxx";
+// config_players_conf_2["name"] = "player03";
+// config_players_conf_2["color"] = "green";
+
+// JsonObject config_players_conf_3 = config_players_conf.createNestedObject();
+// config_players_conf_3["id"] = "xxxxxxx";
+// config_players_conf_3["name"] = "player04";
+// config_players_conf_3["color"] = "yellow";
+// config["detected_ID"] = "XXXX";
+
+
+
+
+
 //// void updateDataLoop(){ //run at each interval OR/AND at each event (updateRacer), that is the question...
 //    bool trigger = false;
 //    static uint8_t posUpdate = 0;
@@ -926,20 +1165,22 @@ void fakeIDtrigger(int ms){
 
 
 // When you have only serial available for racing...
-void WriteSerial(uint32_t ms){ //, const ID_Data_sorted& data){
+void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& data){
   static uint32_t lastMillis = 0;
   const uint32_t delayMillis = 2000;
+  char timeChar[10];
   
  if (ms - lastMillis > delayMillis)
  {
     // digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     lastMillis = millis();
+    //  Serial.println(ESP.getFreeHeap()); 237468 237644
  }
 
   for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++){
-    if (idData[i].positionChange[0] == true || idData[i].needGateUpdate(0))
+    if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
     {
-      idData[i].positionChange[0] = false;
+      idData[i].positionChange[protocol] = false;
 
       for (uint8_t k = 0; k < 15 ; k++){
         Serial.println();
@@ -952,13 +1193,17 @@ void WriteSerial(uint32_t ms){ //, const ID_Data_sorted& data){
         Serial.print(F(" |laps: "));
         Serial.print(idData[j].laps);
         Serial.print(F(" |Time: "));
-        Serial.print(millisToMSMs(idData[j].lastTotalTime));
+        timeToChar(timeChar, 10, idData[j].lastTotalTime);
+        Serial.print(timeChar);
         Serial.print(F(" |last: "));
-        Serial.print(millisToMSMs(idData[j].lastLapTime));
+        timeToChar(timeChar, 10, idData[j].lastLapTime);
+        Serial.print(timeChar);
         Serial.print(F(" |best: "));
-        Serial.print(millisToMSMs(idData[j].bestLapTime));
+        timeToChar(timeChar, 10, idData[j].bestLapTime);
+        Serial.print(timeChar);
         Serial.print(F(" |mean: "));
-        Serial.print(millisToMSMs(idData[j].meanLapTime));
+        timeToChar(timeChar, 10, idData[j].meanLapTime);
+        Serial.print(timeChar);
 
         for ( uint8_t i = 0; i < NUMBER_GATES; i++)
         {
@@ -968,7 +1213,8 @@ void WriteSerial(uint32_t ms){ //, const ID_Data_sorted& data){
             // Shift Gate order:
             uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
 //            Serial.print(shiftGate);
-            Serial.print(millisToMSMs(idData[j].lastCheckPoint[shiftGate]));
+            timeToChar(timeChar, 10, idData[j].lastCheckPoint[shiftGate]);
+            Serial.print(timeChar);
         }
         Serial.println();
 
@@ -986,6 +1232,7 @@ void WriteSerial(uint32_t ms){ //, const ID_Data_sorted& data){
 
 void ReadSerial(){
     if (Serial.available()) {
+    char test[128] = "test";
     
     byte inByte = Serial.read();
 
@@ -1002,6 +1249,9 @@ void ReadSerial(){
             raceState = RESET;
             break;
        
+        case 'P': // Test Message pointer
+//            race.setMessage(test);;
+            break;
 
         default:
             break;
@@ -1011,54 +1261,13 @@ void ReadSerial(){
 
 // Better to process on the mcu c++ or the browser javascript side... ??
 // But as there is already an identical function on the javascript side used for current time, remove that one ?
-// todo: replace String to char! as 00:00.000 is well define (memory efficiency)
 
-String millisToMSMs(uint32_t tmpMillis){
-    uint32_t millisec;
-    uint32_t total_seconds;
-    uint32_t total_minutes;
-    uint32_t seconds;
-    String DisplayTime;
-
-    total_seconds = tmpMillis / 1000;
-    millisec  = tmpMillis % 1000;
-    seconds = total_seconds % 60;
-    total_minutes = total_seconds / 60;
-
-    String tmpStringMillis;
-    if (millisec < 100)
-      tmpStringMillis += '0';
-    if (millisec < 10)
-      tmpStringMillis += '0';
-    tmpStringMillis += millisec;
-
-    String tmpSpringSeconds;
-    if (seconds < 10)
-      tmpSpringSeconds += '0';
-    tmpSpringSeconds += seconds;
-
-    String tmpSpringMinutes;
-    if (total_minutes < 10)
-      tmpSpringMinutes += '0';
-    tmpSpringMinutes += total_minutes;
-    
-    DisplayTime = tmpSpringMinutes + ":" + tmpSpringSeconds + "." + tmpStringMillis;
-
-    return DisplayTime;
-}
-
-char timeToString(uint32_t tmpMillis){
-  
-  char str[10] = "";
+void timeToChar(char *buf, int len, uint32_t tmpMillis) {
   unsigned long nowMillis = tmpMillis;
   uint32_t tmp_seconds = nowMillis / 1000;
   uint32_t seconds = tmp_seconds % 60;
   uint16_t ms = nowMillis % 1000;
   uint32_t minutes = tmp_seconds / 60;
-  snprintf(str, 10, "%02d:%02d.%03d", minutes, seconds, ms);
-  return *str;
-
-
-    //  timeToString(str, sizeof(str));
-    // Serial.println(str); 
+  //strcat(postStr, dtostrf(rainHour,6,2,charDummy));
+  snprintf(buf, len, "%02d:%02d.%03d", minutes, seconds, ms);
 }
