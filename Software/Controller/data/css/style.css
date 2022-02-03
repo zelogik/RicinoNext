@@ -1,4 +1,4 @@
-.row-title, .one_class, .two_class, .three_class, .four_class {
+.row-title, .odd_line, .even_line {
     font-size: 2vw;
     text-align: center;
     display: -ms-flexbox;
@@ -25,8 +25,12 @@
     margin-bottom: 50px;
 }
 
-.one_class, .two_class, .three_class, .four_class {
+.odd_line {
     background-color: white;
+}
+
+.even_line {
+    background-color: gray;
 }
 
 /* .one_color_class { 
