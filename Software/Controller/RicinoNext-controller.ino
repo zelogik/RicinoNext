@@ -22,9 +22,7 @@ uint8_t idGateNumber[] = { 20, 20, 20, 20}; // , 19, 19, 19, 19}; // Address of 
 /* AsyncWebServer Stuff */
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-DNSServer dns;
-
-#define JSON_BUFFER 512
+// DNSServer dns;
 
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
 #include <SPI.h>
@@ -40,7 +38,8 @@ const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final 
 #define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
 
 #define NUMBER_PROTOCOL 3 // 0:serial, 1:ESP/JSON, 2:tft
-
+#define JSON_BUFFER 512
+#define JSON_BUFFER_CONF 512
 
 // Physical Button on TTGO Display
 #define BUTTON_1            35
@@ -61,31 +60,27 @@ void fakeIDtrigger(int ms); //debug function (replace i2c connection)
 // Auto send to client when isChanged or at new connection
 
 struct UI_config{
-    bool isChanged = false;
+    bool isChanged = false; // is used? / remove ?
 
-    uint16_t set_laps = 10; // 1 - ? unlimited ?
-    uint8_t set_number_players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
-    uint8_t set_number_gates = NUMBER_GATES; // 1…?8 max?
+    uint16_t laps = 10; // 1 - ? unlimited ?
+    uint8_t players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
+    uint8_t gates = NUMBER_GATES; // 1…?8 max?
 
-    bool set_light = 0;
-    uint8_t set_brightness_light = 255;
+    bool light = false;
+    uint8_t light_brightness = 255;
 
-    // Todo Add sound/voice/etc... here
+    // Todo Add  enable sound/voice/etc... here
+    bool state = false; // trigger a race start/stop
+    bool reset = false; // trigger reset struct idData
+    bool read_ID = false; // trigger an one shot ID reading
 
-    enum state_t {
-        RESET,     // 
-        START,     // forbid any UI modifiction except STOP!
-        STOP       // only allow UI modification
-    }setState = RESET;
-
-    bool read_ID = 0;
-
+    // is separating this nested struct useful ?
     struct Player
     {
-        // uint8_t position;
-        uint32_t ID;
-        char name[16];
-        char color[8];
+        // uint8_t position; // todo: function to auto find by ID/name
+        uint32_t ID; // dedup with idData[i].ID, something to refactoring ?
+        char name[16]; // make a "random" username ala reddit ?
+        char color[8]; // by char or int/hex value...
     }player[NUMBER_RACER];
 };
 
@@ -116,7 +111,6 @@ typedef struct {
 
     bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES];
     bool positionChange[NUMBER_PROTOCOL]; // serial, tft, web,... add more
-
 
     // todo
     int8_t statPos;
@@ -157,8 +151,8 @@ typedef struct {
         // add only if " < race.numberTotalLaps ?
         laps++;
         // Calculation of full lap!
-        lastCalc(&lastLapTime, &lastTotalTime, NULL, timeMs);
-        meanCalc(&meanLapTime, NULL, timeMs);
+        lastCalc(&lastLapTime, &lastTotalTime, nullptr, timeMs);
+        meanCalc(&meanLapTime, nullptr, timeMs);
         bestCalc(&bestLapTime, lastLapTime);
       }
 
@@ -263,8 +257,7 @@ ID_Data_sorted idData[NUMBER_RACER + 1]; // number + 1, [0] is the tmp for rank 
 
 
 /* ================ Buffer Struct ====================*/
-// Sort-Of simple buffer
-// Need to add color/name here ?
+// Sort-Of simple buffer, todo: make fifo ready?, check if idBuffer is emptying before refill (from gates)
 typedef struct {
     uint32_t ID = 0;
     uint8_t gateNumber = 0;
@@ -273,6 +266,7 @@ typedef struct {
 } ID_buffer;
 
 ID_buffer idBuffer[NUMBER_RACER];
+
 
 //=============== Race Class =================================
 
@@ -473,81 +467,165 @@ void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
 }
 
-// callback for websocket event.
-void readJsonInterrupt(AsyncWebSocket* server,
-               AsyncWebSocketClient* client,
-               AwsEventType type,
-               void* arg,
-               uint8_t* data,
-               size_t length) {
-  switch (type) {
-    // Send all current player data?, current config data, and current state !
-    case WS_EVT_CONNECT: 
-      {
-        Serial.println("WS client connect");
-        // Send all current Config!
-//         DynamicJsonDocument doc(JSON_BUFFER);
-// //        doc["light"] = lightState ? 1 : 0;
-// //        doc["connect"] = (raceStateENUM > 1) ? 1 : 0;
-// //        doc["race"] = (raceStateENUM > 3) ? 1 : 0;
-// //        doc["setlaps"] = raceLoop.getLaps();
+
+void notifyClients() {
+    StaticJsonDocument<JSON_BUFFER> json;
+    // json["status"] = led.on ? "on" : "off";
+
+    char buffer[JSON_BUFFER];
+    // size_t len = serializeJson(json, buffer);
+    // ws.textAll(buffer, len);
+}
+
+
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+
+        const uint8_t size = JSON_OBJECT_SIZE(1);
+        StaticJsonDocument<size> json;
+        DeserializationError err = deserializeJson(json, data);
+        if (err) {
+            Serial.print(F("deserializeJson() failed with code "));
+            Serial.println(err.c_str());
+            return;
+        }
+
+        const char *action = json["action"];
+        // if (strcmp(action, "toggle") == 0) {
+        //     led.on = !led.on;
+        //     notifyClients();
+        // }
+
+    }
+}
+
+/*  char test[512];
+  writeJSONData(&uiConfig, test); 
+  Serial.println(test);
+*/
+
+void confToJSON(const struct UI_config* data, char* output)
+{
+  StaticJsonDocument<JSON_BUFFER_CONF> doc; //need a function to calculate a proper size
+
+  JsonObject conf = doc.createNestedObject("conf");
+  conf["laps"] = data->laps;
+  conf["players"] = data->players;
+  conf["gates"] = data->gates;
+  conf["light"] = data->light ? 1 : 0;
+  conf["light_brightness"] = data->light_brightness;
+  // doc["set_state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
+
+//  conf["state"]
+
+  JsonArray conf_players = conf.createNestedArray("names");
+
+  for ( uint8_t i = 0; i < NUMBER_RACER ; i++)
+  {
+      conf_players[i]["id"] = i + 1;
+      conf_players[i]["name"] = "xxxxx";
+      conf_players[i]["color"] = "xxxxx";
+  }
+
+  serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
+}
+
+
+void JSONToConf(struct UI_config* data, const char* input){
+  StaticJsonDocument<JSON_BUFFER_CONF> doc;
+
+  DeserializationError err = deserializeJson(doc, input, JSON_BUFFER_CONF);
+  // if (err) // todo: instead send error to UI (message)?
+  // {
+  //     Serial.print(F("deserializeJson() failed with code "));
+  //     Serial.println(err.f_str());
+  // }
+
+  // JsonObject obj = doc.as<JsonObject>();
+  // const char* laps_p = obj["laps"];
+  // const uint8_t* players_p = obj["players"];
+  // const uint8_t* gates_p = obj["gates"];
+  // const bool* light_p = obj["light"];
+  // const uint8_t* set_brightness_light_p = obj["light_brightness"];
+
+
+  // // if (set_laps_p != nullptr) { // todo: add if (p.value().is<const char*>())
+  // //     data->set_laps = set_laps_p.value().as<const char*>();
+  // // }
+
+
+  // JsonArray arr = doc.as<JsonArray>();
+
+  // for (JsonObject repo : arr) {
+  //   const char* name = repo["name"];
+  //   // etc.
+  // }
+// char s[16];
+// sprintf(s, "Answer is %d", answer);
+
+// const char* error = obj["error"];
+// if (error != nullptr) {
+// // ...
+// }
+
+//             if (doc.containsKey("race")) {
+// //              raceStateENUM = (uint8_t)doc["race"] ? SET : RESET;
+// //              raceState = doc["race"];
+//               trigger = true;
+//             }
+//             if (doc.containsKey("light")) {
+// //              lightState = doc["light"];
+//               trigger = true;
+//             }
+//             if (doc.containsKey("setlaps")) {
+// //              raceLoop.setLaps((uint8_t)doc["setlaps"]);
+//               trigger = true;
+//             }
+//             if (doc.containsKey("connect")) {
+// //              raceState = (uint8_t)doc["connect"] ? CONNECTED : DISCONNECTED;
+// //              connectState = doc["connect"];
+//               trigger = true;
+//             }
+  // strlcpy(data.name, doc["name"] | "N/A", sizeof(data.name));
+  // data.time = doc["time"];
+  // data.value = doc["value"];
+}
+
+
+void onEvent(AsyncWebSocket       *server,
+             AsyncWebSocketClient *client,
+             AwsEventType          type,
+             void                 *arg,
+             uint8_t              *data,
+             size_t                len) {
+
+    switch (type) {
+        case WS_EVT_CONNECT:
+            Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
 //         char json[JSON_BUFFER];
 //         serializeJsonPretty(doc, json);
         // client->text(json);
-      }
-      break;
-
-    // Broadcast message to every clients, maybe stop, if no more client?
-    case WS_EVT_DISCONNECT:
-      Serial.println("WS client disconnect");
-      break;
-
-    // update config, set name/color etc...
-    case WS_EVT_DATA:
-      {
-        AwsFrameInfo* info = (AwsFrameInfo*)arg;
-        if (info->final && (info->index == 0) && (info->len == length)) {
-          if (info->opcode == WS_TEXT) {
-            bool trigger = false;
-            data[length] = 0;
-            // Serial.print("data is ");
-            // Serial.println((char*)data);
-            DynamicJsonDocument doc(JSON_BUFFER);
-            deserializeJson(doc, (char*)data);
-            if (doc.containsKey("race")) {
-//              raceStateENUM = (uint8_t)doc["race"] ? SET : RESET;
-//              raceState = doc["race"];
-              trigger = true;
-            }
-            if (doc.containsKey("light")) {
-//              lightState = doc["light"];
-              trigger = true;
-            }
-            if (doc.containsKey("setlaps")) {
-//              raceLoop.setLaps((uint8_t)doc["setlaps"]);
-              trigger = true;
-            }
-            if (doc.containsKey("connect")) {
-//              raceState = (uint8_t)doc["connect"] ? CONNECTED : DISCONNECTED;
-//              connectState = doc["connect"];
-              trigger = true;
-            }
-            if (trigger){ //why...?
-                char json[JSON_BUFFER];
-                serializeJsonPretty(doc, json);
-                // Serial.print("Sending ");
-                // Serial.println(json);
-                ws.textAll(json);
-            }
-          } else {
-            Serial.println("Received a ws message, but it isn't text");
-          }
-        } else {
-          Serial.println("Received a ws message, but it didn't fit into one frame");
-        }
-      }
-      break;
-  }
+            break;
+        case WS_EVT_DISCONNECT:
+            Serial.printf("WebSocket client #%u disconnected\n", client->id());
+            break;
+        case WS_EVT_DATA:
+            // AwsFrameInfo* info = (AwsFrameInfo*)arg;
+            // if (info->final && (info->index == 0) && (info->len == length)) {
+            //   if (info->opcode == WS_TEXT) {
+            //   } else {
+            //     Serial.println("Received a ws message, but it isn't text");
+            //   }
+            // } else {
+            //   Serial.println("Received a ws message, but it didn't fit into one frame");
+            // }
+            handleWebSocketMessage(arg, data, len);
+            break;
+        case WS_EVT_PONG:
+        case WS_EVT_ERROR:
+            break;
+    }
 }
 
 
@@ -588,7 +666,7 @@ void server_init()
 
   server.begin();
 
-  ws.onEvent(readJsonInterrupt);
+  ws.onEvent(onEvent);
   server.addHandler(&ws);
 }
 
@@ -668,7 +746,7 @@ void setup(void) {
     return;
   }
 
-  ESPAsync_WiFiManager ESPAsync_wifiManager(&server, NULL , "RicinoNextAP"); // &dns
+  ESPAsync_WiFiManager ESPAsync_wifiManager(&server, nullptr , "RicinoNextAP"); // &dns
 //  ESPAsync_wifiManager.resetSettings();   //reset saved settings
   ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
   ESPAsync_wifiManager.autoConnect("RicinoNextAP");
@@ -878,7 +956,7 @@ void WriteJSONRace(uint32_t ms){
     race_json["time"] = race.getCurrentTime();
  
     char *valueMessage = race.getMessage();
-    if (valueMessage != NULL)
+    if (valueMessage != nullptr)
     {
        race_json["message"] = valueMessage;
     }
@@ -892,66 +970,6 @@ void WriteJSONRace(uint32_t ms){
 // ----------------------------------------------------------------------------
 // WebSocket initialization
 // ----------------------------------------------------------------------------
-
-// void notifyClients() {
-//     const uint8_t size = JSON_OBJECT_SIZE(1);
-//     StaticJsonDocument<size> json;
-//     json["status"] = led.on ? "on" : "off";
-
-//     char buffer[17];
-//     size_t len = serializeJson(json, buffer);
-//     ws.textAll(buffer, len);
-// }
-
-// void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-//     AwsFrameInfo *info = (AwsFrameInfo*)arg;
-//     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-
-//         const uint8_t size = JSON_OBJECT_SIZE(1);
-//         StaticJsonDocument<size> json;
-//         DeserializationError err = deserializeJson(json, data);
-//         if (err) {
-//             Serial.print(F("deserializeJson() failed with code "));
-//             Serial.println(err.c_str());
-//             return;
-//         }
-
-//         const char *action = json["action"];
-//         if (strcmp(action, "toggle") == 0) {
-//             led.on = !led.on;
-//             notifyClients();
-//         }
-
-//     }
-// }
-
-// void onEvent(AsyncWebSocket       *server,
-//              AsyncWebSocketClient *client,
-//              AwsEventType          type,
-//              void                 *arg,
-//              uint8_t              *data,
-//              size_t                len) {
-
-//     switch (type) {
-//         case WS_EVT_CONNECT:
-//             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-//             break;
-//         case WS_EVT_DISCONNECT:
-//             Serial.printf("WebSocket client #%u disconnected\n", client->id());
-//             break;
-//         case WS_EVT_DATA:
-//             handleWebSocketMessage(arg, data, len);
-//             break;
-//         case WS_EVT_PONG:
-//         case WS_EVT_ERROR:
-//             break;
-//     }
-// }
-
-// void initWebSocket() {
-//     ws.onEvent(onEvent);
-//     server.addHandler(&ws);
-// }
 
 
 // JsonObject config = doc.createNestedObject("config");
@@ -1129,6 +1147,12 @@ void ReadSerial(){
             break;
        
         case 'P': // Test Message pointer
+
+            char test[512];
+            confToJSON(&uiConfig, test); 
+            ws.textAll(test);
+
+  // Serial.println(test);
 //            race.setMessage(test);;
             break;
 
