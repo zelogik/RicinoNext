@@ -1,0 +1,131 @@
+#include <iostream>
+#include <chrono>
+#include <stdlib.h> 
+
+using namespace std;
+
+
+const int idList[] = { 0x1234, 0x6666, 0x1337, 0x2468};
+int idListTimer[] = { 2000, 2100, 2200, 2300};
+int idListLastMillis[] = { 0, 0, 0, 0};
+
+typedef struct {
+    int ID = 0;
+    int lastLapsTime = 0; // in millis ?
+    int laps = 0; // 255 max laps
+    bool isNew = true; //
+} ID_Data_sorted;
+
+ID_Data_sorted idData[5]; // number + 1, [0] is the tmp
+// ID_Data idDataTmp;
+
+typedef struct {
+    int ID = 0;
+    int totalLapsTime = 0; // in millis ?
+    bool isNew = true; //
+} ID_buffer;
+
+ID_buffer idBuffer[4];
+
+
+void bufferingID(int ID, int totalTime){
+
+  for (int i = 0; i < 4; i++)
+  {
+    if (idBuffer[i].ID == 0)
+    {
+      idBuffer[i].ID = ID;
+      idBuffer[i].totalLapsTime = totalTime;
+      idBuffer[i].isNew = true;
+      //cout << "ID=0: " << idBuffer[i].ID  << " " << i << "\n";
+      break;
+    }
+    else if (idBuffer[i].ID == ID)
+    {
+      idBuffer[i].totalLapsTime = totalTime;
+      idBuffer[i].isNew = true;
+      //cout << "ID: " << idBuffer[i].ID << " laps:""\n";
+      break;
+    }
+  }
+}
+
+
+void fakeIDtrigger(int millis){
+    for (int i = 0; i < 4; i++)
+    {
+        if (millis - idListLastMillis[i] > idListTimer[i]){
+            idListLastMillis[i] = millis;
+            idListTimer[i] = (rand() % (4000 - 2000 + 1)) + 2000; // rand() % 4000 + 2000;
+            bufferingID(idList[i], millis);
+            //cout << "ID: " << idList[i] << " time: " << idListTimer[i] << "\n";
+        }
+    }
+}
+
+
+void sortIDLoop(){
+  // check if new data available
+  for (int i = 0; i < 4 ; i++)
+  {
+    if (idBuffer[i].isNew == true)
+    {
+       // cout << "isNew" << "\n";
+       // look ID current position
+       int currentPosition = 0;
+       idBuffer[i].isNew = false;
+       
+       for (int j = 1; j < 5 ; j++)
+       {
+         if ( idBuffer[i].ID == idData[j].ID )
+         {
+            cout << "pos: " << j << "\n";
+            currentPosition = j;
+            idData[j].laps = idData[j].laps + 1;
+            
+            cout << "ID: " << idData[j].ID << " laps: " << idData[j].laps << "\n";
+
+            break;
+         }
+       }
+       // check if ID lowering position/rank.
+       for (int k = currentPosition; k > 1 ; k--)
+       {
+          if (idData[k].laps > idData[k - 1].laps)
+          {
+              idData[0] = idData[k - 1];
+              idData[k - 1] = idData[k];
+              cout << "ID: " << idData[k].ID << " laps: " << idData[k].laps << "\n";
+              idData[k] = idData[0];
+
+              idData[0].laps = 0;
+              idData[0].isNew = false; //
+          }
+          //don't break; loop as ID can gain multiple pos/rank
+       }
+    }
+  }
+}
+
+
+int main() {
+
+    srand(time(NULL));
+
+    using namespace std::chrono;
+    while(true)
+    {
+    auto epoch = high_resolution_clock::from_time_t(0);
+    auto now   = high_resolution_clock::now();
+    auto mseconds = duration_cast<milliseconds>(now - epoch).count();
+
+    static int start_time = mseconds;
+
+    int deltaMillis = mseconds - start_time;
+    fakeIDtrigger(deltaMillis);
+//    cout << "time: " << deltaMillis << "\n";
+    sortIDLoop();
+    }
+}
+
+

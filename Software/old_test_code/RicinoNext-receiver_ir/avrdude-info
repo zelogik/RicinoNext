@@ -1,0 +1,19 @@
+avrdude -p atmega16 -c usbtiny e -U flash:r:flash.hex:i
+
+
+
+avrdude: AVR device initialized and ready to accept instructions
+
+Reading | ################################################## | 100% 0.00s
+
+avrdude: Device signature = 0x1e9403 (probably m16)
+avrdude: reading flash memory:
+
+Reading | ################################################## | 100% 14.24s
+
+avrdude: writing output file "flash.hex"
+
+avrdude: safemode: Fuses OK (E:FF, H:C8, L:1F)
+
+avrdude done.  Thank you.
+
