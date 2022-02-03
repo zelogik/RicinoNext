@@ -1,5 +1,10 @@
-#include <WiFi.h>
+#if defined(ESP8266)
+#include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
+#include <ESPAsyncTCP.h>
+#else
+#include <WiFi.h>      //ESP32 Core WiFi Library
 #include <AsyncTCP.h>
+#endif
 #include <ESPAsync_WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 //#include <AsyncElegantOTA.h>;
@@ -26,7 +31,10 @@ AsyncWebSocket ws("/ws");
 
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
 #include <SPI.h>
+//#define Button2_USE
+#if defined(Button2_USE)
 #include "Button2.h"
+#endif
 
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h
 //#define TFT_GREY 0x5AEB // New colour
@@ -45,8 +53,10 @@ const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final 
 #define BUTTON_1            35
 #define BUTTON_2            0
 
+#if defined(Button2_USE)
 Button2 btn1(BUTTON_1);
 Button2 btn2(BUTTON_2);
+#endif
 
 uint16_t ledPin = 13;
 
@@ -672,6 +682,7 @@ void server_init()
 
 void button_init()
 {
+#if defined(Button2_USE)
     btn1.setDebounceTime(50);
     btn2.setDebounceTime(50);
     
@@ -688,6 +699,7 @@ void button_init()
         Serial.println("B clicked");
 //        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
     });
+#endif
 }
 
 
@@ -785,8 +797,10 @@ void setup(void) {
 
 void loop() {
 
+#if defined(Button2_USE)
   btn1.loop();
   btn2.loop();
+#endif
 
   race.loop();
 
