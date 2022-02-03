@@ -447,7 +447,7 @@ class Race {
 
     char* getMessage(){
       char message_tmp[128];
-
+      /// BAD BAD BAD!!!
 //      if (message[0] != 0)
 //      {
 //          memcpy(message_tmp, message, sizeof(message[0])*128);
@@ -491,7 +491,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
             return;
         }
 
-        const char *action = json["action"];
+        // const char *action = json["action"];
         // if (strcmp(action, "toggle") == 0) {
         //     led.on = !led.on;
         //     notifyClients();
@@ -747,14 +747,14 @@ void setup(void) {
 //  tft.init();
 //  tft.setRotation(1);
 
-  for (uint8_t i = 5; i != 0; i--){
+//   for (uint8_t i = 5; i != 0; i--){
 //      tft.setCursor(120 - 15, 70 - 25);
 //      tft.setTextSize(5);
 //      tft.setTextColor(TFT_RED);
 //      tft.fillScreen(TFT_BLACK);
 //      tft.print(i);
-      delay(200);
-  }
+//       delay(200);
+//   }
 
 //  tft.fillScreen(TFT_BLACK);
 //  tft.setTextSize(1);
@@ -1104,16 +1104,14 @@ void ReadSerial(){
             raceState = RESET;
             break;
        
-        case 'A': // Test Message pointer
+        case 'A': // Test Message
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
+            break;
 
-        case 'B': // Test Message pointer
+        case 'B': // Test Message
             confToJSON(confJSON); 
             ws.textAll(confJSON);
-
-  // Serial.println(test);
-//            race.setMessage(test);;
             break;
 
         default:
