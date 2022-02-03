@@ -39,7 +39,7 @@ const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final 
 
 #define NUMBER_PROTOCOL 3 // 0:serial, 1:ESP/JSON, 2:tft
 #define JSON_BUFFER 512
-#define JSON_BUFFER_CONF 512
+#define JSON_BUFFER_CONF 1024 // need to test with 8players or more...
 
 // Physical Button on TTGO Display
 #define BUTTON_1            35
@@ -505,23 +505,21 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   Serial.println(test);
 */
 
-void confToJSON(const struct UI_config* data, char* output)
+void confToJSON(char* output) // const struct UI_config* data,
 {
   StaticJsonDocument<JSON_BUFFER_CONF> doc; //need a function to calculate a proper size
 
   JsonObject conf = doc.createNestedObject("conf");
-  conf["laps"] = data->laps;
-  conf["players"] = data->players;
-  conf["gates"] = data->gates;
-  conf["light"] = data->light ? 1 : 0;
-  conf["light_brightness"] = data->light_brightness;
-  // doc["set_state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
-
-//  conf["state"]
+  conf["laps"] = uiConfig.laps;
+  conf["players"] = uiConfig.players;
+  conf["gates"] = uiConfig.gates;
+  conf["light"] = uiConfig.light ? 1 : 0;
+  conf["light_brightness"] = uiConfig.light_brightness;
+  conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
   JsonArray conf_players = conf.createNestedArray("names");
 
-  for ( uint8_t i = 0; i < NUMBER_RACER ; i++)
+  for ( uint8_t i = 0; i < uiConfig.players ; i++)
   {
       conf_players[i]["id"] = i + 1;
       conf_players[i]["name"] = "xxxxx";
@@ -532,64 +530,50 @@ void confToJSON(const struct UI_config* data, char* output)
 }
 
 
-void JSONToConf(struct UI_config* data, const char* input){
+void JSONToConf(const char* input){ // struct UI_config* data, 
   StaticJsonDocument<JSON_BUFFER_CONF> doc;
 
   DeserializationError err = deserializeJson(doc, input, JSON_BUFFER_CONF);
-  // if (err) // todo: instead send error to UI (message)?
-  // {
-  //     Serial.print(F("deserializeJson() failed with code "));
-  //     Serial.println(err.f_str());
-  // }
+  if (err) // todo: instead send error to UI (message)?
+  {
+      Serial.print(F("deserializeJson() failed with code "));
+      Serial.println(err.f_str());
+  }
 
-  // JsonObject obj = doc.as<JsonObject>();
-  // const char* laps_p = obj["laps"];
-  // const uint8_t* players_p = obj["players"];
-  // const uint8_t* gates_p = obj["gates"];
-  // const bool* light_p = obj["light"];
-  // const uint8_t* set_brightness_light_p = obj["light_brightness"];
+  // Code below code need many optimization !
+  JsonObject obj = doc["conf"]; //.as<JsonObject>();
 
-
-  // // if (set_laps_p != nullptr) { // todo: add if (p.value().is<const char*>())
-  // //     data->set_laps = set_laps_p.value().as<const char*>();
-  // // }
-
-
-  // JsonArray arr = doc.as<JsonArray>();
-
-  // for (JsonObject repo : arr) {
-  //   const char* name = repo["name"];
-  //   // etc.
-  // }
-// char s[16];
-// sprintf(s, "Answer is %d", answer);
-
-// const char* error = obj["error"];
-// if (error != nullptr) {
-// // ...
-// }
-
-//             if (doc.containsKey("race")) {
-// //              raceStateENUM = (uint8_t)doc["race"] ? SET : RESET;
-// //              raceState = doc["race"];
-//               trigger = true;
-//             }
-//             if (doc.containsKey("light")) {
-// //              lightState = doc["light"];
-//               trigger = true;
-//             }
-//             if (doc.containsKey("setlaps")) {
-// //              raceLoop.setLaps((uint8_t)doc["setlaps"]);
-//               trigger = true;
-//             }
-//             if (doc.containsKey("connect")) {
-// //              raceState = (uint8_t)doc["connect"] ? CONNECTED : DISCONNECTED;
-// //              connectState = doc["connect"];
-//               trigger = true;
-//             }
-  // strlcpy(data.name, doc["name"] | "N/A", sizeof(data.name));
-  // data.time = doc["time"];
-  // data.value = doc["value"];
+  if (obj.containsKey("laps")) {
+      uiConfig.laps = doc["conf"]["laps"];
+  }
+  if (obj.containsKey("players")) {
+      uiConfig.players = doc["conf"]["players"];
+  }
+  if (obj.containsKey("gates")) {
+      uiConfig.gates = doc["conf"]["gates"];
+  }
+  if (obj.containsKey("light")) {
+      uiConfig.light = doc["conf"]["light"];
+  }
+  if (obj.containsKey("light_brightness")) {
+      uiConfig.light_brightness = doc["conf"]["light_brightness"];
+  }
+  if (obj.containsKey("names")) {
+    uint8_t count = 0;
+    JsonArray plrs = doc["conf"]["names"];
+    for (JsonObject plr : plrs) {
+        Serial.print("ID: ");
+        Serial.print(plr["id"].as<long>());
+        Serial.print(" | name: ");
+        Serial.print(plr["name"].as<char *>());
+        Serial.print(" | color: ");
+        Serial.println(plr["color"].as<char *>());
+        uiConfig.player[count].ID == plr["id"].as<long>();
+        strlcpy(uiConfig.player[count].name, plr["name"] | "", sizeof(uiConfig.player[count].name));
+        strlcpy(uiConfig.player[count].color, plr["color"] | "", sizeof(uiConfig.player[count].color));
+        count++;
+    }
+  }
 }
 
 
@@ -968,39 +952,9 @@ void WriteJSONRace(uint32_t ms){
 
 
 // ----------------------------------------------------------------------------
-// WebSocket initialization
+// templates comments
 // ----------------------------------------------------------------------------
 
-
-// JsonObject config = doc.createNestedObject("config");
-// config["lap_total"] = 10;
-// config["players_number"] = 4;
-// config["gate_number"] = 3;
-// config["light_state"] = 0;
-// config["light_brightness"] = 0;
-
-// JsonArray config_players_conf = config.createNestedArray("players_conf");
-
-// JsonObject config_players_conf_0 = config_players_conf.createNestedObject();
-// config_players_conf_0["id"] = "xxxxxxx";
-// config_players_conf_0["name"] = "player01";
-// config_players_conf_0["color"] = "blue";
-
-// JsonObject config_players_conf_1 = config_players_conf.createNestedObject();
-// config_players_conf_1["id"] = "xxxxxxx";
-// config_players_conf_1["name"] = "player02";
-// config_players_conf_1["color"] = "red";
-
-// JsonObject config_players_conf_2 = config_players_conf.createNestedObject();
-// config_players_conf_2["id"] = "xxxxxxx";
-// config_players_conf_2["name"] = "player03";
-// config_players_conf_2["color"] = "green";
-
-// JsonObject config_players_conf_3 = config_players_conf.createNestedObject();
-// config_players_conf_3["id"] = "xxxxxxx";
-// config_players_conf_3["name"] = "player04";
-// config_players_conf_3["color"] = "yellow";
-// config["detected_ID"] = "XXXX";
 
 }
 
@@ -1128,6 +1082,10 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 
 
 void ReadSerial(){
+    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\":1,\"name\":\"Player 1\",\"color\":\"xxxxx\"},{\"id\":2,\"name\":\"Player 2\",\"color\":\"xxxxx\"},{\"id\":3,\"name\":\"Player 3\",\"color\":\"xxxxx\"},{\"id\":4,\"name\":\"Player 4\",\"color\":\"xxxxx\"}]}}";
+    char confJSON[JSON_BUFFER_CONF];
+
+
     if (Serial.available()) {
     char test[128] = "test";
     
@@ -1146,11 +1104,13 @@ void ReadSerial(){
             raceState = RESET;
             break;
        
-        case 'P': // Test Message pointer
+        case 'A': // Test Message pointer
+            //char JSONconf[JSON_BUFFER_CONF];
+            JSONToConf(JSONconfDebug);
 
-            char test[512];
-            confToJSON(&uiConfig, test); 
-            ws.textAll(test);
+        case 'B': // Test Message pointer
+            confToJSON(confJSON); 
+            ws.textAll(confJSON);
 
   // Serial.println(test);
 //            race.setMessage(test);;
