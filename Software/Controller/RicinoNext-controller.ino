@@ -1,5 +1,5 @@
 /*
-Todo: Add author, description etc here...
+Todo: Add author(s), descriptions, etc here...
 */
 
 
@@ -46,7 +46,7 @@ void fakeIDtrigger(int ms); //debug function (replace i2c connection)
 // ----------------------------------------------------------------------------
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-// DNSServer dns;
+// DNSServer dns; // as it's local, why use DNS on the server...?
 //todo: separate live/race/conf json OR make a dynamic calculation
 #define JSON_BUFFER 512
 #define JSON_BUFFER_CONF 1024 // need to test with 8 players or more...
@@ -57,11 +57,7 @@ AsyncWebSocket ws("/ws");
 // ----------------------------------------------------------------------------
 uint16_t ledPin = 13;
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
-//#include "Button2.h"
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h //#define TFT_GREY 0x5AEB // New colour
-// Physical Button on TTGO Display
-
-
 
 //#define Button2_USE
 #if defined(Button2_USE)
@@ -71,10 +67,6 @@ uint16_t ledPin = 13;
   Button2 btn1(BUTTON_1);
   Button2 btn2(BUTTON_2);
 #endif
-
-
-
-
 
 
 // ----------------------------------------------------------------------------
@@ -509,13 +501,14 @@ Race race = Race();
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: Error function config JSON
+// is used somewhere? don't remember!
 // ----------------------------------------------------------------------------
 void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
 }
 
 // ----------------------------------------------------------------------------
-//  Web Stuff: Used at new connection or broadcast conftoJSON
+//  Web Stuff: Used at new connection or broadcast confToJSON
 // todo: remove as confToJson make everything...
 // ----------------------------------------------------------------------------
 void notifyClients() {
@@ -531,7 +524,7 @@ void notifyClients() {
 // ----------------------------------------------------------------------------
 //  Web Stuff: struct --> json<char[size]>
 //  char test[512];
-//  writeJSONData(&uiConfig, test);
+//  confToJSON(&uiConfig, test);
 //   Serial.println(test);
 // todo: need a special function to calculate the proper and dynamic size
 // ----------------------------------------------------------------------------
@@ -547,13 +540,12 @@ void confToJSON(char* output){ // const struct UI_config* data,
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
   JsonArray conf_players = conf.createNestedArray("names");
-  // todo: finalize reading from struct
   // todo: change that loop with JsonObject loop
   for ( uint8_t i = 0; i < uiConfig.players ; i++)
   {
-      conf_players[i]["id"] = i + 1;
-      conf_players[i]["name"] = "xxxxx";
-      conf_players[i]["color"] = "xxxxx";
+      conf_players[i]["id"] = uiConfig.player[i].ID;
+      conf_players[i]["name"] = uiConfig.player[i].name;
+      conf_players[i]["color"] = uiConfig.player[i].color;
   }
 
   serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
@@ -597,16 +589,17 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   {
       uiConfig.light_brightness = doc["conf"]["light_brightness"];
   }
-  if (obj.containsKey("names")) {
+  if (obj.containsKey("names"))
+  {
     uint8_t count = 0;
     JsonArray plrs = doc["conf"]["names"];
     for (JsonObject plr : plrs) {
-        Serial.print("ID: ");
-        Serial.print(plr["id"].as<long>());
-        Serial.print(" | name: ");
-        Serial.print(plr["name"].as<char *>());
-        Serial.print(" | color: ");
-        Serial.println(plr["color"].as<char *>());
+        // Serial.print("ID: ");
+        // Serial.print(plr["id"].as<long>());
+        // Serial.print(" | name: ");
+        // Serial.print(plr["name"].as<char *>());
+        // Serial.print(" | color: ");
+        // Serial.println(plr["color"].as<char *>());
         uiConfig.player[count].ID == plr["id"].as<long>();
         strlcpy(uiConfig.player[count].name, plr["name"] | "", sizeof(uiConfig.player[count].name));
         strlcpy(uiConfig.player[count].color, plr["color"] | "", sizeof(uiConfig.player[count].color));
@@ -623,33 +616,49 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 void onEvent(AsyncWebSocket       *server,
              AsyncWebSocketClient *client,
              AwsEventType          type,
-             void                 *arg,
-             uint8_t              *data,
-             size_t                len) {
+             void                  *arg,
+             uint8_t               *data,
+             size_t                length) {
+
+    char json[JSON_BUFFER_CONF];
 
     switch (type) {
         case WS_EVT_CONNECT:
             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-//         char json[JSON_BUFFER];
-//         serializeJsonPretty(doc, json);
-        // client->text(json);
+            confToJSON(json);
+            client->text(json);
             break;
+    
         case WS_EVT_DISCONNECT:
             Serial.printf("WebSocket client #%u disconnected\n", client->id());
             break;
+
         case WS_EVT_DATA:
-            // AwsFrameInfo* info = (AwsFrameInfo*)arg;
-            // if (info->final && (info->index == 0) && (info->len == length)) {
-            //   if (info->opcode == WS_TEXT) {
-            //   } else {
-            //     Serial.println("Received a ws message, but it isn't text");
-            //   }
-            // } else {
-            //   Serial.println("Received a ws message, but it didn't fit into one frame");
-            // }
-            handleWebSocketMessage(arg, data, len);
+        {
+            AwsFrameInfo* info = (AwsFrameInfo*)arg;
+            if (info->final && (info->index == 0) && (info->len == length)) {
+                if (info->opcode == WS_TEXT)
+                {
+                    JSONToConf((char*)data);
+                    
+                    char json[JSON_BUFFER_CONF];
+                    confToJSON(json);
+                    ws.textAll(json);
+                }
+                else
+                {
+                    Serial.println("Received a ws message, but it isn't text");
+                }
+            }
+            else
+            {
+                Serial.println("Received a ws message, but it didn't fit into one frame");
+            }
+        //    handleWebSocketMessage(arg, data, len);
             break;
+        }
         case WS_EVT_PONG:
+            break;
         case WS_EVT_ERROR:
             break;
     }
@@ -663,17 +672,6 @@ void onEvent(AsyncWebSocket       *server,
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     AwsFrameInfo *info = (AwsFrameInfo*)arg;
     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-
-        const uint8_t size = JSON_OBJECT_SIZE(1);
-        StaticJsonDocument<size> json;
-        DeserializationError err = deserializeJson(json, data);
-        if (err)
-        {
-            Serial.print(F("deserializeJson() failed with code "));
-            Serial.println(err.c_str());
-            return;
-        }
-
         // const char *action = json["action"];
         // if (strcmp(action, "toggle") == 0) {
         //     led.on = !led.on;
@@ -1175,12 +1173,12 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 // When you have only serial available for racing/debug...
 // ----------------------------------------------------------------------------
 void ReadSerial(){
-    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\":1,\"name\":\"Player 1\",\"color\":\"xxxxx\"},{\"id\":2,\"name\":\"Player 2\",\"color\":\"xxxxx\"},{\"id\":3,\"name\":\"Player 3\",\"color\":\"xxxxx\"},{\"id\":4,\"name\":\"Player 4\",\"color\":\"xxxxx\"}]}}";
+    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\":1,\"name\":\"Player 1\",\"color\":\"blue\"},{\"id\":2,\"name\":\"Player 2\",\"color\":\"red\"},{\"id\":3,\"name\":\"Player 3\",\"color\":\"green\"},{\"id\":4,\"name\":\"Player 4\",\"color\":\"yellow\"}]}}";
     char confJSON[JSON_BUFFER_CONF];
 
 
     if (Serial.available()) {
-    char test[128] = "test";
+    // char test[128] = "test";
     
     byte inByte = Serial.read();
 
