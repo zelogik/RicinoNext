@@ -26,7 +26,7 @@ AsyncWebSocket ws("/ws");
 
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
 #include <SPI.h>
-#include "Button2.h"
+// #include "Button2.h"
 
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h
 //#define TFT_GREY 0x5AEB // New colour
@@ -42,11 +42,11 @@ const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final 
 #define JSON_BUFFER_CONF 1024 // need to test with 8players or more...
 
 // Physical Button on TTGO Display
-#define BUTTON_1            35
-#define BUTTON_2            0
+// #define BUTTON_1            35
+// #define BUTTON_2            0
 
-Button2 btn1(BUTTON_1);
-Button2 btn2(BUTTON_2);
+// Button2 btn1(BUTTON_1);
+// Button2 btn2(BUTTON_2);
 
 uint16_t ledPin = 13;
 
@@ -654,25 +654,25 @@ void server_init()
   server.addHandler(&ws);
 }
 
-void button_init()
-{
-    btn1.setDebounceTime(50);
-    btn2.setDebounceTime(50);
+// void button_init()
+// {
+//     btn1.setDebounceTime(50);
+//     btn2.setDebounceTime(50);
     
-    btn1.setTapHandler([](Button2& btn) {
-        Serial.println("A clicked");
-        static bool state = false;
-        state = !state;
-//        tft.fillRect(0, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
-    });
+//     btn1.setTapHandler([](Button2& btn) {
+//         Serial.println("A clicked");
+//         static bool state = false;
+//         state = !state;
+// //        tft.fillRect(0, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
+//     });
 
-    btn2.setTapHandler([](Button2& btn) {
-        static bool state = false;
-        state = !state;
-        Serial.println("B clicked");
-//        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
-    });
-}
+//     btn2.setTapHandler([](Button2& btn) {
+//         static bool state = false;
+//         state = !state;
+//         Serial.println("B clicked");
+// //        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
+//     });
+// }
 
 
 // Screen sort of led status... 
@@ -739,7 +739,7 @@ void setup(void) {
 //  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
   // Route to index.html + favicon.ico
   server_init();
-  button_init();
+  // button_init();
 
 //  AsyncElegantOTA.begin(&server);
 //  server.on("/",HTTP_GET, handleRoot);
@@ -769,8 +769,8 @@ void setup(void) {
 
 void loop() {
 
-  btn1.loop();
-  btn2.loop();
+  // btn1.loop();
+  // btn2.loop();
 
   race.loop();
 
