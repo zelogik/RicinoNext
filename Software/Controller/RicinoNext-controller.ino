@@ -1,9 +1,22 @@
+/*
+Todo: Add author, description etc here...
+*/
+
+
+
 // ----------------------------------------------------------------------------
 // Imcludes library, header
 // ----------------------------------------------------------------------------
+// todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
+#if defined(ESP8266)
+    #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
+    #include <ESPAsyncTCP.h>
+#else
+    #include <WiFi.h>      //ESP32 Core WiFi Library
+    #include <AsyncTCP.h>
+#endif
 
-#include <WiFi.h>
-#include <AsyncTCP.h>
+// todo: need to check too with esp8266 compatibility..
 #include <ESPAsync_WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 //#include <AsyncElegantOTA.h>;
@@ -11,9 +24,10 @@
 #include <FS.h> // need to choose!
 #include "SPIFFS.h" // need to choose!
 #include <SPI.h> // need to choose!
+
 #include <ArduinoJson.h>
 
-#include <Wire.h>          
+#include <Wire.h>     // need for the i2c gate.
 
 
 // ----------------------------------------------------------------------------
@@ -46,11 +60,21 @@ uint16_t ledPin = 13;
 //#include "Button2.h"
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h //#define TFT_GREY 0x5AEB // New colour
 // Physical Button on TTGO Display
-// #define BUTTON_1            35
-// #define BUTTON_2            0
 
-// Button2 btn1(BUTTON_1);
-// Button2 btn2(BUTTON_2);
+
+
+//#define Button2_USE
+#if defined(Button2_USE)
+  #include "Button2.h"
+  #define BUTTON_1        35
+  #define BUTTON_2        0
+  Button2 btn1(BUTTON_1);
+  Button2 btn2(BUTTON_2);
+#endif
+
+
+
+
 
 
 // ----------------------------------------------------------------------------
@@ -511,7 +535,7 @@ void notifyClients() {
 //   Serial.println(test);
 // todo: need a special function to calculate the proper and dynamic size
 // ----------------------------------------------------------------------------
-void confToJSON(char* output){} // const struct UI_config* data,
+void confToJSON(char* output){ // const struct UI_config* data,
   StaticJsonDocument<JSON_BUFFER_CONF> doc;
 
   JsonObject conf = doc.createNestedObject("conf");
@@ -707,25 +731,28 @@ void server_init()
 // ----------------------------------------------------------------------------
 //  Button class: add some physical "touch"
 // ----------------------------------------------------------------------------
-// void button_init()
-// {
-//     btn1.setDebounceTime(50);
-//     btn2.setDebounceTime(50);
+#if defined(Button2_USE)
+void button_init()
+{
+    btn1.setDebounceTime(50);
+    btn2.setDebounceTime(50);
     
-//     btn1.setTapHandler([](Button2& btn) {
-//         Serial.println("A clicked");
-//         static bool state = false;
-//         state = !state;
-// //        tft.fillRect(0, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
-//     });
+    btn1.setTapHandler([](Button2& btn) {
+        Serial.println("A clicked");
+        static bool state = false;
+        state = !state;
+//        tft.fillRect(0, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
+    });
 
-//     btn2.setTapHandler([](Button2& btn) {
-//         static bool state = false;
-//         state = !state;
-//         Serial.println("B clicked");
-// //        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
-//     });
-// }
+    btn2.setTapHandler([](Button2& btn) {
+        static bool state = false;
+        state = !state;
+        Serial.println("B clicked");
+//        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
+    });
+}
+#endif
+
 
 
 // ----------------------------------------------------------------------------
@@ -798,7 +825,10 @@ void setup(void) {
 //  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
   // Route to index.html + favicon.ico
   server_init();
-  // button_init();
+
+  #if defined(Button2_USE)
+      button_init();
+  #endif
 
 //  AsyncElegantOTA.begin(&server);
 //  server.on("/",HTTP_GET, handleRoot);
