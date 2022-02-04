@@ -114,7 +114,7 @@ struct UI_config{
         uint32_t ID; // dedup with idData[i].ID, something to refactoring ?
         char name[16]; // make a "random" username ala reddit ?
         char color[8]; // by char or int/hex value...
-    }player[NUMBER_RACER];
+    }names[NUMBER_RACER];
 };
 
 UI_config uiConfig;
@@ -543,9 +543,9 @@ void confToJSON(char* output){ // const struct UI_config* data,
   // todo: change that loop with JsonObject loop
   for ( uint8_t i = 0; i < uiConfig.players ; i++)
   {
-      conf_players[i]["id"] = uiConfig.player[i].ID;
-      conf_players[i]["name"] = uiConfig.player[i].name;
-      conf_players[i]["color"] = uiConfig.player[i].color;
+      conf_players[i]["id"] = uiConfig.names[i].ID;
+      conf_players[i]["name"] = uiConfig.names[i].name;
+      conf_players[i]["color"] = uiConfig.names[i].color;
   }
 
   serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
@@ -600,9 +600,9 @@ void JSONToConf(const char* input){ // struct UI_config* data,
         // Serial.print(plr["name"].as<char *>());
         // Serial.print(" | color: ");
         // Serial.println(plr["color"].as<char *>());
-        uiConfig.player[count].ID == plr["id"].as<long>();
-        strlcpy(uiConfig.player[count].name, plr["name"] | "", sizeof(uiConfig.player[count].name));
-        strlcpy(uiConfig.player[count].color, plr["color"] | "", sizeof(uiConfig.player[count].color));
+        uiConfig.names[count].ID == plr["id"].as<long>();
+        strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
+        strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
         count++;
     }
   }
@@ -616,8 +616,8 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 void onEvent(AsyncWebSocket       *server,
              AsyncWebSocketClient *client,
              AwsEventType          type,
-             void                  *arg,
-             uint8_t               *data,
+             void                 *arg,
+             uint8_t              *data,
              size_t                length) {
 
     char json[JSON_BUFFER_CONF];
@@ -640,8 +640,7 @@ void onEvent(AsyncWebSocket       *server,
                 if (info->opcode == WS_TEXT)
                 {
                     JSONToConf((char*)data);
-                    
-                    char json[JSON_BUFFER_CONF];
+
                     confToJSON(json);
                     ws.textAll(json);
                 }
@@ -658,7 +657,7 @@ void onEvent(AsyncWebSocket       *server,
             break;
         }
         case WS_EVT_PONG:
-            break;
+            // break;
         case WS_EVT_ERROR:
             break;
     }
@@ -997,6 +996,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
       live["mean"] = idData[i].meanLapTime;
       live["total"] = idData[i].lastTotalTime;
 
+      // hum... if gate == 1, could we stop here ?
       JsonArray live_gate = live.createNestedArray("gate");
       for ( uint8_t i = 0; i < NUMBER_GATES; i++)
       {
