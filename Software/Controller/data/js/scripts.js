@@ -8,7 +8,7 @@ function init() {
         chop = 8;
     } else {
         console.log("window.location.href is not an http URL");
-        document.getElementById('potVal').innerHTML = "<font color=\"red\">!! NO HOST !!</font>";
+        //document.getElementById('potVal').innerHTML = "<font color=\"red\">!! NO HOST !!</font>";
     }
 
     if (chop != 0) {
@@ -43,11 +43,10 @@ function wsConnect(url) {
 
 // Called when a WebSocket connection is established with the server
 function onOpen(evt) {
-//    window.alert("Connected");
     // Log connection state
     console.log("Connected");
-//        refreshElements(evt.data);
-    // // Get the current state of ??
+    // refreshElements(evt.data);
+    // Get the current state of ??
     // doSend("get??State");
 }
 
@@ -68,7 +67,6 @@ function onMessage(evt) {
     console.log("Received: " + evt.data);
     
     obj = JSON.parse(evt.data);
-
     //var size = Object.keys(obj).length
     // no sanety check for player update... but cleaner!?!
     if ('data' in obj) {
@@ -87,25 +85,12 @@ function onMessage(evt) {
     }
 
     if ('message' in obj) {
-        document.getElementById('message').innerHTML = obj.message;
-        snackBar();
+        snackBar(obj.message);
     }
 
     if ('websockTimer' in obj) {
         document.getElementById('websockTimer').innerHTML = "" + obj.websockTimer;
     }
-
-    if ('lapCounter' in obj) {
-        document.getElementById('lapCounter').innerHTML = "" + obj.lapCounter;
-    }
-
-    if ('percentLap' in obj) {
-        var tmpWidth = obj.lapCounter / document.getElementById("lapsSlider").value * 100;
-        console.log("ERROR: " + tmpWidth);
-        document.getElementById("percentLap").style.width = tmpWidth + "%";
-        // document.getElementById('percentLap').value = obj.lapCounter;
-        // document.getElementById('percentLap').innerHTML = obj.lapCounter;
-    }    
 
     if ('websockConsole' in obj) {
         document.getElementById('websockConsole').innerHTML = "" + obj.websockConsole;
@@ -113,17 +98,42 @@ function onMessage(evt) {
 
     if ('race' in obj) {
             var x = document.getElementById("race");
-            if (obj.race === 1) {
+            if (obj.race.state === "WAIT") {
                 x.innerHTML = "Stop";
                 x.style.color = "red";
             } else {
                 x.innerHTML = "Start";
                 x.style.color = "green";
-                Object.keys(stopwatches).forEach(function(key)
+                /*Object.keys(stopwatches).forEach(function(key)
                 {
                     stopwatches[key].stop();
-                });
+                });*/
             }
+            var tmpWidth = obj.race.lap / document.getElementById("lapsSlider").value * 100;
+            console.log("ERROR: " + tmpWidth);
+            document.getElementById('percentLap').style.width = tmpWidth + "%";
+            document.getElementById('percentLap').value = obj.race.lap;
+            document.getElementById('percentLap').innerHTML = obj.race.lap;
+
+            document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
+            //TODO obj.race.time
+            snackBar(obj.race.message);
+    }
+
+    if ('live' in obj)
+    {
+        var x = document.getElementById("race");
+        var id1 = obj.live.rank;
+
+        createLine(id1);
+
+        modifyValue( id1, "id", obj.live.id);
+        //modifyValue( id1, "name", obj.live.name);
+        modifyValue( id1, "lap", obj.live.lap);
+        modifyValue( id1, "best", formatTime(obj.live.best, 0));
+        modifyValue( id1, "last", formatTime(obj.live.last, 0));
+        modifyValue( id1, "mean", formatTime(obj.live.mean, 0));
+        modifyValue( id1, "total", formatTime(obj.live.total, 0));
     }
 
     if ('light' in obj) {
@@ -227,16 +237,22 @@ function onError(evt) {
 // Sends a message to the server (and prints it to the console)
 function doSend(message) {
     console.log("Sending: " + message);
-    websocket.send(message);
+    try
+    {
+        websocket.send(message);
+    } catch (err)
+    {
+        //socket error
+    }
 }
 
 // UI functions callback
 function raceToggle() {
     var x = document.getElementById("race");
     if (x.innerHTML === "Start") {
-        doSend("{ \"race\": 1}");
+        doSend("{\"race\": {\"state\": \"START\"}}");
     } else {
-        doSend("{ \"race\": 0}");
+        doSend("{\"race\": {\"state\": \"FINISH\"}}");
     }
 }
 
@@ -250,12 +266,8 @@ function lightToggle() {
 }
 
 function connectToggle() {
-    for (var i = 0; i <= 3; i++)
-    {
-        removeLine(i);
-        generateLine(i);
-	}
-	//stopwatch.start("stopwatch", 1);
+    //tempTest();
+    stopwatch.start("stopwatch", 1);
 
     var x = document.getElementById("connect");
     if (x.innerHTML === "Connect") {
@@ -285,7 +297,7 @@ function refresh(clicked_id) {
 
     var button = {
         'start': function(){ doSend("{ \"race\": 1}"); },
-        'race': function(){ tempTest(); doSend("{ \"race\": 1}"); },
+        'race': function(){ doSend("{ \"race\": 1}"); },
         'stop': function(){ doSend("{ \"race\": 0}"); },
         'light': function(){ doSend("{ \"light\": 1}"); },
         'connect': function(){ doSend("{ \"connect\": 1}"); },
@@ -313,6 +325,21 @@ function generateDiv(class_name, id1, string)
     return divd;
 }
 
+function modifyValue(line_id, class1, string1)
+{
+    var divd = document.getElementById(line_id + '_' + class1);
+    divd.innerHTML = string1;
+}
+
+function createLine(line_id)
+{
+    var line_elem = document.getElementById(line_id + '_class');
+    if (!line_elem)
+    {
+        generateLine(line_id);
+    }
+}
+
 function generateLine(line_id)
 {
     var new_line = document.createElement("div");
@@ -329,12 +356,12 @@ function generateLine(line_id)
 
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_id', line_id));
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '1'));
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver ' + line_id));
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_last', '3'));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver' + line_id));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '3'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '4'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '5'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '6'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_current', '0'));
+	//new_line.appendChild(generateDiv('col-md-2', line_id + '_current', '0'));
 
     document.getElementById("stats").appendChild(new_line);
     
@@ -355,18 +382,47 @@ function removeLine(line_id)
 
 function tempTest()
 {
-    for (var i = 0; i <= 3; i++)
+    for (var i = 1; i <= 4; i++)
     {
         removeLine(i);
         generateLine(i);
-	}
-	//stopwatch.start("stopwatch", 1);
+    }
+    //snackBar("Hello message");
+    //stopwatch.start("stopwatch", 1);
 }
 
-function snackBar() {
+function formatTime(time, startTime)
+{
+    var currentTime = [ 0, 0, 0 ];
+    var diff = time - startTime;
+    diff = new Date(diff);
+
+    currentTime[0] = diff.getMinutes();
+    currentTime[1] = diff.getSeconds();
+    currentTime[2] = diff.getMilliseconds();
+
+    if (currentTime[0] < 10){
+        currentTime[0] = "0" + currentTime[0];
+    }
+    if (currentTime[1] < 10){
+        currentTime[1] = "0" + currentTime[1];
+    }
+    if(currentTime[2] < 10){
+        currentTime[2] = "00" + currentTime[2];
+    }
+    else if(currentTime[2] < 100){
+        currentTime[2] = "0" + currentTime[2];
+    }
+
+    return currentTime[0] + ":" + currentTime[1] + "." + currentTime[2];
+}
+
+function snackBar(message) {
     var x = document.getElementById("snackbar");
+    x.innerHTML = message;
     x.className = "show";
     setTimeout(function(){ x.className = x.className.replace("show", ""); }, 5000);
+    console.log(message);
   }
 
 class Stopwatch {
@@ -380,34 +436,12 @@ class Stopwatch {
       this.totalTime;
     }
     
-    formatTime() {
-        if (this.currentTime[0] < 10){
-            this.currentTime[0] = "0" + this.currentTime[0];
-        }
-        if (this.currentTime[1] < 10){
-            this.currentTime[1] = "0" + this.currentTime[1];
-        }
-        if(this.currentTime[2] < 10){
-            this.currentTime[2] = "00" + this.currentTime[2];
-        }
-        else if(this.currentTime[2] < 100){
-            this.currentTime[2] = "0" + this.currentTime[2];
-        }
-      return this.currentTime[0] + ":" + this.currentTime[1] + "." + this.currentTime[2];
-    }
-    
     update(idtmp) {
       if (this.state=="running") {
-        var end = new Date();
-        var diff = end - this.startTime;
-        diff = new Date(diff);
-
-        this.currentTime[0] = diff.getMinutes();
-        this.currentTime[1] = diff.getSeconds();
-        this.currentTime[2] = diff.getMilliseconds();
-        document.getElementById(idtmp).innerHTML = "" + this.formatTime();
+        var curTime = formatTime(new Date(), this.startTime);
+        document.getElementById(idtmp).innerHTML = "" + curTime;
         if (this.display > 0) {
-            this.display.innerHTML = "" + this.formatTime();
+            this.display.innerHTML = "" + curTime;
         }
       }
     }
