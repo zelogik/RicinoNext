@@ -569,6 +569,15 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   // todo: Code below need many optimizations!
   JsonObject obj = doc["conf"]; //.as<JsonObject>();
 
+  const char *obj_p = obj["state"];
+
+  if ( obj_p != nullptr)
+  {
+      const bool stt = (char)atoi(obj_p);
+      raceState = (stt) ? START : STOP;
+  }
+
+  // obj_p = obj["laps"];
   if (obj.containsKey("laps"))
   {
       uiConfig.laps = doc["conf"]["laps"];
@@ -591,20 +600,20 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   }
   if (obj.containsKey("names"))
   {
-    uint8_t count = 0;
-    JsonArray plrs = doc["conf"]["names"];
-    for (JsonObject plr : plrs) {
-        // Serial.print("ID: ");
-        // Serial.print(plr["id"].as<long>());
-        // Serial.print(" | name: ");
-        // Serial.print(plr["name"].as<char *>());
-        // Serial.print(" | color: ");
-        // Serial.println(plr["color"].as<char *>());
-        uiConfig.names[count].ID == plr["id"].as<long>();
-        strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
-        strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
-        count++;
-    }
+      uint8_t count = 0;
+      JsonArray plrs = doc["conf"]["names"];
+      for (JsonObject plr : plrs) {
+          // Serial.print("ID: ");
+          // Serial.print(plr["id"].as<long>());
+          // Serial.print(" | name: ");
+          // Serial.print(plr["name"].as<char *>());
+          // Serial.print(" | color: ");
+          // Serial.println(plr["color"].as<char *>());
+          uiConfig.names[count].ID == plr["id"].as<long>();
+          strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
+          strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
+          count++;
+      }
   }
 }
 
