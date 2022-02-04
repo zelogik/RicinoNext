@@ -569,6 +569,8 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   if (obj.containsKey("laps"))
   {
       uiConfig.laps = doc["conf"]["laps"];
+              Serial.println(uiConfig.laps);
+
   }
   if (obj.containsKey("players"))
   {
@@ -636,6 +638,7 @@ void onEvent(AsyncWebSocket       *server,
             if (info->final && (info->index == 0) && (info->len == length)) {
                 if (info->opcode == WS_TEXT)
                 {
+                    // todo: Add an UI lock/unlock state?
                     JSONToConf((char*)data);
 
                     confToJSON(json);

@@ -76,15 +76,10 @@ function onMessage(evt) {
         for (const [key, value] of Object.entries(tmp_data)) {
             if (/_class$/.test(`${key}`)){
                 var color_class = ['white', 'rgb(66, 133, 244)', 'rgb(234, 67, 53)', 'rgb(251, 188, 5)', 'rgb(52, 168, 83)'];
-                document.getElementsByClassName(`${key}`)[0].style.backgroundColor = color_class[`${value}`];
-            } else if (/one_current/.test(`${key}`)){
-                one_class_stopwatch.start("one_current", `${value}`);
-            } else if (/two_current/.test(`${key}`)){
-                two_class_stopwatch.start("two_current", `${value}`);
-            } else if (/three_current/.test(`${key}`)){
-                three_class_stopwatch.start("three_current", `${value}`);
-            } else if (/four_current/.test(`${key}`)){
-                four_class_stopwatch.start("four_current", `${value}`);
+                // TODO doesnt work right now
+                //document.getElementsByClassName(`${key}`)[0].style.backgroundColor = color_class[`${value}`];
+            } else if (/_current$/.test(`${key}`)){
+                stopwatches[`${key}`].start(`${key}`, `${value}`);
             } else {
                 document.getElementById(`${key}`).innerHTML = "" + `${value}`;
             }
@@ -124,6 +119,10 @@ function onMessage(evt) {
             } else {
                 x.innerHTML = "Start";
                 x.style.color = "green";
+                Object.keys(stopwatches).forEach(function(key)
+                {
+                    stopwatches[key].stop();
+                });
             }
     }
 
@@ -154,7 +153,7 @@ function onMessage(evt) {
         if (obj.stopwatch === 1) {
             // x.innerHTML = "Stop";
             // x.style.color = "red";
-            stopwatch.start("stopwatch");
+            stopwatch.start("stopwatch", 1);
         } else {
             // x.innerHTML = "Start";
             // x.style.color = "green";
@@ -211,7 +210,6 @@ function onMessage(evt) {
     }
 }
 
-
 function lockElement(what){
     var colors = {
         'Blue': function(){ alert('Light-Blue'); },
@@ -221,7 +219,6 @@ function lockElement(what){
     try {colors[what]();}
     catch(err) {colors['Green']();}//default behaviour
 }
-
 // Called when a WebSocket error occurs
 function onError(evt) {
     console.log("ERROR: " + evt.data);
@@ -234,22 +231,138 @@ function doSend(message) {
 }
 
 // UI functions callback
-function refresh(clicked_id) {
-    var x = document.getElementById(clicked_id);
-    var button = {
-        'Start': function(){ doSend("{ \"race\": 1}"); },
-        'Stop': function(){ doSend("{ \"race\": 0}"); },
-        'On': function(){ doSend("{ \"light\": 1}"); },
-        'Off': function(){ doSend("{ \"light\":0}"); },
-        'Connect': function(){ doSend("{ \"connect\": 1}"); },
-        'Disconnect': function(){ doSend("{ \"connect\": 0}"); }
-        'lapsSlider': function(){ doSend("{ \"setlaps\": "+ x.value +" }"); }
+function raceToggle() {
+    var x = document.getElementById("race");
+    if (x.innerHTML === "Start") {
+        doSend("{ \"race\": 1}");
+    } else {
+        doSend("{ \"race\": 0}");
     }
-    
-    try {button[x]();}
-    catch(err) {alert(x);}//default behaviour
 }
 
+function lightToggle() {
+    var x = document.getElementById("light");
+    if (x.innerHTML === "On") {
+        doSend("{ \"light\": 1}");
+    } else {
+        doSend("{ \"light\": 0}");
+    }
+}
+
+function connectToggle() {
+    for (var i = 0; i <= 3; i++)
+    {
+        removeLine(i);
+        generateLine(i);
+	}
+	//stopwatch.start("stopwatch", 1);
+
+    var x = document.getElementById("connect");
+    if (x.innerHTML === "Connect") {
+        doSend("{ \"connect\": 1}");
+    } else {
+        doSend("{ \"connect\": 0}");
+    }
+}
+
+function watchToggle_temp() {
+    var x = document.getElementById("startstop_watch");
+    if (x.innerHTML === "Start") {
+        doSend("{ \"stopwatch\": 1}");
+    } else {
+        doSend("{ \"stopwatch\": 0}");
+    }
+}
+
+function updateLaps(element) {
+    var sliderValue = document.getElementById("lapsSlider").value;
+    // console.log("Sending: " + sliderValue);
+    var data = JSON.stringify({"conf":{"laps": sliderValue}});
+    doSend(data);
+}
+
+function refresh(clicked_id) {
+    //var x = document.getElementById(clicked_id);
+
+    var button = {
+        'start': function(){ doSend("{ \"race\": 1}"); },
+        'race': function(){ tempTest(); doSend("{ \"race\": 1}"); },
+        'stop': function(){ doSend("{ \"race\": 0}"); },
+        'light': function(){ doSend("{ \"light\": 1}"); },
+        'connect': function(){ doSend("{ \"connect\": 1}"); },
+        'disconnect': function(){ doSend("{ \"connect\": 0}"); },
+        'lapsSlider': function(){ doSend("{ \"setlaps\": "+ x.value +" }"); }
+    };
+
+    try
+    {
+		button[clicked_id]();
+    }
+    catch (err)
+    {
+	//alert(clicked_id);
+        console.log(err);
+    } //default behaviour
+}
+
+function generateDiv(class_name, id1, string)
+{
+    var divd = document.createElement("div");
+    divd.setAttribute('class', class_name);
+    divd.setAttribute('id', id1);
+    divd.innerHTML = string;
+    return divd;
+}
+
+function generateLine(line_id)
+{
+    var new_line = document.createElement("div");
+    if (line_id % 2 === 0)
+    {
+       new_line.setAttribute('class', 'even_line');
+    }
+    else
+    {
+       new_line.setAttribute('class', 'odd_line');
+    }
+    new_line.setAttribute('id', line_id + '_class');
+    new_line.innerHTML = "";
+
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_id', line_id));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '1'));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver ' + line_id));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_last', '3'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '4'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '5'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '6'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_current', '0'));
+
+    document.getElementById("stats").appendChild(new_line);
+    
+    stopwatches[line_id + "_current"] = new Stopwatch("stopwatch");
+    //stopwatches[line_id + "_current"].start(line_id + '_current', 0);
+}
+
+function removeLine(line_id)
+{
+    var line_elem = document.getElementById(line_id + '_class');
+	if (line_elem) {
+	  document.getElementById("stats").removeChild(line_elem);
+	  if (stopwatches[line_id + "_current"])
+	      stopwatches[line_id + "_current"].stop();
+	  delete stopwatches[line_id + "_current"];
+    }
+}
+
+function tempTest()
+{
+    for (var i = 0; i <= 3; i++)
+    {
+        removeLine(i);
+        generateLine(i);
+	}
+	//stopwatch.start("stopwatch", 1);
+}
 
 function snackBar() {
     var x = document.getElementById("snackbar");
@@ -328,9 +441,7 @@ class Stopwatch {
 
 }
 
+let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
-one_class_stopwatch = new Stopwatch("stopwatch");
-two_class_stopwatch = new Stopwatch("stopwatch");
-three_class_stopwatch = new Stopwatch("stopwatch");
-four_class_stopwatch = new Stopwatch("stopwatch");
+
 window.addEventListener("load", init, false);
