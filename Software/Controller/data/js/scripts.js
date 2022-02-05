@@ -255,16 +255,17 @@ function raceToggle() {
         var data = JSON.stringify({"conf": {"state": "0"}});
     }
     doSend(data);
-
 }
 
 function lightToggle() {
     var x = document.getElementById("light");
-    if (x.innerHTML === "On") {
-        doSend("{ \"light\": 1}");
+    
+    if (x.innerHTML === "Start") {
+        var data = JSON.stringify({"conf": {"light": "1"}});
     } else {
-        doSend("{ \"light\": 0}");
+        var data = JSON.stringify({"conf": {"light": "0"}});
     }
+    doSend(data);
 }
 
 // function connectToggle() {
