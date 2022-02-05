@@ -113,7 +113,7 @@ struct UI_config{
     struct Player
     {
         // uint8_t position; // todo: function to auto find by ID/name
-        uint32_t ID; // dedup with idData[i].ID, something to refactoring ?
+        uint32_t id; // dedup with idData[i].ID, something to refactoring ?
         char name[16]; // make a "random" username ala reddit ?
         char color[8]; // by char or int/hex value...
     }names[NUMBER_RACER];
@@ -546,7 +546,9 @@ void confToJSON(char* output){ // const struct UI_config* data,
   // todo: change that loop with JsonObject loop
   for ( uint8_t i = 0; i < uiConfig.players ; i++)
   {
-      conf_players[i]["id"] = uiConfig.names[i].ID;
+      // Serial.print("ID: ");
+      // Serial.println(uiConfig.names[i].ID);
+      conf_players[i]["id"] = uiConfig.names[i].id;
       conf_players[i]["name"] = uiConfig.names[i].name;
       conf_players[i]["color"] = uiConfig.names[i].color;
   }
@@ -572,12 +574,19 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   // todo: Code below need many optimizations!
   JsonObject obj = doc["conf"]; //.as<JsonObject>();
 
-  const char *obj_p = obj["state"];
+  const char *state_p = obj["state"];
+  const char *reset_p = obj["state"];
 
   // todo: make a JsonObject loop.
-  if ( obj_p != nullptr)
+  if ( state_p != nullptr)
   {
-      const bool stt = (char)atoi(obj_p);
+      const bool stt = (char)atoi(state_p);
+      raceState = (stt) ? START : STOP;
+  }
+
+  if ( reset_p != nullptr)
+  {
+      const bool stt = (char)atoi(reset_p);
       raceState = (stt) ? START : STOP;
   }
 
@@ -586,7 +595,6 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   {
       uiConfig.laps = doc["conf"]["laps"];
               // Serial.println(uiConfig.laps);
-
   }
   if (obj.containsKey("players"))
   {
@@ -610,13 +618,14 @@ void JSONToConf(const char* input){ // struct UI_config* data,
       uint8_t count = 0;
       JsonArray plrs = doc["conf"]["names"];
       for (JsonObject plr : plrs) {
-          // Serial.print("ID: ");
-          // Serial.print(plr["id"].as<long>());
           // Serial.print(" | name: ");
           // Serial.print(plr["name"].as<char *>());
           // Serial.print(" | color: ");
           // Serial.println(plr["color"].as<char *>());
-          uiConfig.names[count].ID == plr["id"].as<long>();
+          // const uint32_t stt = (long)atoi(plr["id"]);
+          // Serial.println(stt);
+
+          uiConfig.names[count].id = plr["id"].as<long>();
           strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
           strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
           count++;
@@ -887,7 +896,7 @@ void loop() {
   WriteJSONRace(millis());
 
   // same here. make a class ?
-  WriteSerialLive(millis(), 0); // 0 = serial
+  // WriteSerialLive(millis(), 0); // 0 = serial
   ReadSerial();
 
   #if defined(DEBUG)
@@ -1103,7 +1112,7 @@ void WriteJSONRace(uint32_t ms){
     char *valueMessage = race.getMessage();
     if (valueMessage != nullptr)
     {
-       Serial.println(valueMessage);
+      //  Serial.println(valueMessage);
        race_json["message"] = valueMessage;
     }
 
@@ -1121,7 +1130,7 @@ void WriteJSONRace(uint32_t ms){
 void fakeIDtrigger(int ms){
 
     static uint32_t startMillis;
-    const uint32_t idList[] = { 0x1234, 0x666, 0x1337, 0x2468, 0x4321, 0x2222, 0x1111, 0x1357};
+    const uint32_t idList[] = { 1234, 666, 1337, 2468, 0x4321, 0x2222, 0x1111, 0x1357};
     static uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
     static uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
     static uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
@@ -1147,7 +1156,7 @@ void fakeIDtrigger(int ms){
         for (uint8_t i = 0; i < NUMBER_RACER; i++)
         {
             idGateNumber[i] = 20;
-            uiConfig.names[i].ID == idList[i];
+            uiConfig.names[i].id == idList[i];
         }        
         oldRaceStateDebug = RACE;
         startMillis = millis();
@@ -1248,7 +1257,7 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 // When you have only serial available for racing/debug...
 // ----------------------------------------------------------------------------
 void ReadSerial(){
-    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\":1,\"name\":\"Player 1\",\"color\":\"blue\"},{\"id\":2,\"name\":\"Player 2\",\"color\":\"red\"},{\"id\":3,\"name\":\"Player 3\",\"color\":\"green\"},{\"id\":4,\"name\":\"Player 4\",\"color\":\"yellow\"}]}}";
+    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"blue\"},{\"id\":\"666\",\"name\":\"Player 2\",\"color\":\"red\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"green\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"yellow\"}]}}";
     char confJSON[JSON_BUFFER_CONF];
 
 
@@ -1274,9 +1283,6 @@ void ReadSerial(){
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
 
-            break;
-
-        case 'B': // Test Message
             confToJSON(confJSON); 
             ws.textAll(confJSON);
             break;
@@ -1325,3 +1331,4 @@ void timeToChar(char *buf, int len, uint32_t tmpMillis) {
 
 //  return 0;
 // }
+

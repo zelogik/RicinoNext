@@ -24,10 +24,11 @@
 				<p>websockTimer: <span id="websockTimer">NaN</span></p>
 				<p>websockCount: <span id="lapCounter">NaN</span> : <span id="textSliderValue">10</span></p>
 				<p>websockMessage: <span id="websockConsole">NULL</span></p> 
+				<p>wsBackLoop(us): <span id="websockLoopTime">0</span></p> 
 
 				<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">Start</button>
 				<button id="light" type="button" class="btn btn-info" onclick="lightToggle()">On</button>
-				<button id="connect" type="button" class="btn btn-danger" onclick="connectToggle()">Connect</button>
+				<button id="reset" type="button" class="btn btn-danger" onclick="ResetTrigger()">Reset</button>
 
 				<div class="progress" style="height:24px">
 					<div id="percentLap" class="progress-bar" style="width:0%;height:24px"></div>

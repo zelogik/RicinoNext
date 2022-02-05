@@ -94,6 +94,20 @@ function onMessage(evt) {
 
             config_global = obj;
         }
+        /*
+        if ('light' in obj) {
+            var x = document.getElementById("light");
+            if (obj.light === 1) {
+                x.innerHTML = "Off";
+                x.style.color = "blue";
+        //      x.style.bgcolor = "red";
+            } else {
+                x.innerHTML = "On";
+                x.style.color = "black";
+        //      x.style.bgcolor = "grey";
+            }
+        }
+        */
     }
 
 
@@ -156,40 +170,26 @@ function onMessage(evt) {
         updatePlayer( id1, obj.live.id );
     }
 
-    if ('light' in obj) {
-            var x = document.getElementById("light");
-            if (obj.light === 1) {
-                x.innerHTML = "Off";
-                x.style.color = "blue";
-//                x.style.bgcolor = "red";
-            } else {
-                x.innerHTML = "On";
-                x.style.color = "black";
-//                x.style.bgcolor = "grey";
-            }
-    }
 
-    // if ('connect' in obj) {
-    //         var x = document.getElementById("connect");
-    //         if (obj.connect === 1) {
-    //             x.innerHTML = "Disconnect";
-    //         } else {
-    //             x.innerHTML = "Connect";
-    //         }
-    // }
-
-    if ('stopwatch' in obj) {
-        // var x = document.getElementById("startstop_watch");
-        if (obj.stopwatch === 1) {
-            // x.innerHTML = "Stop";
-            // x.style.color = "red";
-            stopwatch.start("stopwatch", 1);
-        } else {
-            // x.innerHTML = "Start";
-            // x.style.color = "green";
-            stopwatch.stop();
+    if ('debug' in obj) {
+        if ('time' in obj.debug) {
+            document.getElementById('websockLoopTime').innerHTML = "" + obj.debug.time;
         }
     }
+
+
+    // if ('stopwatch' in obj) {
+    //     // var x = document.getElementById("startstop_watch");
+    //     if (obj.stopwatch === 1) {
+    //         // x.innerHTML = "Stop";
+    //         // x.style.color = "red";
+    //         stopwatch.start("stopwatch", 1);
+    //     } else {
+    //         // x.innerHTML = "Start";
+    //         // x.style.color = "green";
+    //         stopwatch.stop();
+    //     }
+    // }
 
 
     // // Lock
@@ -269,17 +269,23 @@ function lightToggle() {
     }
 }
 
-function connectToggle() {
-    //tempTest();
-    stopwatch.start("stopwatch", 1);
+// function connectToggle() {
+//     //tempTest();
+//     stopwatch.start("stopwatch", 1);
 
-    var x = document.getElementById("connect");
-    if (x.innerHTML === "Connect") {
-        doSend("{ \"connect\": 1}");
-    } else {
-        doSend("{ \"connect\": 0}");
+//     var x = document.getElementById("connect");
+//     if (x.innerHTML === "Connect") {
+//         doSend("{ \"connect\": 1}");
+//     } else {
+//         doSend("{ \"connect\": 0}");
+//     }
+// }
+
+function resetTrigger() {
+            var data = JSON.stringify({"conf": {"reset": "1"}});
+            doSend(data);
     }
-}
+
 
 function watchToggle_temp() {
     var x = document.getElementById("startstop_watch");
