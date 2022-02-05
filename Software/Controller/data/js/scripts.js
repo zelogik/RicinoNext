@@ -88,6 +88,8 @@ function onMessage(evt) {
         if ('laps' in obj.conf) {
             document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
             document.getElementById("lapsSlider").value = "" + obj.conf.laps;
+
+            config_global = obj;
         }
     }
 
@@ -100,18 +102,16 @@ function onMessage(evt) {
                 sliderLock.disabled = false;
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
-
-            } else {
-                sliderLock.disabled = true;
-                raceButton.innerHTML = "Stop";
-                raceButton.style.color = "red";
-                if (obj.race.state === "FINISHED") {
                     // todo: need a trigger message from the server?
                     Object.keys(stopwatches).forEach(function(key)
                     {
                         stopwatches[key].stop();
                     });
-                }
+
+            } else {
+                sliderLock.disabled = true;
+                raceButton.innerHTML = "Stop";
+                raceButton.style.color = "red";
             }
 
             if ('lap' in obj.race) {
@@ -150,6 +150,7 @@ function onMessage(evt) {
         modifyValue( id1, "mean", formatTime(obj.live.mean, 0));
         modifyValue( id1, "total", formatTime(obj.live.total, 0));
         stopwatches[ id1 + "_current"].start(id1 + "_current", obj.live.total);
+        updatePlayer( id1, obj.live.id );
     }
 
     if ('light' in obj) {
@@ -326,6 +327,23 @@ function generateDiv(class_name, id1, string)
     return divd;
 }
 
+function updatePlayer(line_id, id1)
+{
+    var divd = document.getElementById(line_id + '_name');
+
+    for (const [key, value] of Object.entries(config_global.conf.names))
+    {
+        //console.log(key);
+        //console.log(value.id);
+        //console.log(value.name);
+        if (id1 === value.id)
+        {
+            divd.innerHTML = value.name;
+            document.getElementById(line_id + "_class").style.backgroundColor = value.color;
+        }
+    }
+}
+
 function modifyValue(line_id, class1, string1)
 {
     var divd = document.getElementById(line_id + '_' + class1);
@@ -480,5 +498,6 @@ class Stopwatch {
 
 let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
+let config_global = "";
 
 window.addEventListener("load", init, false);
