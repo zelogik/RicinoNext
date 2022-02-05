@@ -85,6 +85,9 @@ function onMessage(evt) {
     }
 
     if ('conf' in obj) {
+        //var names = Object.keys(jsonObj.products);
+        // products = ["laptop", "cellphone", "tablets"];
+
         if ('laps' in obj.conf) {
             document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
             document.getElementById("lapsSlider").value = "" + obj.conf.laps;
