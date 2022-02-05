@@ -84,44 +84,57 @@ function onMessage(evt) {
         }
     }
 
-    if ('message' in obj) {
-        snackBar(obj.message);
+    if ('conf' in obj) {
+        if ('laps' in obj.conf) {
+            document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
+            document.getElementById("lapsSlider").value = "" + obj.conf.laps;
+        }
     }
 
-    if ('websockTimer' in obj) {
-        document.getElementById('websockTimer').innerHTML = "" + obj.websockTimer;
-    }
 
-    if ('websockConsole' in obj) {
-        document.getElementById('websockConsole').innerHTML = "" + obj.websockConsole;
-    }
+    if ('race' in obj) { // Race is read only!
+            var raceButton = document.getElementById("race");
+            var sliderLock = document.getElementById("lapsSlider");
 
-    if ('race' in obj) {
-            var x = document.getElementById("race");
             if (obj.race.state === "WAIT") {
-                x.innerHTML = "Stop";
-                x.style.color = "red";
-            } else {
-                x.innerHTML = "Start";
-                x.style.color = "green";
-                /*Object.keys(stopwatches).forEach(function(key)
-                {
-                    stopwatches[key].stop();
-                });*/
-            }
-            var tmpWidth = obj.race.lap / document.getElementById("lapsSlider").value * 100;
-            console.log("ERROR: " + tmpWidth);
-            document.getElementById('percentLap').style.width = tmpWidth + "%";
-            document.getElementById('percentLap').value = obj.race.lap;
-            document.getElementById('percentLap').innerHTML = obj.race.lap;
+                sliderLock.disabled = false;
+                raceButton.innerHTML = "Start";
+                raceButton.style.color = "green";
 
-            document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
-            //TODO obj.race.time
-            snackBar(obj.race.message);
+            } else {
+                sliderLock.disabled = true;
+                raceButton.innerHTML = "Stop";
+                raceButton.style.color = "red";
+                // todo: need a trigger message from the server?
+                //     /*Object.keys(stopwatches).forEach(function(key)
+                //     {
+                //         stopwatches[key].stop();
+                //     });*/
+            }
+
+            if ('lap' in obj.race) {
+                var tmpWidth = obj.race.lap / document.getElementById("lapsSlider").value* 100;
+                // console.log("ERROR: " + tmpWidth);
+                document.getElementById('percentLap').style.width = tmpWidth + "%";
+                document.getElementById('percentLap').innerHTML = obj.race.lap;
+                // document.getElementById('percentLap').value = obj.conf.laps;
+                document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
+            }
+
+            if ('message' in obj.race) {
+                snackBar(obj.race.message);
+                document.getElementById('websockConsole').innerHTML = "" + obj.websockConsole;
+            }
+
+            if ('time' in obj.race) {
+                document.getElementById('websockTimer').innerHTML = "" + obj.race.time;
+                // document.getElementById('debugtime').innerHTML = "" + obj.race.time;
+            }
     }
 
-    if ('live' in obj)
-    {
+
+    if ('live' in obj) { // Live is read only
+
         var x = document.getElementById("race");
         var id1 = obj.live.rank;
 
@@ -149,14 +162,14 @@ function onMessage(evt) {
             }
     }
 
-    if ('connect' in obj) {
-            var x = document.getElementById("connect");
-            if (obj.connect === 1) {
-                x.innerHTML = "Disconnect";
-            } else {
-                x.innerHTML = "Connect";
-            }
-    }
+    // if ('connect' in obj) {
+    //         var x = document.getElementById("connect");
+    //         if (obj.connect === 1) {
+    //             x.innerHTML = "Disconnect";
+    //         } else {
+    //             x.innerHTML = "Connect";
+    //         }
+    // }
 
     if ('stopwatch' in obj) {
         // var x = document.getElementById("startstop_watch");
@@ -171,53 +184,34 @@ function onMessage(evt) {
         }
     }
 
-    if ('raceTime' in obj) {
-        document.getElementById('debugtime').innerHTML = "" + obj.raceTime;
-    }
 
-    if ('setlaps' in obj) {
-        document.getElementById("textSliderValue").innerHTML = "" + obj.setlaps;
-        document.getElementById("lapsSlider").value = "" + obj.setlaps;
-        // document.getElementById("percentLap").max = "" + obj.setlaps;
-    }
+    // // Lock
+    // if ('startLock' in obj) {
+    //     var x = document.getElementById("race");
+    //     if (obj.startLock === 1) {
+    //         x.disabled = true;
+    //     } else {
+    //         x.disabled = false;
+    //     }
+    // }
 
+    // if ('lightLock' in obj) {
+    //     var x = document.getElementById("light");
+    //     if (obj.lightLock === 1) {
+    //         x.disabled = true;
+    //     } else {
+    //         x.disabled = false;
+    //     }
+    // }
 
-    // Lock
-    if ('startLock' in obj) {
-        var x = document.getElementById("race");
-        if (obj.startLock === 1) {
-            x.disabled = true;
-        } else {
-            x.disabled = false;
-        }
-    }
-
-    if ('lightLock' in obj) {
-        var x = document.getElementById("light");
-        if (obj.lightLock === 1) {
-            x.disabled = true;
-        } else {
-            x.disabled = false;
-        }
-    }
-
-    if ('connectLock' in obj) {
-        var x = document.getElementById("connect");
-        if (obj.connectLock === 1) {
-            x.disabled = true;
-        } else {
-            x.disabled = false;
-        }
-    }
-
-    if ('sliderLock' in obj) {
-        var x = document.getElementById("lapsSlider");
-        if (obj.sliderLock === 1) {
-            x.disabled = true;
-        } else {
-            x.disabled = false;
-        }
-    }
+    // if ('connectLock' in obj) {
+    //     var x = document.getElementById("connect");
+    //     if (obj.connectLock === 1) {
+    //         x.disabled = true;
+    //     } else {
+    //         x.disabled = false;
+    //     }
+    // }
 }
 
 function lockElement(what){
@@ -249,11 +243,14 @@ function doSend(message) {
 // UI functions callback
 function raceToggle() {
     var x = document.getElementById("race");
+    
     if (x.innerHTML === "Start") {
-        doSend("{\"race\": {\"state\": \"START\"}}");
+        var data = JSON.stringify({"conf": {"state": "1"}});
     } else {
-        doSend("{\"race\": {\"state\": \"FINISH\"}}");
+        var data = JSON.stringify({"conf": {"state": "0"}});
     }
+    doSend(data);
+
 }
 
 function lightToggle() {
@@ -289,7 +286,8 @@ function watchToggle_temp() {
 function updateLaps(element) {
     var sliderValue = document.getElementById("lapsSlider").value;
     // console.log("Sending: " + sliderValue);
-    doSend("{ \"setlaps\": "+ sliderValue +" }");
+    var data = JSON.stringify({"conf": {"laps": sliderValue}});
+    doSend(data);
 }
 
 function refresh(clicked_id) {
