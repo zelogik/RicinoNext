@@ -57,6 +57,7 @@ AsyncWebSocket ws("/ws");
 // ----------------------------------------------------------------------------
 uint16_t ledPin = 13;
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
+
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h //#define TFT_GREY 0x5AEB // New colour
 
 //#define Button2_USE
@@ -740,6 +741,7 @@ void server_init()
 #if defined(Button2_USE)
 void button_init()
 {
+#if defined(Button2_USE)
     btn1.setDebounceTime(50);
     btn2.setDebounceTime(50);
     
@@ -756,6 +758,7 @@ void button_init()
         Serial.println("B clicked");
 //        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
     });
+#endif
 }
 #endif
 

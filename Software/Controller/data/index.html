@@ -25,19 +25,13 @@
 				<p>websockCount: <span id="lapCounter">NaN</span> : <span id="textSliderValue">10</span></p>
 				<p>websockMessage: <span id="websockConsole">NULL</span></p> 
 
-				<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">
-					Start
-				</button> 
-				<button id="light" type="button" class="btn btn-info" onclick="lightToggle()">
-					On
-				</button> 
-				<button id="connect" type="button" class="btn btn-danger" onclick="connectToggle()">
-					Connect
-				</button>
+				<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">Start</button>
+				<button id="light" type="button" class="btn btn-info" onclick="lightToggle()">On</button>
+				<button id="connect" type="button" class="btn btn-danger" onclick="connectToggle()">Connect</button>
 
 				<div class="progress" style="height:24px">
 					<div id="percentLap" class="progress-bar" style="width:0%;height:24px"></div>
-				  </div>
+				</div>
 				<!-- <progress id="percentLap" value="0"></progress> -->
 
 				<div class="slidecontainer">
@@ -67,13 +61,16 @@
 				</button> -->
 				
 			</div>
-		<div class="col-md-10">
+		<div class="col-md-10" id="stats">
 				<div class="row-title">
 					<div class="col-md-1">
 						ID
 					</div>
 					<div class="col-md-1">
 						Lap
+					</div>
+					<div class="col-md-1">
+						Name
 					</div>
 					<div class="col-md-2">
 						Last
@@ -87,101 +84,10 @@
 					<div class="col-md-2">
 						Total
 					</div>
-					<div class="col-md-2">
+				<!--	<div class="col-md-2">
 						Current
 					</div>
-				</div>
-				<div class="one_class">
-					<div class="col-md-1">
-						<span id="one_id">0</span>
-					</div>
-					<div class="col-md-1">
-						<span id="one_lap">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="one_last">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="one_best">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="one_mean">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="one_total">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="one_current">0</span>
-					</div>
-				</div>
-				<div class="two_class">
-					<div class="col-md-1">
-						<span id="two_id">0</span>
-					</div>
-					<div class="col-md-1">
-						<span id="two_lap">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="two_last">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="two_best">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="two_mean">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="two_total">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="two_current">0</span>
-					</div>
-				</div>
-				<div class="three_class">
-					<div class="col-md-1">
-						<span id="three_id">0</span>
-					</div>
-					<div class="col-md-1">
-						<span id="three_lap">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="three_last">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="three_best">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="three_mean">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="three_total">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="three_current">0</span>
-					</div>
-				</div>
-				<div class="four_class">
-					<div class="col-md-1">
-						<span id="four_id">0</span>
-					</div>
-					<div class="col-md-1">
-						<span id="four_lap">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="four_last">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="four_best">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="four_mean">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="four_total">0</span>
-					</div>
-					<div class="col-md-2">
-						<span id="four_current">0</span>
-					</div>
+				-->
 				</div>
 			</div>
 
