@@ -57,7 +57,6 @@ AsyncWebSocket ws("/ws");
 // ----------------------------------------------------------------------------
 uint16_t ledPin = 13;
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
-
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h //#define TFT_GREY 0x5AEB // New colour
 
 //#define Button2_USE
@@ -331,13 +330,14 @@ class Race {
     uint16_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    uint16_t numberTotalLaps = 5; // todo URGENT add pointer to uiConfig
+    uint16_t numberTotalLaps; // todo URGENT add pointer to uiConfig
     uint32_t finishRaceMillis;
     uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
     const uint8_t messageLength = 128;
-    char message[128] = "test Char pointer";
     uint32_t startTimeOffset;
+    char message[128] = "test Char pointer";
+
 
 //      // keep for i2c gates
 //      APP_Data *app_ptr;
@@ -366,10 +366,16 @@ class Race {
     }
 
 
+    void setMessage(char *test_char[128]){
+      memcpy(message, test_char, sizeof(test_char[0])*128);
+      // Now set an 
+    }
+
+
   public:
     Race(){}
     ~Race(){};
-    
+
     void loop(){
 
 //        printSerialDebug();
@@ -391,6 +397,9 @@ class Race {
                 init();
                 delayWarmupTimer = millis();
                 isReady = true;
+                numberTotalLaps = uiConfig.laps;
+                // setMessage("Warm-UP time");
+                memcpy(message, "Warm-UP time", sizeof(message[0])*128);
             }
     
             if (millis() - delayWarmupTimer > delayWarmupDelay)
@@ -403,6 +412,8 @@ class Race {
 
                 startTimeOffset = millis();
                 raceState = RACE;
+                memcpy(message, "RUN RUN RUN", sizeof(message[0])*128);
+
             }
             break;
 
@@ -425,6 +436,7 @@ class Race {
             {
                 finishRaceMillis = millis();
                 raceState = FINISH;
+                memcpy(message, "Hurry UP!", sizeof(message[0])*128);
             }
 
             break;
@@ -438,6 +450,7 @@ class Race {
             if (millis() - finishRaceMillis > finishRaceDelay)
             {
                 raceState = STOP;
+                memcpy(message, "Finished", sizeof(message[0])*128);
             }
             break;
 
@@ -481,20 +494,16 @@ class Race {
         return ( lap ==  numberTotalLaps )  ? false : true;
     }
 
-    void setMessage(char *test_char[128]){
-      memcpy(message, test_char, sizeof(test_char[0])*128);
-    }
-
     char* getMessage(){
-      char message_tmp[128];
-      /// BAD BAD BAD!!!
-//      if (message[0] != 0)
-//      {
-//          memcpy(message_tmp, message, sizeof(message[0])*128);
-//          message[0] = 0;
-//          return NULL;
-//      }
-      return message;
+      // Send message only one time!
+      if (message[0] != '\0')
+      {
+          char message_tmp[128];
+          memcpy(message_tmp, message, sizeof(message[0])*128);
+          message[0] = '\0';
+          return message_tmp;
+      }
+      return nullptr;
     }
 };
 
@@ -570,7 +579,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   if (obj.containsKey("laps"))
   {
       uiConfig.laps = doc["conf"]["laps"];
-              Serial.println(uiConfig.laps);
+              // Serial.println(uiConfig.laps);
 
   }
   if (obj.containsKey("players"))
@@ -670,16 +679,16 @@ void onEvent(AsyncWebSocket       *server,
 //  Web Stuff: merge or separate to onEvent ?
 // todo: finish, make it works 
 // ----------------------------------------------------------------------------
-void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-    AwsFrameInfo *info = (AwsFrameInfo*)arg;
-    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-        // const char *action = json["action"];
-        // if (strcmp(action, "toggle") == 0) {
-        //     led.on = !led.on;
-        //     notifyClients();
-        // }
-    }
-}
+// void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+//     AwsFrameInfo *info = (AwsFrameInfo*)arg;
+//     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+//         // const char *action = json["action"];
+//         // if (strcmp(action, "toggle") == 0) {
+//         //     led.on = !led.on;
+//         //     notifyClients();
+//         // }
+//     }
+// }
 
 
 // ----------------------------------------------------------------------------
@@ -733,7 +742,6 @@ void server_init()
 #if defined(Button2_USE)
 void button_init()
 {
-#if defined(Button2_USE)
     btn1.setDebounceTime(50);
     btn2.setDebounceTime(50);
     
@@ -750,7 +758,6 @@ void button_init()
         Serial.println("B clicked");
 //        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
     });
-#endif
 }
 #endif
 
@@ -874,7 +881,7 @@ void loop() {
   WriteJSONRace(millis());
 
   // same here. make a class ?
-  WriteSerialLive(millis(), 0); // 0 = serial
+  // WriteSerialLive(millis(), 0); // 0 = serial
   ReadSerial();
 }
 
@@ -994,6 +1001,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
       // todo: need to change to char and timeToChar function!
       live["rank"] = i;
+      // 
       live["id"] = idData[i].ID;
       live["lap"] = idData[i].laps;
       live["best"] = idData[i].bestLapTime;
@@ -1044,6 +1052,7 @@ void WriteJSONRace(uint32_t ms){
     char *valueMessage = race.getMessage();
     if (valueMessage != nullptr)
     {
+      //  Serial.println(valueMessage);
        race_json["message"] = valueMessage;
     }
 
