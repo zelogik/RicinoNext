@@ -85,6 +85,9 @@ function onMessage(evt) {
     }
 
     if ('conf' in obj) {
+        //var names = Object.keys(jsonObj.products);
+        // products = ["laptop", "cellphone", "tablets"];
+
         if ('laps' in obj.conf) {
             document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
             document.getElementById("lapsSlider").value = "" + obj.conf.laps;
@@ -331,10 +334,14 @@ function modifyValue(line_id, class1, string1)
 
 function createLine(line_id)
 {
-    var line_elem = document.getElementById(line_id + '_class');
-    if (!line_elem)
+    for (var i = 1; i <= line_id; i++)
     {
         generateLine(line_id);
+        var line_elem = document.getElementById(i + '_class');
+        if (!line_elem)
+        {
+            generateLine(i);
+        }
     }
 }
 

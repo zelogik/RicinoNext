@@ -886,7 +886,7 @@ void loop() {
   WriteJSONRace(millis());
 
   // same here. make a class ?
-  // WriteSerialLive(millis(), 0); // 0 = serial
+  WriteSerialLive(millis(), 0); // 0 = serial
   ReadSerial();
 
   #if defined(DEBUG)
@@ -1119,11 +1119,11 @@ void WriteJSONRace(uint32_t ms){
 #if defined(DEBUG)
 void fakeIDtrigger(int ms){
 
-    uint32_t startMillis;
+    static uint32_t startMillis;
     const uint32_t idList[] = { 0x1234, 0x666, 0x1337, 0x2468, 0x4321, 0x2222, 0x1111, 0x1357};
-    uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
-    uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
-    uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
+    static uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
+    static uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
+    static uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
 
     static race_state_t oldRaceStateDebug = START;
     static bool isNew = false;
