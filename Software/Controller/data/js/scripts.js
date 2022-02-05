@@ -74,7 +74,7 @@ function onMessage(evt) {
         for (const [key, value] of Object.entries(tmp_data)) {
             if (/_class$/.test(`${key}`)){
                 var color_class = ['white', 'rgb(66, 133, 244)', 'rgb(234, 67, 53)', 'rgb(251, 188, 5)', 'rgb(52, 168, 83)'];
-                // TODO doesnt work right now
+                // todo: doesn't work right now
                 //document.getElementsByClassName(`${key}`)[0].style.backgroundColor = color_class[`${value}`];
             } else if (/_current$/.test(`${key}`)){
                 stopwatches[`${key}`].start(`${key}`, `${value}`);
@@ -105,11 +105,13 @@ function onMessage(evt) {
                 sliderLock.disabled = true;
                 raceButton.innerHTML = "Stop";
                 raceButton.style.color = "red";
-                // todo: need a trigger message from the server?
-                //     /*Object.keys(stopwatches).forEach(function(key)
-                //     {
-                //         stopwatches[key].stop();
-                //     });*/
+                if (obj.race.state === "FINISHED") {
+                    // todo: need a trigger message from the server?
+                    Object.keys(stopwatches).forEach(function(key)
+                    {
+                        stopwatches[key].stop();
+                    });
+                }
             }
 
             if ('lap' in obj.race) {
@@ -147,6 +149,7 @@ function onMessage(evt) {
         modifyValue( id1, "last", formatTime(obj.live.last, 0));
         modifyValue( id1, "mean", formatTime(obj.live.mean, 0));
         modifyValue( id1, "total", formatTime(obj.live.total, 0));
+        stopwatches[ id1 + "_current"].start(id1 + "_current", obj.live.total);
     }
 
     if ('light' in obj) {
@@ -355,14 +358,14 @@ function generateLine(line_id)
     new_line.setAttribute('id', line_id + '_class');
     new_line.innerHTML = "";
 
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_id', line_id));
+	new_line.appendChild(generateDiv('col-md-0', line_id + '_id', line_id));
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '-'));
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver' + line_id));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '-'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '-'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '-'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '-'));
-	//new_line.appendChild(generateDiv('col-md-2', line_id + '_current', '0'));
+	new_line.appendChild(generateDiv('col-md-0', line_id + '_current', '0'));
 
     document.getElementById("stats").appendChild(new_line);
     
