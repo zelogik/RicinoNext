@@ -74,7 +74,7 @@ function onMessage(evt) {
         for (const [key, value] of Object.entries(tmp_data)) {
             if (/_class$/.test(`${key}`)){
                 var color_class = ['white', 'rgb(66, 133, 244)', 'rgb(234, 67, 53)', 'rgb(251, 188, 5)', 'rgb(52, 168, 83)'];
-                // TODO doesnt work right now
+                // todo: doesn't work right now
                 //document.getElementsByClassName(`${key}`)[0].style.backgroundColor = color_class[`${value}`];
             } else if (/_current$/.test(`${key}`)){
                 stopwatches[`${key}`].start(`${key}`, `${value}`);
@@ -91,6 +91,8 @@ function onMessage(evt) {
         if ('laps' in obj.conf) {
             document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
             document.getElementById("lapsSlider").value = "" + obj.conf.laps;
+
+            config_global = obj;
         }
     }
 
@@ -103,16 +105,16 @@ function onMessage(evt) {
                 sliderLock.disabled = false;
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
+                    // todo: need a trigger message from the server?
+                    Object.keys(stopwatches).forEach(function(key)
+                    {
+                        stopwatches[key].stop();
+                    });
 
             } else {
                 sliderLock.disabled = true;
                 raceButton.innerHTML = "Stop";
                 raceButton.style.color = "red";
-                // todo: need a trigger message from the server?
-                //     /*Object.keys(stopwatches).forEach(function(key)
-                //     {
-                //         stopwatches[key].stop();
-                //     });*/
             }
 
             if ('lap' in obj.race) {
@@ -150,6 +152,8 @@ function onMessage(evt) {
         modifyValue( id1, "last", formatTime(obj.live.last, 0));
         modifyValue( id1, "mean", formatTime(obj.live.mean, 0));
         modifyValue( id1, "total", formatTime(obj.live.total, 0));
+        stopwatches[ id1 + "_current"].start(id1 + "_current", obj.live.total);
+        updatePlayer( id1, obj.live.id );
     }
 
     if ('light' in obj) {
@@ -326,6 +330,23 @@ function generateDiv(class_name, id1, string)
     return divd;
 }
 
+function updatePlayer(line_id, id1)
+{
+    var divd = document.getElementById(line_id + '_name');
+
+    for (const [key, value] of Object.entries(config_global.conf.names))
+    {
+        //console.log(key);
+        //console.log(value.id);
+        //console.log(value.name);
+        if (id1 === value.id)
+        {
+            divd.innerHTML = value.name;
+            document.getElementById(line_id + "_class").style.backgroundColor = value.color;
+        }
+    }
+}
+
 function modifyValue(line_id, class1, string1)
 {
     var divd = document.getElementById(line_id + '_' + class1);
@@ -336,7 +357,6 @@ function createLine(line_id)
 {
     for (var i = 1; i <= line_id; i++)
     {
-        generateLine(line_id);
         var line_elem = document.getElementById(i + '_class');
         if (!line_elem)
         {
@@ -359,14 +379,14 @@ function generateLine(line_id)
     new_line.setAttribute('id', line_id + '_class');
     new_line.innerHTML = "";
 
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_id', line_id));
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '1'));
+	new_line.appendChild(generateDiv('col-md-0', line_id + '_id', line_id));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '-'));
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver' + line_id));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '3'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '4'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '5'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '6'));
-	//new_line.appendChild(generateDiv('col-md-2', line_id + '_current', '0'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '-'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '-'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '-'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '-'));
+	new_line.appendChild(generateDiv('col-md-0', line_id + '_current', '0'));
 
     document.getElementById("stats").appendChild(new_line);
     
@@ -481,5 +501,6 @@ class Stopwatch {
 
 let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
+let config_global = "";
 
 window.addEventListener("load", init, false);
