@@ -588,6 +588,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   {
       uiConfig.light_brightness = doc["conf"]["light_brightness"];
   }
+  // todo: need to find ID/position
   if (obj.containsKey("names"))
   {
       uint8_t count = 0;
