@@ -57,7 +57,6 @@ AsyncWebSocket ws("/ws");
 // ----------------------------------------------------------------------------
 uint16_t ledPin = 13;
 //#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
-
 //TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h //#define TFT_GREY 0x5AEB // New colour
 
 //#define Button2_USE
@@ -125,7 +124,7 @@ UI_config uiConfig;
 //  Main Data struct
 // One Struct to keep every player data + sorted at each loop.
 // ----------------------------------------------------------------------------
-typedef struct {
+struct ID_Data_sorted{
   public:
     // get info from i2c/gate
     uint32_t ID;
@@ -288,20 +287,20 @@ typedef struct {
         //  0s   4s   7s       10s  13s  16s
         //  |    |    |    ->   |    |    |
     }
-} ID_Data_sorted;
+};
 
 ID_Data_sorted idData[NUMBER_RACER + 1]; // number + 1, [0] is the tmp for rank change, and so 1st is [1] and not [0] and so on...
 
 
 // ----------------------------------------------------------------------------
-//  Buffer Struct: Sort-Of simple buffer for i2c request
+//  Buffer Struct: Sort-Of simple buffer for i2c request from gates
 // ----------------------------------------------------------------------------
-typedef struct {
+struct ID_buffer{
     uint32_t ID = 0;
     uint8_t gateNumber = 0;
     uint32_t totalLapsTime = 0; // in millis ?
     bool isNew = false; //
-} ID_buffer;
+};
 
 ID_buffer idBuffer[NUMBER_RACER];
 
@@ -315,7 +314,7 @@ enum race_state_t {
     START,         // Run the warm-up phase, (light, beep,etc) (no registering player for the moment)
     RACE,          // enable all gate receiver and so, update Race state (send JSON, sendSerial) etc...
     FINISH,        // 1st player have win, terminate after 20s OR all players have finished.
-    STOP           // finished auto/manual 
+    STOP           // finished auto/manual goto WAIT
 };
 
 race_state_t raceState = RESET;
@@ -331,13 +330,14 @@ class Race {
     uint16_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    uint16_t numberTotalLaps = 5; // todo URGENT add pointer to uiConfig
+    uint16_t numberTotalLaps; // todo URGENT add pointer to uiConfig
     uint32_t finishRaceMillis;
     uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
     const uint8_t messageLength = 128;
-    char message[128] = "test Char pointer";
     uint32_t startTimeOffset;
+    char message[128] = "test Char pointer";
+
 
 //      // keep for i2c gates
 //      APP_Data *app_ptr;
@@ -366,10 +366,16 @@ class Race {
     }
 
 
+    void setMessage(char *test_char[128]){
+      memcpy(message, test_char, sizeof(test_char[0])*128);
+      // Now set an 
+    }
+
+
   public:
     Race(){}
     ~Race(){};
-    
+
     void loop(){
 
 //        printSerialDebug();
@@ -391,6 +397,9 @@ class Race {
                 init();
                 delayWarmupTimer = millis();
                 isReady = true;
+                numberTotalLaps = uiConfig.laps;
+                // setMessage("Warm-UP time");
+                memcpy(message, "Warm-UP time", sizeof(message[0])*128);
             }
     
             if (millis() - delayWarmupTimer > delayWarmupDelay)
@@ -403,6 +412,8 @@ class Race {
 
                 startTimeOffset = millis();
                 raceState = RACE;
+                memcpy(message, "RUN RUN RUN", sizeof(message[0])*128);
+
             }
             break;
 
@@ -425,6 +436,7 @@ class Race {
             {
                 finishRaceMillis = millis();
                 raceState = FINISH;
+                memcpy(message, "Hurry UP!", sizeof(message[0])*128);
             }
 
             break;
@@ -438,6 +450,7 @@ class Race {
             if (millis() - finishRaceMillis > finishRaceDelay)
             {
                 raceState = STOP;
+                memcpy(message, "Finished", sizeof(message[0])*128);
             }
             break;
 
@@ -481,24 +494,21 @@ class Race {
         return ( lap ==  numberTotalLaps )  ? false : true;
     }
 
-    void setMessage(char *test_char[128]){
-      memcpy(message, test_char, sizeof(test_char[0])*128);
-    }
-
     char* getMessage(){
-      char message_tmp[128];
-      /// BAD BAD BAD!!!
-//      if (message[0] != 0)
-//      {
-//          memcpy(message_tmp, message, sizeof(message[0])*128);
-//          message[0] = 0;
-//          return NULL;
-//      }
-      return message;
+      // Send message only one time!
+      if (message[0] != '\0')
+      {
+          char message_tmp[128];
+          memcpy(message_tmp, message, sizeof(message[0])*128);
+          message[0] = '\0';
+          return message_tmp;
+      }
+      return nullptr;
     }
 };
 
 Race race = Race();
+
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: Error function config JSON
@@ -508,26 +518,12 @@ void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
 }
 
-// ----------------------------------------------------------------------------
-//  Web Stuff: Used at new connection or broadcast confToJSON
-// todo: remove as confToJson make everything...
-// ----------------------------------------------------------------------------
-void notifyClients() {
-    StaticJsonDocument<JSON_BUFFER> json;
-    // json["status"] = led.on ? "on" : "off";
-
-    char buffer[JSON_BUFFER];
-    // size_t len = serializeJson(json, buffer);
-    // ws.textAll(buffer, len);
-}
-
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: struct --> json<char[size]>
 //  char test[512];
 //  confToJSON(&uiConfig, test);
-//   Serial.println(test);
-// todo: need a special function to calculate the proper and dynamic size
+// todo: need a special function to calculate dynamic size
 // ----------------------------------------------------------------------------
 void confToJSON(char* output){ // const struct UI_config* data,
   StaticJsonDocument<JSON_BUFFER_CONF> doc;
@@ -572,6 +568,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 
   const char *obj_p = obj["state"];
 
+  // todo: make a JsonObject loop.
   if ( obj_p != nullptr)
   {
       const bool stt = (char)atoi(obj_p);
@@ -582,6 +579,8 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   if (obj.containsKey("laps"))
   {
       uiConfig.laps = doc["conf"]["laps"];
+              // Serial.println(uiConfig.laps);
+
   }
   if (obj.containsKey("players"))
   {
@@ -599,6 +598,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   {
       uiConfig.light_brightness = doc["conf"]["light_brightness"];
   }
+  // todo: need to find ID/position
   if (obj.containsKey("names"))
   {
       uint8_t count = 0;
@@ -649,6 +649,7 @@ void onEvent(AsyncWebSocket       *server,
             if (info->final && (info->index == 0) && (info->len == length)) {
                 if (info->opcode == WS_TEXT)
                 {
+                    // todo: Add an UI lock/unlock state?
                     JSONToConf((char*)data);
 
                     confToJSON(json);
@@ -678,16 +679,16 @@ void onEvent(AsyncWebSocket       *server,
 //  Web Stuff: merge or separate to onEvent ?
 // todo: finish, make it works 
 // ----------------------------------------------------------------------------
-void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-    AwsFrameInfo *info = (AwsFrameInfo*)arg;
-    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-        // const char *action = json["action"];
-        // if (strcmp(action, "toggle") == 0) {
-        //     led.on = !led.on;
-        //     notifyClients();
-        // }
-    }
-}
+// void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+//     AwsFrameInfo *info = (AwsFrameInfo*)arg;
+//     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+//         // const char *action = json["action"];
+//         // if (strcmp(action, "toggle") == 0) {
+//         //     led.on = !led.on;
+//         //     notifyClients();
+//         // }
+//     }
+// }
 
 
 // ----------------------------------------------------------------------------
@@ -741,7 +742,6 @@ void server_init()
 #if defined(Button2_USE)
 void button_init()
 {
-#if defined(Button2_USE)
     btn1.setDebounceTime(50);
     btn2.setDebounceTime(50);
     
@@ -758,7 +758,6 @@ void button_init()
         Serial.println("B clicked");
 //        tft.fillRect(120, 100, 120, 35, state ? TFT_WHITE : TFT_BLACK);
     });
-#endif
 }
 #endif
 
@@ -882,7 +881,7 @@ void loop() {
   WriteJSONRace(millis());
 
   // same here. make a class ?
-  WriteSerialLive(millis(), 0); // 0 = serial
+  // WriteSerialLive(millis(), 0); // 0 = serial
   ReadSerial();
 }
 
@@ -990,6 +989,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
   // Send "live" JSON section
   // todo: maybe add a millis delay to don't DDOS client :-D
+  // todo: optimization, send only new value! (so need more memory to store lastValue)
   for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++){
     if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
     {
@@ -1001,6 +1001,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
       // todo: need to change to char and timeToChar function!
       live["rank"] = i;
+      // 
       live["id"] = idData[i].ID;
       live["lap"] = idData[i].laps;
       live["best"] = idData[i].bestLapTime;
@@ -1051,6 +1052,7 @@ void WriteJSONRace(uint32_t ms){
     char *valueMessage = race.getMessage();
     if (valueMessage != nullptr)
     {
+      //  Serial.println(valueMessage);
        race_json["message"] = valueMessage;
     }
 
