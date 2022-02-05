@@ -331,10 +331,13 @@ function modifyValue(line_id, class1, string1)
 
 function createLine(line_id)
 {
-    var line_elem = document.getElementById(line_id + '_class');
-    if (!line_elem)
+    for (var i = 1; i <= line_id; i++)
     {
-        generateLine(line_id);
+        var line_elem = document.getElementById(i + '_class');
+        if (!line_elem)
+        {
+            generateLine(i);
+        }
     }
 }
 
