@@ -38,7 +38,7 @@ Todo: Add author(s), descriptions, etc here...
 #if defined(DEBUG)
   void fakeIDtrigger(int ms); //debug function (replace i2c connection)
   #define JSON_BUFFER_DEBUG 256
-
+  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"0112\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";
 #endif
 
 // ----------------------------------------------------------------------------
@@ -101,10 +101,10 @@ struct UI_config{
     uint8_t players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
     uint8_t gates = NUMBER_GATES; // 1…?8 max?
 
-    bool light = false;
     uint8_t light_brightness = 255;
 
     // Todo Add  enable sound/voice/etc... here
+    bool light = false;
     bool state = false; // trigger a race start/stop
     bool reset = false; // trigger reset struct idData
     bool read_ID = false; // trigger an one shot ID reading
@@ -577,6 +577,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   const char *state_p = obj["state"];
   const char *reset_p = obj["state"];
 
+  // below is sort-of trigger button
   // todo: make a JsonObject loop.
   if ( state_p != nullptr)
   {
@@ -587,9 +588,19 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   if ( reset_p != nullptr)
   {
       const bool stt = (char)atoi(reset_p);
-      raceState = (stt) ? START : STOP;
+      if (stt)
+      {
+          uiConfig.reset = false;
+      }
+
   }
 
+  if (obj.containsKey("light"))
+  {
+      uiConfig.light = doc["conf"]["light"];
+  }
+
+  // below is number
   // obj_p = obj["laps"];
   if (obj.containsKey("laps"))
   {
@@ -604,10 +615,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   {
       uiConfig.gates = doc["conf"]["gates"];
   }
-  if (obj.containsKey("light"))
-  {
-      uiConfig.light = doc["conf"]["light"];
-  }
+
   if (obj.containsKey("light_brightness"))
   {
       uiConfig.light_brightness = doc["conf"]["light_brightness"];
@@ -618,13 +626,6 @@ void JSONToConf(const char* input){ // struct UI_config* data,
       uint8_t count = 0;
       JsonArray plrs = doc["conf"]["names"];
       for (JsonObject plr : plrs) {
-          // Serial.print(" | name: ");
-          // Serial.print(plr["name"].as<char *>());
-          // Serial.print(" | color: ");
-          // Serial.println(plr["color"].as<char *>());
-          // const uint32_t stt = (long)atoi(plr["id"]);
-          // Serial.println(stt);
-
           uiConfig.names[count].id = plr["id"].as<long>();
           strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
           strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
@@ -811,7 +812,7 @@ public:
 
     void loop(){
         uint32_t currentMillis = millis();
-            
+
         if((ledState == HIGH) && (currentMillis - previousMillis > OnTime))
         {
             setOutput(LOW, currentMillis);
@@ -851,6 +852,10 @@ void setup(void) {
 
   #if defined(Button2_USE)
       button_init();
+  #endif
+
+  #if defined(DEBUG)
+      JSONToConf(JSONconfDebug);
   #endif
 
 //  AsyncElegantOTA.begin(&server);
@@ -934,6 +939,7 @@ void writeJSONDebug(){
     StaticJsonDocument<JSON_BUFFER_DEBUG> doc;
     JsonObject debug_obj = doc.createNestedObject("debug");
 
+    // debug_obj["console"] = "";
     debug_obj["time"] = worstMicroLoop;
     worstMicroLoop = 0;
 
@@ -1130,7 +1136,7 @@ void WriteJSONRace(uint32_t ms){
 void fakeIDtrigger(int ms){
 
     static uint32_t startMillis;
-    const uint32_t idList[] = { 1234, 666, 1337, 2468, 0x4321, 0x2222, 0x1111, 0x1357};
+    const uint32_t idList[] = { 1234, 0112, 1337, 2468, 0x4321, 0x2222, 0x1111, 0x1357};
     static uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
     static uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
     static uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
@@ -1146,7 +1152,7 @@ void fakeIDtrigger(int ms){
     if ( millis() - autoResetReady > autoResetReadyDelay)
     {
         isNew = false;
-        // Serial.println("AUTO RESET");
+//        Serial.println("AUTO RESET");
     }
     autoResetReady = millis();
 
@@ -1157,7 +1163,7 @@ void fakeIDtrigger(int ms){
         {
             idGateNumber[i] = 20;
             uiConfig.names[i].id == idList[i];
-        }        
+        }
         oldRaceStateDebug = RACE;
         startMillis = millis();
         // Serial.println("NEW");
@@ -1257,7 +1263,6 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 // When you have only serial available for racing/debug...
 // ----------------------------------------------------------------------------
 void ReadSerial(){
-    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"blue\"},{\"id\":\"666\",\"name\":\"Player 2\",\"color\":\"red\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"green\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"yellow\"}]}}";
     char confJSON[JSON_BUFFER_CONF];
 
 
@@ -1267,24 +1272,27 @@ void ReadSerial(){
     byte inByte = Serial.read();
 
         switch (inByte) {
-        case 'S': // init timer
+        case 'S': //tart init timer
             raceState = START;
             break;
 
-        case 'T': // End connection
+        case 'T': //sTop End connection
             raceState = STOP;
             break;
 
-        case 'R': // Reset Value
+        case 'R': //eset Value
             raceState = RESET;
             break;
        
-        case 'F': // Test Message
+        case 'F': //ill Test Message
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
 
             confToJSON(confJSON); 
             ws.textAll(confJSON);
+            break;
+
+        case 'E': //mpty Test Message
             break;
 
         default:
