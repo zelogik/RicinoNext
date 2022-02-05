@@ -1,74 +1,98 @@
+/*
+Todo: Add author(s), descriptions, etc here...
+*/
+
+
+
+// ----------------------------------------------------------------------------
+// Imcludes library, header
+// ----------------------------------------------------------------------------
+// todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
 #if defined(ESP8266)
-#include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
-#include <ESPAsyncTCP.h>
+    #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
+    #include <ESPAsyncTCP.h>
 #else
-#include <WiFi.h>      //ESP32 Core WiFi Library
-#include <AsyncTCP.h>
+    #include <WiFi.h>      //ESP32 Core WiFi Library
+    #include <AsyncTCP.h>
 #endif
+
+// todo: need to check too with esp8266 compatibility..
 #include <ESPAsync_WiFiManager.h>
 #include <ESPAsyncWebServer.h>
 //#include <AsyncElegantOTA.h>;
 
-#include <FS.h>
-#include "SPIFFS.h"
+#include <FS.h> // need to choose!
+#include "SPIFFS.h" // need to choose!
+#include <SPI.h> // need to choose!
 
 #include <ArduinoJson.h>
 
-#include <Wire.h>          
+#include <Wire.h>     // need for the i2c gate.
 
-// DEBUG value for simulate fake receiver/emitter!!!!
+
+// ----------------------------------------------------------------------------
+// DEBUG global assigment, add receiver/emitter simulation (put in struct?)
+// ----------------------------------------------------------------------------
 uint32_t startMillis;
 const uint32_t idList[] = { 0x1234, 0x666, 0x1337, 0x2468}; // 0x4321, 0x2222, 0x1111, 0x1357};
 uint16_t idListTimer[] = { 2000, 2050, 2250, 2125}; // , 2050, 2150, 2250, 2350}; // used for the first lap!
 uint32_t idListLastMillis[] = { 0, 0, 0, 0}; // , 0, 0, 0, 0,};
-uint8_t idGateNumber[] = { 20, 20, 20, 20}; // , 19, 19, 19, 19}; // Address of first gate - 1
-// END DEBUG value
-
-/* AsyncWebServer Stuff */
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
-// DNSServer dns;
-
-//#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
-#include <SPI.h>
-//#define Button2_USE
-#if defined(Button2_USE)
-#include "Button2.h"
-#endif
-
-//TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h
-//#define TFT_GREY 0x5AEB // New colour
-
-#define NUMBER_RACER 4 // todo/future: set a fixed 32 struct BUT dynamic player number? to avoiding malloc/free etc..
-#define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
-
-const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final Gate! | define number in UI ?
-#define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
-
-#define NUMBER_PROTOCOL 3 // 0:serial, 1:ESP/JSON, 2:tft
-#define JSON_BUFFER 512
-#define JSON_BUFFER_CONF 512
-
-// Physical Button on TTGO Display
-#define BUTTON_1            35
-#define BUTTON_2            0
-
-#if defined(Button2_USE)
-Button2 btn1(BUTTON_1);
-Button2 btn2(BUTTON_2);
-#endif
-
-uint16_t ledPin = 13;
-
-// prototype
-void sortIDLoop(); // maybe add to Race class in future
+uint8_t idGateNumber[] = { 20, 20, 20, 20}; //  Address of first gate - 1
 void fakeIDtrigger(int ms); //debug function (replace i2c connection)
 
 
-/*================ UI Config struct =========================*/
+// ----------------------------------------------------------------------------
+// AsyncWebServer stuff, JSON stuff
+// ----------------------------------------------------------------------------
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+// DNSServer dns; // as it's local, why use DNS on the server...?
+//todo: separate live/race/conf json OR make a dynamic calculation
+#define JSON_BUFFER 512
+#define JSON_BUFFER_CONF 1024 // need to test with 8 players or more...
+
+
+// ----------------------------------------------------------------------------
+//  External components part. ie: button/tft/esp01 etc...
+// ----------------------------------------------------------------------------
+uint16_t ledPin = 13;
+//#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
+
+//TFT_eSPI tft = TFT_eSPI(135, 240);  // Invoke library, pins defined in User_Setup.h //#define TFT_GREY 0x5AEB // New colour
+
+//#define Button2_USE
+#if defined(Button2_USE)
+  #include "Button2.h"
+  #define BUTTON_1        35
+  #define BUTTON_2        0
+  Button2 btn1(BUTTON_1);
+  Button2 btn2(BUTTON_2);
+#endif
+
+
+// ----------------------------------------------------------------------------
+//  Default racer/gates/protocol
+// ----------------------------------------------------------------------------
+#define NUMBER_RACER 4 // todo/future: set a fixed 32 struct BUT dynamic player number? to avoiding malloc/free etc..
+// #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
+
+const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final Gate! | define address in UI ?
+#define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
+
+#define NUMBER_PROTOCOL 3 // 0:serial, 1:web, 2:tft, 3:jsonSerial todo: add enum for easy debug?
+
+
+// ----------------------------------------------------------------------------
+//  Prototype
+// ----------------------------------------------------------------------------
+void sortIDLoop(); // todo: add to Race class in future
+
+
+// ----------------------------------------------------------------------------
+//  UI Config struct
 // That struct is directly changed from client UI.
 // Auto send to client when isChanged or at new connection
-
+// ----------------------------------------------------------------------------
 struct UI_config{
     bool isChanged = false; // is used? / remove ?
 
@@ -91,15 +115,16 @@ struct UI_config{
         uint32_t ID; // dedup with idData[i].ID, something to refactoring ?
         char name[16]; // make a "random" username ala reddit ?
         char color[8]; // by char or int/hex value...
-    }player[NUMBER_RACER];
+    }names[NUMBER_RACER];
 };
 
 UI_config uiConfig;
 
 
-/* =============== Main Data struct =============== */
-
+// ----------------------------------------------------------------------------
+//  Main Data struct
 // One Struct to keep every player data + sorted at each loop.
+// ----------------------------------------------------------------------------
 typedef struct {
   public:
     // get info from i2c/gate
@@ -107,6 +132,7 @@ typedef struct {
     uint32_t lapTime;
     uint8_t currentGate;
 
+    // todo: check the init condition after a start/stop
     // Calculated value:
     uint16_t laps;
 //    uint32_t offsetLap;
@@ -120,9 +146,9 @@ typedef struct {
     uint32_t sumCheckPoint[NUMBER_GATES]; // 1193Hours for a buffer overflow?
 
     bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES];
-    bool positionChange[NUMBER_PROTOCOL]; // serial, tft, web,... add more
+    bool positionChange[NUMBER_PROTOCOL]; // serial, json, serial
 
-    // todo
+    // todo: clean
     int8_t statPos;
     uint8_t lastPos;
     bool haveMissed;
@@ -130,9 +156,6 @@ typedef struct {
     bool haveInitStart = 0;
     uint8_t indexToRefresh; 
 
-
-    // bool needTFTUpdate[NUMBER_GATES];
-    // bool needSerialUpdate[NUMBER_GATES]; // to update only changed gate
 
   void reset(){
     ID, laps = 0;
@@ -149,6 +172,7 @@ typedef struct {
     memset(sumCheckPoint, 0, sizeof(sumCheckPoint));
   }
 
+
   void updateTime(uint32_t timeMs, uint8_t gate){
     currentGate = gate;
     lapTime = timeMs;
@@ -158,7 +182,7 @@ typedef struct {
     if (haveInitStart){
       // one complete lap done
       if (currentGate == addressAllGates[0]){
-        // add only if " < race.numberTotalLaps ?
+        // todo: add only if " < race.numberTotalLaps ?
         laps++;
         // Calculation of full lap!
         lastCalc(&lastLapTime, &lastTotalTime, nullptr, timeMs);
@@ -166,7 +190,7 @@ typedef struct {
         bestCalc(&bestLapTime, lastLapTime);
       }
 
-      // Calculation of check point passage
+      // Calculation of checkpoint
       uint8_t prevIndex = (idxGates == 0) ? ((uint8_t)NUMBER_GATES - 1) : (idxGates - 1);
   
       for (uint8_t i = 0; i < NUMBER_PROTOCOL; i++)
@@ -184,13 +208,15 @@ typedef struct {
     }
   }
 
-  // todo, know if upm down, same.
+
+  // todo, know if up or down or same position.
   void updateRank(uint8_t currentPosition){
     statPos = lastPos - currentPosition;
     lastPos = currentPosition;
   }
 
-  // serial, tft, web,... add more
+
+  // return true and reset Protocol state
   bool needGateUpdate(uint8_t protocol){
     bool boolUpdate = false;
     for (uint8_t i = 0; i < NUMBER_GATES; i++)
@@ -206,9 +232,8 @@ typedef struct {
     return boolUpdate;
   }
 
+
   private:
-
-
     uint8_t gateIndex(uint8_t gate){
       uint8_t idx;
       for (uint8_t i = 0; i < NUMBER_GATES; i++)
@@ -222,12 +247,14 @@ typedef struct {
       return idx;
     }
 
+
     void bestCalc(uint32_t* best_ptr, uint32_t lastTime){
         if (lastTime < *best_ptr || *best_ptr == 0)
         {
             *best_ptr = lastTime;
         }
     }
+
 
     void meanCalc(uint32_t* mean_ptr, uint32_t* sum_ptr, uint32_t fullTime){
         uint32_t sumValue;
@@ -244,6 +271,7 @@ typedef struct {
         *mean_ptr = sumValue / ((laps > 0) ? laps : 1);
     }
 
+
     void lastCalc(uint32_t* last_ptr, uint32_t* lastTotal_ptr, uint32_t* lastPrevTotal_ptr, uint32_t fullTime){
         uint32_t value;
         if (lastPrevTotal_ptr == nullptr)
@@ -256,18 +284,18 @@ typedef struct {
         }
         *lastTotal_ptr = fullTime;
 
-        // Example:
+        // Example for 3 gates:
         //  0s   4s   7s       10s  13s  16s
         //  |    |    |    ->   |    |    |
     }
-
 } ID_Data_sorted;
 
 ID_Data_sorted idData[NUMBER_RACER + 1]; // number + 1, [0] is the tmp for rank change, and so 1st is [1] and not [0] and so on...
 
 
-/* ================ Buffer Struct ====================*/
-// Sort-Of simple buffer, todo: make fifo ready?, check if idBuffer is emptying before refill (from gates)
+// ----------------------------------------------------------------------------
+//  Buffer Struct: Sort-Of simple buffer for i2c request
+// ----------------------------------------------------------------------------
 typedef struct {
     uint32_t ID = 0;
     uint8_t gateNumber = 0;
@@ -278,8 +306,9 @@ typedef struct {
 ID_buffer idBuffer[NUMBER_RACER];
 
 
-//=============== Race Class =================================
-
+// ----------------------------------------------------------------------------
+//  Race enum, state machine
+// ----------------------------------------------------------------------------
 enum race_state_t {
     RESET,         // Set parameters(Counter BIP etc...), before start counter, re[set] all struct/class
     WAIT,          // only check gate status, waiting for START call.
@@ -290,26 +319,27 @@ enum race_state_t {
 };
 
 race_state_t raceState = RESET;
-// Human readable ENUM.
-const char* raceStateChar[] = {"RESET", "WAIT", "START", "RACE", "FINISH", "STOP"};
+const char* raceStateChar[] = {"RESET", "WAIT", "START", "RACE", "FINISH", "STOP"}; // todo: Human readable ENUM,used for message ?
 
 
+// ----------------------------------------------------------------------------
+//  Race Class, it's sort-of a main loop.
+// ----------------------------------------------------------------------------
 class Race {
   private:
-    // race_state_t oldRaceState = raceState;
-    uint16_t delayWarmupDelay = 2 * 1000; // need to be dynamic/changeable from UI
+    uint16_t delayWarmupDelay = 2 * 1000; // todo: changeable from UI
     uint16_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    uint16_t numberTotalLaps = 5; // add pointer to uiConfig
+    uint16_t numberTotalLaps = 5; // todo URGENT add pointer to uiConfig
     uint32_t finishRaceMillis;
-    uint32_t finishRaceDelay = 2 * 1000; // 10sec, need changeable from UI
+    uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
     const uint8_t messageLength = 128;
     char message[128] = "test Char pointer";
     uint32_t startTimeOffset;
 
-
+//      // keep for i2c gates
 //      APP_Data *app_ptr;
 //      app_ptr = &appData;
 
@@ -326,6 +356,7 @@ class Race {
         }
     }
 
+
     void printSerialDebug(){
         if (oldRaceState != raceState)
         {
@@ -334,18 +365,14 @@ class Race {
         }
     }
 
+
   public:
-    Race()
-    {
-    }
-    // ~Race();
+    Race(){}
+    ~Race(){};
     
     void loop(){
 
-        printSerialDebug();
-//  
-//      gatePing();
-//  
+//        printSerialDebug();
         switch (raceState)
         {
         // Reset everthing (struct,class,UI,JSON)
@@ -366,7 +393,8 @@ class Race {
                 isReady = true;
             }
     
-            if (millis() - delayWarmupTimer > delayWarmupDelay){
+            if (millis() - delayWarmupTimer > delayWarmupDelay)
+            {   // i2c gate template
                 // for (uint8_t i = 0; i < NUMBER_GATES; i++)
                 // {
                 //     setCommand(addressAllGates[i], app_ptr->startCmd, sizeof(&app_ptr->startCmd));
@@ -379,10 +407,11 @@ class Race {
             break;
 
         case RACE:
-            fakeIDtrigger(millis());
+            fakeIDtrigger(millis()); //only used for debug
 
             sortIDLoop(); // processing ID.
 
+            // i2c gate template
             // for (uint8_t i = 0 ; i < NUMBER_GATES; i++)
             // {
             //     getDataFromGate(addressAllGates[i]);
@@ -401,10 +430,11 @@ class Race {
             break;
 
         case FINISH:
-            fakeIDtrigger(millis());
+            fakeIDtrigger(millis()); //only used for debug
 
-            sortIDLoop();
+            sortIDLoop(); // todo: add condition to run only for RACE/FINISH
             // if ALL player > MAX LAP or timeOUT
+            // todo: add a all player finished condition
             if (millis() - finishRaceMillis > finishRaceDelay)
             {
                 raceState = STOP;
@@ -457,7 +487,7 @@ class Race {
 
     char* getMessage(){
       char message_tmp[128];
-
+      /// BAD BAD BAD!!!
 //      if (message[0] != 0)
 //      {
 //          memcpy(message_tmp, message, sizeof(message[0])*128);
@@ -470,14 +500,18 @@ class Race {
 
 Race race = Race();
 
-
-//=============== Web Stuff/config ============================
-
+// ----------------------------------------------------------------------------
+//  Web Stuff: Error function config JSON
+// is used somewhere? don't remember!
+// ----------------------------------------------------------------------------
 void notFound(AsyncWebServerRequest* request) {
   request->send(404, "text/plain", "Not found");
 }
 
-
+// ----------------------------------------------------------------------------
+//  Web Stuff: Used at new connection or broadcast confToJSON
+// todo: remove as confToJson make everything...
+// ----------------------------------------------------------------------------
 void notifyClients() {
     StaticJsonDocument<JSON_BUFFER> json;
     // json["status"] = led.on ? "on" : "off";
@@ -488,157 +522,177 @@ void notifyClients() {
 }
 
 
-void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-    AwsFrameInfo *info = (AwsFrameInfo*)arg;
-    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-
-        const uint8_t size = JSON_OBJECT_SIZE(1);
-        StaticJsonDocument<size> json;
-        DeserializationError err = deserializeJson(json, data);
-        if (err) {
-            Serial.print(F("deserializeJson() failed with code "));
-            Serial.println(err.c_str());
-            return;
-        }
-
-        const char *action = json["action"];
-        // if (strcmp(action, "toggle") == 0) {
-        //     led.on = !led.on;
-        //     notifyClients();
-        // }
-
-    }
-}
-
-/*  char test[512];
-  writeJSONData(&uiConfig, test); 
-  Serial.println(test);
-*/
-
-void confToJSON(const struct UI_config* data, char* output)
-{
-  StaticJsonDocument<JSON_BUFFER_CONF> doc; //need a function to calculate a proper size
+// ----------------------------------------------------------------------------
+//  Web Stuff: struct --> json<char[size]>
+//  char test[512];
+//  confToJSON(&uiConfig, test);
+//   Serial.println(test);
+// todo: need a special function to calculate the proper and dynamic size
+// ----------------------------------------------------------------------------
+void confToJSON(char* output){ // const struct UI_config* data,
+  StaticJsonDocument<JSON_BUFFER_CONF> doc;
 
   JsonObject conf = doc.createNestedObject("conf");
-  conf["laps"] = data->laps;
-  conf["players"] = data->players;
-  conf["gates"] = data->gates;
-  conf["light"] = data->light ? 1 : 0;
-  conf["light_brightness"] = data->light_brightness;
-  // doc["set_state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
-
-//  conf["state"]
+  conf["laps"] = uiConfig.laps;
+  conf["players"] = uiConfig.players;
+  conf["gates"] = uiConfig.gates;
+  conf["light"] = uiConfig.light ? 1 : 0;
+  conf["light_brightness"] = uiConfig.light_brightness;
+  conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
   JsonArray conf_players = conf.createNestedArray("names");
-
-  for ( uint8_t i = 0; i < NUMBER_RACER ; i++)
+  // todo: change that loop with JsonObject loop
+  for ( uint8_t i = 0; i < uiConfig.players ; i++)
   {
-      conf_players[i]["id"] = i + 1;
-      conf_players[i]["name"] = "xxxxx";
-      conf_players[i]["color"] = "xxxxx";
+      conf_players[i]["id"] = uiConfig.names[i].ID;
+      conf_players[i]["name"] = uiConfig.names[i].name;
+      conf_players[i]["color"] = uiConfig.names[i].color;
   }
 
   serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
 }
 
 
-void JSONToConf(struct UI_config* data, const char* input){
+// ----------------------------------------------------------------------------
+//  Web Stuff: json<char[size]> --> struct
+//  todo: need optimization/factorization
+// ----------------------------------------------------------------------------
+void JSONToConf(const char* input){ // struct UI_config* data, 
   StaticJsonDocument<JSON_BUFFER_CONF> doc;
 
   DeserializationError err = deserializeJson(doc, input, JSON_BUFFER_CONF);
-  // if (err) // todo: instead send error to UI (message)?
-  // {
-  //     Serial.print(F("deserializeJson() failed with code "));
-  //     Serial.println(err.f_str());
-  // }
+  if (err) // todo: instead send error to UI (message)?
+  {
+      Serial.print(F("deserializeJson() failed with code "));
+      Serial.println(err.f_str());
+  }
 
-  // JsonObject obj = doc.as<JsonObject>();
-  // const char* laps_p = obj["laps"];
-  // const uint8_t* players_p = obj["players"];
-  // const uint8_t* gates_p = obj["gates"];
-  // const bool* light_p = obj["light"];
-  // const uint8_t* set_brightness_light_p = obj["light_brightness"];
+  // todo: Code below need many optimizations!
+  JsonObject obj = doc["conf"]; //.as<JsonObject>();
 
+  const char *obj_p = obj["state"];
 
-  // // if (set_laps_p != nullptr) { // todo: add if (p.value().is<const char*>())
-  // //     data->set_laps = set_laps_p.value().as<const char*>();
-  // // }
+  if ( obj_p != nullptr)
+  {
+      const bool stt = (char)atoi(obj_p);
+      raceState = (stt) ? START : STOP;
+  }
 
-
-  // JsonArray arr = doc.as<JsonArray>();
-
-  // for (JsonObject repo : arr) {
-  //   const char* name = repo["name"];
-  //   // etc.
-  // }
-// char s[16];
-// sprintf(s, "Answer is %d", answer);
-
-// const char* error = obj["error"];
-// if (error != nullptr) {
-// // ...
-// }
-
-//             if (doc.containsKey("race")) {
-// //              raceStateENUM = (uint8_t)doc["race"] ? SET : RESET;
-// //              raceState = doc["race"];
-//               trigger = true;
-//             }
-//             if (doc.containsKey("light")) {
-// //              lightState = doc["light"];
-//               trigger = true;
-//             }
-//             if (doc.containsKey("setlaps")) {
-// //              raceLoop.setLaps((uint8_t)doc["setlaps"]);
-//               trigger = true;
-//             }
-//             if (doc.containsKey("connect")) {
-// //              raceState = (uint8_t)doc["connect"] ? CONNECTED : DISCONNECTED;
-// //              connectState = doc["connect"];
-//               trigger = true;
-//             }
-  // strlcpy(data.name, doc["name"] | "N/A", sizeof(data.name));
-  // data.time = doc["time"];
-  // data.value = doc["value"];
+  // obj_p = obj["laps"];
+  if (obj.containsKey("laps"))
+  {
+      uiConfig.laps = doc["conf"]["laps"];
+  }
+  if (obj.containsKey("players"))
+  {
+      uiConfig.players = doc["conf"]["players"];
+  }
+  if (obj.containsKey("gates"))
+  {
+      uiConfig.gates = doc["conf"]["gates"];
+  }
+  if (obj.containsKey("light"))
+  {
+      uiConfig.light = doc["conf"]["light"];
+  }
+  if (obj.containsKey("light_brightness"))
+  {
+      uiConfig.light_brightness = doc["conf"]["light_brightness"];
+  }
+  if (obj.containsKey("names"))
+  {
+      uint8_t count = 0;
+      JsonArray plrs = doc["conf"]["names"];
+      for (JsonObject plr : plrs) {
+          // Serial.print("ID: ");
+          // Serial.print(plr["id"].as<long>());
+          // Serial.print(" | name: ");
+          // Serial.print(plr["name"].as<char *>());
+          // Serial.print(" | color: ");
+          // Serial.println(plr["color"].as<char *>());
+          uiConfig.names[count].ID == plr["id"].as<long>();
+          strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
+          strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
+          count++;
+      }
+  }
 }
 
 
+// ----------------------------------------------------------------------------
+//  Web Stuff: interrupt based function, receive JSON from client
+// todo: finish, make it works
+// ----------------------------------------------------------------------------
 void onEvent(AsyncWebSocket       *server,
              AsyncWebSocketClient *client,
              AwsEventType          type,
              void                 *arg,
              uint8_t              *data,
-             size_t                len) {
+             size_t                length) {
+
+    char json[JSON_BUFFER_CONF];
 
     switch (type) {
         case WS_EVT_CONNECT:
             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-//         char json[JSON_BUFFER];
-//         serializeJsonPretty(doc, json);
-        // client->text(json);
+            confToJSON(json);
+            client->text(json);
             break;
+    
         case WS_EVT_DISCONNECT:
             Serial.printf("WebSocket client #%u disconnected\n", client->id());
             break;
+
         case WS_EVT_DATA:
-            // AwsFrameInfo* info = (AwsFrameInfo*)arg;
-            // if (info->final && (info->index == 0) && (info->len == length)) {
-            //   if (info->opcode == WS_TEXT) {
-            //   } else {
-            //     Serial.println("Received a ws message, but it isn't text");
-            //   }
-            // } else {
-            //   Serial.println("Received a ws message, but it didn't fit into one frame");
-            // }
-            handleWebSocketMessage(arg, data, len);
+        {
+            AwsFrameInfo* info = (AwsFrameInfo*)arg;
+            if (info->final && (info->index == 0) && (info->len == length)) {
+                if (info->opcode == WS_TEXT)
+                {
+                    JSONToConf((char*)data);
+
+                    confToJSON(json);
+                    ws.textAll(json);
+                }
+                else
+                {
+                    Serial.println("Received a ws message, but it isn't text");
+                }
+            }
+            else
+            {
+                Serial.println("Received a ws message, but it didn't fit into one frame");
+            }
+        //    handleWebSocketMessage(arg, data, len);
             break;
+        }
         case WS_EVT_PONG:
+            // break;
         case WS_EVT_ERROR:
             break;
     }
 }
 
 
+// ----------------------------------------------------------------------------
+//  Web Stuff: merge or separate to onEvent ?
+// todo: finish, make it works 
+// ----------------------------------------------------------------------------
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+        // const char *action = json["action"];
+        // if (strcmp(action, "toggle") == 0) {
+        //     led.on = !led.on;
+        //     notifyClients();
+        // }
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+//  Web Stuff: Only run one time, setup differents web address
+// ----------------------------------------------------------------------------
 void server_init()
 {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -680,6 +734,11 @@ void server_init()
   server.addHandler(&ws);
 }
 
+
+// ----------------------------------------------------------------------------
+//  Button class: add some physical "touch"
+// ----------------------------------------------------------------------------
+#if defined(Button2_USE)
 void button_init()
 {
 #if defined(Button2_USE)
@@ -701,11 +760,15 @@ void button_init()
     });
 #endif
 }
+#endif
 
 
-// Screen sort of led status... 
-class Led // Keep RED and GREEN led active
-{
+
+// ----------------------------------------------------------------------------
+//  Led Class: simple view of ENUM race state
+// todo: use the enum raceState ?
+// ----------------------------------------------------------------------------
+class Led{
 private:
     uint16_t _ledPin;
     uint32_t OnTime = 1000;     // milliseconds of on-time
@@ -747,9 +810,13 @@ public:
 };
 
 Led ledState = Led(ledPin);
-
 //Led tftLed = Led(tft.width - 10, tft.height - 10, tft.width, tft.height); // position X-start, Y-start, X-end, Y-end
 
+
+// ----------------------------------------------------------------------------
+//  Setup call...
+// todo: cleaning/separate function?
+// ----------------------------------------------------------------------------
 void setup(void) {
   Serial.begin(9600);
 
@@ -767,7 +834,10 @@ void setup(void) {
 //  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
   // Route to index.html + favicon.ico
   server_init();
-  button_init();
+
+  #if defined(Button2_USE)
+      button_init();
+  #endif
 
 //  AsyncElegantOTA.begin(&server);
 //  server.on("/",HTTP_GET, handleRoot);
@@ -775,14 +845,14 @@ void setup(void) {
 //  tft.init();
 //  tft.setRotation(1);
 
-  for (uint8_t i = 5; i != 0; i--){
+//   for (uint8_t i = 5; i != 0; i--){
 //      tft.setCursor(120 - 15, 70 - 25);
 //      tft.setTextSize(5);
 //      tft.setTextColor(TFT_RED);
 //      tft.fillScreen(TFT_BLACK);
 //      tft.print(i);
-      delay(200);
-  }
+//       delay(200);
+//   }
 
 //  tft.fillScreen(TFT_BLACK);
 //  tft.setTextSize(1);
@@ -795,26 +865,31 @@ void setup(void) {
 //  tft.print("CYCLES");
 }
 
+
+// ----------------------------------------------------------------------------
+//  Main loop, keep it small as possible for readability.
+// ----------------------------------------------------------------------------
 void loop() {
 
-#if defined(Button2_USE)
-  btn1.loop();
-  btn2.loop();
-#endif
+  // btn1.loop();
+  // btn2.loop();
 
+  ledState.loop();
   race.loop();
 
   // add in a class ?
-  WriteJSONLive(millis(), 1);
+  WriteJSONLive(millis(), 1); // 1 = web
   WriteJSONRace(millis());
 
   // same here. make a class ?
-  WriteSerialLive(millis(), 0);
+  WriteSerialLive(millis(), 0); // 0 = serial
   ReadSerial();
 }
 
-// Function below need to be/get called at each triggered gate.
+// ----------------------------------------------------------------------------
+//  Function below need to be/get called at each triggered gate.
 // take ID, buffering in a temp struct before to be processed by the sortIDLoop().
+// ----------------------------------------------------------------------------
 void bufferingID(int ID, uint8_t gate, int totalTime){
 
   for (uint8_t i = 0; i < NUMBER_RACER; i++)
@@ -837,7 +912,7 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
           if ( idData[j].ID == 0)
           {
               idData[j].ID = idBuffer[i].ID;
-              break; // Only registered the first Null .ID found
+              break; // Only registering the first Null .ID found
           }
       }
       break; // Only one ID by message, end the loop faster
@@ -846,11 +921,14 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
 }
 
 
+// ----------------------------------------------------------------------------
+//  Function below need to be/get called at each triggered gate.
+// take ID, buffering in a temp struct before to be processed by the sortIDLoop().
 // The most important loop,need to be the fastest possible (idBuffer overflow? bad sorting? who know...)
 // This function checking new data in bufferingID()/idBuffer[i]
 // sorting struct/table and process idBuffer -> idData.
 // don't know if it's add value to integrating directly in the race private class...
-
+// ----------------------------------------------------------------------------
 void sortIDLoop(){
 
   // check if new data available
@@ -859,11 +937,10 @@ void sortIDLoop(){
     if (idBuffer[i].isNew == true)
     {
        idBuffer[i].isNew = false;
-       // look ID current position
+       // look ID at current position
        uint8_t currentPosition = 0;
        uint32_t currentTime = idBuffer[i].totalLapsTime;
        uint8_t currentGate = idBuffer[i].gateNumber;
-       
 
        // get current position
        for (uint8_t j = 1; j < NUMBER_RACER + 1 ; j++)
@@ -881,7 +958,7 @@ void sortIDLoop(){
             break; // Processing only one idBuffer at a time!
          }
        }
-      //  check if ID get up in position/rank.
+       //  check if ID get up in position/rank.
        for (uint8_t k = currentPosition; k > 1 ; k--)
        {
           if (idData[k].laps > idData[k - 1].laps)
@@ -906,7 +983,9 @@ void sortIDLoop(){
 }
 
 
-// Send JSON if idData change.
+// ----------------------------------------------------------------------------
+// Send JSON if only if idData have changed, update player statistic
+// ----------------------------------------------------------------------------
 void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
   // Send "live" JSON section
@@ -920,6 +999,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
       // Need to fill now...
       JsonObject live = doc.createNestedObject("live");
 
+      // todo: need to change to char and timeToChar function!
       live["rank"] = i;
       live["id"] = idData[i].ID;
       live["lap"] = idData[i].laps;
@@ -928,6 +1008,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
       live["mean"] = idData[i].meanLapTime;
       live["total"] = idData[i].lastTotalTime;
 
+      // hum... if gate == 1, could we stop here ?
       JsonArray live_gate = live.createNestedArray("gate");
       for ( uint8_t i = 0; i < NUMBER_GATES; i++)
       {
@@ -943,12 +1024,11 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
   }
 }
 
-
-// Send Race state.
+// ----------------------------------------------------------------------------
+// Send JSON Race state. ie: lap/state/time
+// ----------------------------------------------------------------------------
 void WriteJSONRace(uint32_t ms){
-
   // Send "Race" JSON section
-
   static race_state_t oldRaceState = raceState;
   static uint32_t lastMillis = 0;
   uint32_t delayMillis;
@@ -960,8 +1040,7 @@ void WriteJSONRace(uint32_t ms){
     lastMillis = millis();
     oldRaceState = raceState;
 
-    // Need to feel now...
-
+    // Need to fill now...
     StaticJsonDocument<JSON_BUFFER> doc;
     JsonObject race_json = doc.createNestedObject("race");
 
@@ -979,63 +1058,27 @@ void WriteJSONRace(uint32_t ms){
     serializeJsonPretty(doc, json); // todo: remove the pretty after
     ws.textAll(json);
   }
-
-
-// ----------------------------------------------------------------------------
-// WebSocket initialization
-// ----------------------------------------------------------------------------
-
-
-// JsonObject config = doc.createNestedObject("config");
-// config["lap_total"] = 10;
-// config["players_number"] = 4;
-// config["gate_number"] = 3;
-// config["light_state"] = 0;
-// config["light_brightness"] = 0;
-
-// JsonArray config_players_conf = config.createNestedArray("players_conf");
-
-// JsonObject config_players_conf_0 = config_players_conf.createNestedObject();
-// config_players_conf_0["id"] = "xxxxxxx";
-// config_players_conf_0["name"] = "player01";
-// config_players_conf_0["color"] = "blue";
-
-// JsonObject config_players_conf_1 = config_players_conf.createNestedObject();
-// config_players_conf_1["id"] = "xxxxxxx";
-// config_players_conf_1["name"] = "player02";
-// config_players_conf_1["color"] = "red";
-
-// JsonObject config_players_conf_2 = config_players_conf.createNestedObject();
-// config_players_conf_2["id"] = "xxxxxxx";
-// config_players_conf_2["name"] = "player03";
-// config_players_conf_2["color"] = "green";
-
-// JsonObject config_players_conf_3 = config_players_conf.createNestedObject();
-// config_players_conf_3["id"] = "xxxxxxx";
-// config_players_conf_3["name"] = "player04";
-// config_players_conf_3["color"] = "yellow";
-// config["detected_ID"] = "XXXX";
-
 }
 
+// ----------------------------------------------------------------------------
 // Debug Loop, simulate the gates
+// make it changeable at compile time when i2c will be merged
+// ----------------------------------------------------------------------------
 void fakeIDtrigger(int ms){
-//   const numberGateDebug = NUMBER_GATES;
-
     static race_state_t oldRaceStateDebug = START;
     static bool isNew = false;
-    static uint32_t timeoutReady = millis();
-    const uint32_t timeoutReadyDelay = 1000; // 1sec without call this function.
+    static uint32_t autoResetReady = millis();
+    const uint32_t autoResetReadyDelay = 1000; // 1sec without call this function.
     uint8_t gateNumber_tmp;
     const uint8_t lastGatesDebug = addressAllGates[NUMBER_GATES - 1];
 
     //detect if it's a new race
-    if ( millis() - timeoutReady > timeoutReadyDelay)
+    if ( millis() - autoResetReady > autoResetReadyDelay)
     {
         isNew = false;
         Serial.println("AUTO RESET");
     }
-    timeoutReady = millis();
+    autoResetReady = millis();
 
     if ( oldRaceStateDebug == START && raceState == RACE && isNew == false)
     {
@@ -1077,11 +1120,12 @@ void fakeIDtrigger(int ms){
     {
         oldRaceStateDebug = START;
     }
-
 }
 
 
-// When you have only serial available for racing...
+// ----------------------------------------------------------------------------
+// When you have only serial available for racing/debug...
+// ----------------------------------------------------------------------------
 void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& data){
   static uint32_t lastMillis = 0;
   const uint32_t delayMillis = 2000;
@@ -1089,12 +1133,12 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
   
  if (ms - lastMillis > delayMillis)
  {
-    // digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     lastMillis = millis();
     //  Serial.println(ESP.getFreeHeap()); 237468 237644
  }
 
-  for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++){
+  for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++)
+  {
     if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
     {
       idData[i].positionChange[protocol] = false;
@@ -1124,14 +1168,10 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 
         for ( uint8_t i = 0; i < NUMBER_GATES; i++)
         {
-            Serial.print(F(" |"));
-            Serial.print(i + 1);
-            Serial.print(F(": "));
             // Shift Gate order:
             uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
-//            Serial.print(shiftGate);
             timeToChar(timeChar, 10, idData[j].lastCheckPoint[shiftGate]);
-            Serial.print(timeChar);
+            // Serial.print(timeChar);
         }
         Serial.println();
       }
@@ -1141,9 +1181,16 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 }
 
 
+// ----------------------------------------------------------------------------
+// When you have only serial available for racing/debug...
+// ----------------------------------------------------------------------------
 void ReadSerial(){
+    const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":40,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":1,\"names\":[{\"id\":1,\"name\":\"Player 1\",\"color\":\"blue\"},{\"id\":2,\"name\":\"Player 2\",\"color\":\"red\"},{\"id\":3,\"name\":\"Player 3\",\"color\":\"green\"},{\"id\":4,\"name\":\"Player 4\",\"color\":\"yellow\"}]}}";
+    char confJSON[JSON_BUFFER_CONF];
+
+
     if (Serial.available()) {
-    char test[128] = "test";
+    // char test[128] = "test";
     
     byte inByte = Serial.read();
 
@@ -1160,14 +1207,14 @@ void ReadSerial(){
             raceState = RESET;
             break;
        
-        case 'P': // Test Message pointer
+        case 'A': // Test Message
+            //char JSONconf[JSON_BUFFER_CONF];
+            JSONToConf(JSONconfDebug);
+            break;
 
-            char test[512];
-            confToJSON(&uiConfig, test); 
-            ws.textAll(test);
-
-  // Serial.println(test);
-//            race.setMessage(test);;
+        case 'B': // Test Message
+            confToJSON(confJSON); 
+            ws.textAll(confJSON);
             break;
 
         default:
@@ -1176,10 +1223,13 @@ void ReadSerial(){
     }
 }
 
-// Better to process on the mcu c++ or the browser javascript side... ??
-// But as there is already an identical function on the javascript side used for current time, remove that one ?
+
+// ----------------------------------------------------------------------------
 // ie: that function take 80usec to change millis() to human readable time.
-void timeToChar(char *buf, int len, uint32_t tmpMillis) { // the len is always 10... "00:00.000"
+// Better to process on the mcu c++ or the browser javascript side... ?
+// the len is always 10... "00:00.000"
+// ----------------------------------------------------------------------------
+void timeToChar(char *buf, int len, uint32_t tmpMillis) { 
   unsigned long nowMillis = tmpMillis;
   uint32_t tmp_seconds = nowMillis / 1000;
   uint32_t seconds = tmp_seconds % 60;
