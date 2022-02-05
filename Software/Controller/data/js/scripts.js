@@ -119,16 +119,14 @@ function onMessage(evt) {
                 sliderLock.disabled = false;
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
-                    // todo: need a trigger message from the server?
-                    Object.keys(stopwatches).forEach(function(key)
-                    {
-                        stopwatches[key].stop();
-                    });
-
+                stopStopWatches(); //If you hit Stop, you don't receive a stop, the state just changes to WAIT
             } else {
                 sliderLock.disabled = true;
                 raceButton.innerHTML = "Stop";
                 raceButton.style.color = "red";
+            }
+            if (obj.race.state === "STOP") {
+                 stopStopWatches();
             }
 
             if ('lap' in obj.race) {
@@ -455,6 +453,16 @@ function snackBar(message) {
     setTimeout(function(){ x.className = x.className.replace("show", ""); }, 5000);
     console.log(message);
   }
+
+function stopStopWatches()
+{
+    // todo: need a trigger message from the server?
+    Object.keys(stopwatches).forEach(function(key)
+    {
+        stopwatches[key].stop();
+    });
+    stopwatch.stop();
+}
 
 class Stopwatch {
     constructor(id, delay=151) { //Delay in ms
