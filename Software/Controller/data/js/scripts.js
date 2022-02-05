@@ -356,12 +356,12 @@ function generateLine(line_id)
     new_line.innerHTML = "";
 
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_id', line_id));
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '1'));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '-'));
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver' + line_id));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '3'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '4'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '5'));
-	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '6'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '-'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '-'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '-'));
+	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '-'));
 	//new_line.appendChild(generateDiv('col-md-2', line_id + '_current', '0'));
 
     document.getElementById("stats").appendChild(new_line);
