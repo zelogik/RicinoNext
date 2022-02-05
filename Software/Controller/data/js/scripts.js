@@ -280,6 +280,7 @@ function lightToggle() {
 // }
 
 function resetTrigger() {
+            clearLines();
             var data = JSON.stringify({"conf": {"reset": "1"}});
             doSend(data);
     }
@@ -406,6 +407,15 @@ function removeLine(line_id)
 	  if (stopwatches[line_id + "_current"])
 	      stopwatches[line_id + "_current"].stop();
 	  delete stopwatches[line_id + "_current"];
+    }
+}
+
+function clearLines()
+{
+    // todo: should get the line number from conf?
+    for (var i = 1; i <= 4; i++)
+    {
+        removeLine(i);
     }
 }
 
