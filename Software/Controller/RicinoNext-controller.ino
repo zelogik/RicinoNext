@@ -339,7 +339,7 @@ class Race {
     const uint8_t messageLength = 128;
     uint32_t startTimeOffset;
     char message[128] = "test Char pointer";
-
+    char message_buffer[128];
 
 //      // keep for i2c gates
 //      APP_Data *app_ptr;
@@ -501,12 +501,13 @@ class Race {
 
     char* getMessage(){
       // Send message only one time!
+      // could be better !?!
       if (message[0] != '\0')
       {
-          char message_tmp[128];
-          memcpy(message_tmp, message, sizeof(message[0])*128);
+          // char message_tmp[128];
+          memcpy(message_buffer, message, sizeof(message[0])*128);
           message[0] = '\0';
-          return message_tmp;
+          return message_buffer;
       }
       return nullptr;
     }
@@ -1102,7 +1103,7 @@ void WriteJSONRace(uint32_t ms){
     char *valueMessage = race.getMessage();
     if (valueMessage != nullptr)
     {
-      //  Serial.println(valueMessage);
+       Serial.println(valueMessage);
        race_json["message"] = valueMessage;
     }
 
@@ -1136,7 +1137,7 @@ void fakeIDtrigger(int ms){
     if ( millis() - autoResetReady > autoResetReadyDelay)
     {
         isNew = false;
-        Serial.println("AUTO RESET");
+        // Serial.println("AUTO RESET");
     }
     autoResetReady = millis();
 
@@ -1150,7 +1151,7 @@ void fakeIDtrigger(int ms){
         }        
         oldRaceStateDebug = RACE;
         startMillis = millis();
-        Serial.println("NEW");
+        // Serial.println("NEW");
     }
 
     if (isNew)
