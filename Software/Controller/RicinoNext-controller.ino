@@ -33,13 +33,13 @@ Todo: Add author(s), descriptions, etc here...
 // ----------------------------------------------------------------------------
 // DEBUG global assigment, add receiver/emitter simulation (put in struct?)
 // ----------------------------------------------------------------------------
-uint32_t startMillis;
-const uint32_t idList[] = { 0x1234, 0x666, 0x1337, 0x2468}; // 0x4321, 0x2222, 0x1111, 0x1357};
-uint16_t idListTimer[] = { 2000, 2050, 2250, 2125}; // , 2050, 2150, 2250, 2350}; // used for the first lap!
-uint32_t idListLastMillis[] = { 0, 0, 0, 0}; // , 0, 0, 0, 0,};
-uint8_t idGateNumber[] = { 20, 20, 20, 20}; //  Address of first gate - 1
-void fakeIDtrigger(int ms); //debug function (replace i2c connection)
+#define DEBUG 1
 
+#if defined(DEBUG)
+  void fakeIDtrigger(int ms); //debug function (replace i2c connection)
+  #define JSON_BUFFER_DEBUG 256
+
+#endif
 
 // ----------------------------------------------------------------------------
 // AsyncWebServer stuff, JSON stuff
@@ -50,6 +50,8 @@ AsyncWebSocket ws("/ws");
 //todo: separate live/race/conf json OR make a dynamic calculation
 #define JSON_BUFFER 512
 #define JSON_BUFFER_CONF 1024 // need to test with 8 players or more...
+
+
 
 
 // ----------------------------------------------------------------------------
@@ -330,7 +332,7 @@ class Race {
     uint16_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    uint16_t numberTotalLaps; // todo URGENT add pointer to uiConfig
+    uint16_t numberTotalLaps;
     uint32_t finishRaceMillis;
     uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
@@ -418,8 +420,9 @@ class Race {
             break;
 
         case RACE:
-            fakeIDtrigger(millis()); //only used for debug
-
+            #if defined(DEBUG)
+                fakeIDtrigger(millis()); //only used for debug
+            #endif
             sortIDLoop(); // processing ID.
 
             // i2c gate template
@@ -442,7 +445,9 @@ class Race {
             break;
 
         case FINISH:
-            fakeIDtrigger(millis()); //only used for debug
+            #if defined(DEBUG)
+                fakeIDtrigger(millis()); //only used for debug
+            #endif
 
             sortIDLoop(); // todo: add condition to run only for RACE/FINISH
             // if ALL player > MAX LAP or timeOUT
@@ -883,7 +888,52 @@ void loop() {
   // same here. make a class ?
   // WriteSerialLive(millis(), 0); // 0 = serial
   ReadSerial();
+
+  #if defined(DEBUG)
+    writeJSONDebug();
+  #endif
 }
+
+
+// ----------------------------------------------------------------------------
+// Debug loop, sending good info
+// ----------------------------------------------------------------------------
+#if defined(DEBUG)
+void writeJSONDebug(){
+  static uint32_t lastMillis = 0;
+  uint32_t delayMillis = 1000;
+  static uint32_t worstMicroLoop = 0;
+  static uint32_t oldTimeMicroLoop = 0;
+  
+  // delayMillis = (race.getCurrentTime() == 0) ? 5000 : 1000;
+  // calculate the loop time to execute.
+  uint32_t nowMicros = micros();
+  uint32_t lastTimeMicro = nowMicros - oldTimeMicroLoop;
+  oldTimeMicroLoop = nowMicros;
+
+  if (lastTimeMicro > worstMicroLoop )
+  {
+      worstMicroLoop = lastTimeMicro;
+  }
+
+  // send every sec
+  if (millis() - lastMillis > delayMillis)
+  {
+    lastMillis = millis();
+
+    StaticJsonDocument<JSON_BUFFER_DEBUG> doc;
+    JsonObject debug_obj = doc.createNestedObject("debug");
+
+    debug_obj["time"] = worstMicroLoop;
+    worstMicroLoop = 0;
+
+    char json[JSON_BUFFER_DEBUG];
+    serializeJsonPretty(doc, json);
+    ws.textAll(json);
+  }
+}
+#endif
+
 
 // ----------------------------------------------------------------------------
 //  Function below need to be/get called at each triggered gate.
@@ -1001,7 +1051,7 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
       // todo: need to change to char and timeToChar function!
       live["rank"] = i;
-      // 
+      // add old rank ?
       live["id"] = idData[i].ID;
       live["lap"] = idData[i].laps;
       live["best"] = idData[i].bestLapTime;
@@ -1066,7 +1116,15 @@ void WriteJSONRace(uint32_t ms){
 // Debug Loop, simulate the gates
 // make it changeable at compile time when i2c will be merged
 // ----------------------------------------------------------------------------
+#if defined(DEBUG)
 void fakeIDtrigger(int ms){
+
+    uint32_t startMillis;
+    const uint32_t idList[] = { 0x1234, 0x666, 0x1337, 0x2468, 0x4321, 0x2222, 0x1111, 0x1357};
+    uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
+    uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
+    uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
+
     static race_state_t oldRaceStateDebug = START;
     static bool isNew = false;
     static uint32_t autoResetReady = millis();
@@ -1088,7 +1146,8 @@ void fakeIDtrigger(int ms){
         for (uint8_t i = 0; i < NUMBER_RACER; i++)
         {
             idGateNumber[i] = 20;
-        }
+            uiConfig.names[i].ID == idList[i];
+        }        
         oldRaceStateDebug = RACE;
         startMillis = millis();
         Serial.println("NEW");
@@ -1123,6 +1182,7 @@ void fakeIDtrigger(int ms){
         oldRaceStateDebug = START;
     }
 }
+#endif
 
 
 // ----------------------------------------------------------------------------
@@ -1209,9 +1269,10 @@ void ReadSerial(){
             raceState = RESET;
             break;
        
-        case 'A': // Test Message
+        case 'F': // Test Message
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
+
             break;
 
         case 'B': // Test Message
@@ -1240,3 +1301,26 @@ void timeToChar(char *buf, int len, uint32_t tmpMillis) {
 
   snprintf(buf, len, "%02d:%02d.%03d", minutes, seconds, ms);
 }
+
+// Future template to test speed improvement
+// uint32_t fastUlongToTimeString(uint64_t secs, char *s)
+// {
+//   // divide by 3600 to calculate hours
+//  uint64_t hours = (secs * 0x91A3) >> 27;
+//  uint64_t xrem = secs - (hours * 3600);
+
+//  // divide by 60 to calculate minutes
+//  uint64_t mins = (xrem * 0x889) >> 17;
+//  xrem = xrem - (mins * 60);
+
+//  s[0] = (char)((hours / 10) + '0');
+//  s[1] = (char)((hours % 10) + '0');
+//  s[2] = ':';
+//  s[3] = (char)((mins / 10) + '0');
+//  s[4] = (char)((mins % 10) + '0');
+//  s[5] = ':';
+//  s[6] = (char)((xrem / 10) + '0');
+//  s[7] = (char)((xrem % 10) + '0');
+
+//  return 0;
+// }
