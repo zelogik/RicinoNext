@@ -15,6 +15,7 @@ Todo: Add author(s), descriptions, etc here...
     #include <WiFi.h>      //ESP32 Core WiFi Library
     #include <AsyncTCP.h>
     #include <Update.h>  // arduinoOTA
+    #include <ESPmDNS.h>
 #endif
 
 // todo: need to check too with esp8266 compatibility..
@@ -816,6 +817,16 @@ void server_init()
 
   server.begin();
 
+
+  if (!MDNS.begin("ricinoNext"))
+  {
+      Serial.println("Error setting up MDNS responder!");
+      while(1){
+          delay(1000);
+      }
+  }
+
+
   ws.onEvent(onEvent);
   server.addHandler(&ws);
   // Serial.println("isOK");
@@ -913,7 +924,7 @@ void setup(void) {
   ESPAsync_WiFiManager ESPAsync_wifiManager(&server, nullptr , "RicinoNextAP"); // &dns
 //  ESPAsync_wifiManager.resetSettings();   //reset saved settings
   ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
-  ESPAsync_wifiManager.autoConnect("RicinoNextAP");
+  ESPAsync_wifiManager.autoConnect("ricinoNextAP");
 
 //  if (WiFi.status() == WL_CONNECTED) { Serial.print(F("Connected. Local IP: ")); Serial.println(WiFi.localIP()); }
 //  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }

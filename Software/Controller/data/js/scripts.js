@@ -11,17 +11,18 @@ function init() {
         //document.getElementById('potVal').innerHTML = "<font color=\"red\">!! NO HOST !!</font>";
     }
 
+    // todo: make a ourHost try AND after try ricinoNext.local
     if (chop != 0) {
         tmp = ourURL.slice(chop);
         if ((idx = tmp.indexOf("/")) != -1) {
-            ourHost = tmp.slice(0, idx);
-            console.log("ourHost = "+ ourHost);
+            // ourHost = tmp.slice(0, idx);
+            // console.log("ourHost = "+ ourHost);
 
-            url = "ws://"+ ourHost +"/ws";
-            console.log("url = "+ url);
+            websocketUrl = "ws://"+ "ricinoNext.local" +"/ws";
+            console.log("url = "+ websocketUrl);
 
             // Connect to WebSocket server
-            wsConnect(url);
+            wsConnect(websocketUrl);
         } else {
             console.log("Could not determine hostname from window.location.href");
             document.getElementById('potVal').innerHTML = "<font color=\"red\">!! NO HOST !!</font>";
@@ -30,10 +31,10 @@ function init() {
 }
 
 // Call this to connect to the WebSocket server
-function wsConnect(url) {
+function wsConnect(websocketUrl) {
     // Connect to WebSocket server
-    websocket = new WebSocket(url);
-    
+    websocket = new WebSocket(websocketUrl);
+
     // Assign callbacks
     websocket.onopen = function(evt) { onOpen(evt) };
     websocket.onclose = function(evt) { onClose(evt) };
@@ -57,7 +58,7 @@ function onClose(evt) {
     console.log("Disconnected");
     
     // Try to reconnect after a few seconds
-    setTimeout(function() { wsConnect(url) }, 2000);
+    setTimeout(function() { wsConnect(websocketUrl) }, 2000);
 }
 
 // Called when a message is received from the server
