@@ -88,27 +88,32 @@ function onMessage(evt) {
     if ('conf' in obj) {
         //var names = Object.keys(jsonObj.products);
         // products = ["laptop", "cellphone", "tablets"];
+        config_global = obj;
 
         if ('laps' in obj.conf) {
-            document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
-            document.getElementById("lapsSlider").value = "" + obj.conf.laps;
+            var laps_value = document.getElementById("lapsSlider").value;
 
-            config_global = obj;
-        }
-        /*
-        if ('light' in obj) {
-            var x = document.getElementById("light");
-            if (obj.light === 1) {
-                x.innerHTML = "Off";
-                x.style.color = "blue";
-        //      x.style.bgcolor = "red";
-            } else {
-                x.innerHTML = "On";
-                x.style.color = "black";
-        //      x.style.bgcolor = "grey";
+            if ( obj.conf.light != laps_value) {
+                document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
+                document.getElementById("lapsSlider").value = "" + obj.conf.laps;
             }
         }
-        */
+
+        if ('light' in obj) {
+            var light_value = document.getElementById("light");
+
+            if (obj.conf.light != light_value){
+                if (obj.conf.laps === 1) {
+                    x.innerHTML = "Off";
+                    x.style.color = "blue";
+            //      x.style.bgcolor = "red";
+                } else {
+                    x.innerHTML = "On";
+                    x.style.color = "black";
+            //      x.style.bgcolor = "grey";
+                }
+            }
+        }
     }
 
 
@@ -120,14 +125,15 @@ function onMessage(evt) {
                 sliderLock.disabled = false;
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
-                stopStopWatches(); //If you hit Stop, you don't receive a stop, the state just changes to WAIT
-            } else {
+                // stopStopWatches(); //If you hit Stop, you don't receive a stop, the state just changes to WAIT
+            }
+            else if (obj.race.state === "STOP") {
+                stopStopWatches();
+            }
+            else {
                 sliderLock.disabled = true;
                 raceButton.innerHTML = "Stop";
                 raceButton.style.color = "red";
-            }
-            if (obj.race.state === "STOP") {
-                 stopStopWatches();
             }
 
             if ('lap' in obj.race) {
@@ -265,7 +271,7 @@ function raceToggle() {
 function lightToggle() {
     var x = document.getElementById("light");
     
-    if (x.innerHTML === "Start") {
+    if (x.innerHTML === "On") {
         var data = JSON.stringify({"conf": {"light": "1"}});
     } else {
         var data = JSON.stringify({"conf": {"light": "0"}});

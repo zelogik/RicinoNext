@@ -41,7 +41,7 @@ Todo: Add author(s), descriptions, etc here...
   #define JSON_BUFFER_DEBUG 256
   const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";
   const char compile_date[] = __DATE__ " " __TIME__;
-  char debug_message[128] = "test test test";
+  char debug_message[128] = {};
   // char debug_message_buffer[128];
 #endif
 
@@ -97,28 +97,29 @@ void sortIDLoop(); // todo: add to Race class in future
 // Auto send to client when isChanged or at new connection
 // ----------------------------------------------------------------------------
 struct UI_config{
-    bool isChanged = false; // is used? / remove ?
+  // bool isChanged = false; // is used? / remove ?
 
-    uint16_t laps = 10; // 1 - ? unlimited ?
-    uint8_t players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
-    uint8_t gates = NUMBER_GATES; // 1…?8 max?
+  uint16_t laps = 10; // 1 - ? unlimited ?
+  uint8_t players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
+  uint8_t gates = NUMBER_GATES; // 1…?8 max?
 
-    uint8_t light_brightness = 255;
+  uint8_t light_brightness = 255;
 
-    // Todo Add  enable sound/voice/etc... here
-    bool light = false;
-    bool state = false; // trigger a race start/stop
-    bool reset = false; // trigger reset struct idData
-    bool read_ID = false; // trigger an one shot ID reading
+  // Todo Add  enable sound/voice/etc... here
+  bool state = false; // trigger a race start/stop
+  bool light = false;
+  bool reset = false; // trigger reset struct idData
+  // todo: find a way to implement
+  bool read_ID = false; // trigger an one shot ID reading
 
-    // is separating this nested struct useful ?
-    struct Player
-    {
-        // uint8_t position; // todo: function to auto find by ID/name
-        uint32_t id; // dedup with idData[i].ID, something to refactoring ?
-        char name[16]; // make a "random" username ala reddit ?
-        char color[8]; // by char or int/hex value...
-    }names[NUMBER_RACER];
+  // is separating this nested struct useful ?
+  struct Player
+  {
+      // uint8_t position; // todo: function to auto find by ID/name
+      uint32_t id; // dedup with idData[i].ID, something to refactoring ?
+      char name[16]; // make a "random" username ala reddit ?
+      char color[8]; // by char or int/hex value...
+  }names[NUMBER_RACER];
 };
 
 UI_config uiConfig;
@@ -238,16 +239,16 @@ struct ID_Data_sorted{
 
   private:
     uint8_t gateIndex(uint8_t gate){
-      uint8_t idx;
-      for (uint8_t i = 0; i < NUMBER_GATES; i++)
-      {
-        if (gate == addressAllGates[i])
+        uint8_t idx;
+        for (uint8_t i = 0; i < NUMBER_GATES; i++)
         {
-            idx = i;
-            break; // idx found!
+            if (gate == addressAllGates[i])
+            {
+                idx = i;
+                break; // idx found!
+            }
         }
-      }
-      return idx;
+        return idx;
     }
 
 
@@ -300,10 +301,10 @@ ID_Data_sorted idData[NUMBER_RACER + 1]; // number + 1, [0] is the tmp for rank 
 //  Buffer Struct: Sort-Of simple buffer for i2c request from gates
 // ----------------------------------------------------------------------------
 struct ID_buffer{
-    uint32_t ID = 0;
-    uint8_t gateNumber = 0;
-    uint32_t totalLapsTime = 0; // in millis ?
-    bool isNew = false; //
+  uint32_t ID = 0;
+  uint8_t gateNumber = 0;
+  uint32_t totalLapsTime = 0; // in millis ?
+  bool isNew = false; //
 };
 
 ID_buffer idBuffer[NUMBER_RACER];
@@ -313,12 +314,12 @@ ID_buffer idBuffer[NUMBER_RACER];
 //  Race enum, state machine
 // ----------------------------------------------------------------------------
 enum race_state_t {
-    RESET,         // Set parameters(Counter BIP etc...), before start counter, re[set] all struct/class
-    WAIT,          // only check gate status, waiting for START call.
-    START,         // Run the warm-up phase, (light, beep,etc) (no registering player for the moment)
-    RACE,          // enable all gate receiver and so, update Race state (send JSON, sendSerial) etc...
-    FINISH,        // 1st player have win, terminate after 20s OR all players have finished.
-    STOP           // finished auto/manual goto WAIT
+  RESET,         // Set parameters(Counter BIP etc...), before start counter, re[set] all struct/class
+  WAIT,          // only check gate status, waiting for START call.
+  START,         // Run the warm-up phase, (light, beep,etc) (no registering player for the moment)
+  RACE,          // enable all gate receiver and so, update Race state (send JSON, sendSerial) etc...
+  FINISH,        // 1st player have win, terminate after 20s OR all players have finished.
+  STOP           // finished auto/manual goto WAIT
 };
 
 race_state_t raceState = RESET;
@@ -500,12 +501,14 @@ class Race {
 
             if (biggestLap == numberTotalLaps - 1)
             {
+                // todo: one time or for each player ?
                 memcpy(message, "Final Lap", sizeof(message[0])*128);
             }
             if (biggestLap == numberTotalLaps)
             {
                 finishRaceMillis = millis();
                 raceState = FINISH;
+                // todo: Only trig one time!
                 memcpy(message, "Hurry UP!", sizeof(message[0])*128);
             }
 
@@ -552,14 +555,14 @@ class Race {
     }
 
     uint32_t getCurrentTime(){
-      if (raceState == RACE || raceState == FINISH)
-      {
-          return ( millis() - startTimeOffset );
-      }
-      else
-      {
-          return 0;
-      }
+        if (raceState == RACE || raceState == FINISH)
+        {
+            return ( millis() - startTimeOffset );
+        }
+        else
+        {
+            return 0;
+        }
     }
 
     bool isIdRunning(uint8_t lap){
@@ -581,6 +584,55 @@ class Race {
 };
 
 Race race = Race();
+
+
+// ----------------------------------------------------------------------------
+//  Led Class: simple view of ENUM race state
+// todo: use the enum raceState ?
+// ----------------------------------------------------------------------------
+class Led{
+private:
+    uint16_t _ledPin;
+    uint32_t OnTime = 1000;     // milliseconds of on-time
+    uint32_t OffTime = 1000;    // milliseconds of off-time
+    bool ledState = LOW;                 // ledState used to set the LED
+    uint32_t previousMillis;   // will store last time LED was updated
+ 
+    void setOutput(bool state_, uint32_t currentMillis_){
+        ledState = state_;
+        previousMillis = currentMillis_;
+        digitalWrite(_ledPin, state_);
+    }
+
+public:
+    Led(uint16_t _lepPin)
+    {
+        this->_ledPin = _ledPin;
+        pinMode(_ledPin, OUTPUT);
+        previousMillis = 0; 
+    }
+
+    void set(uint32_t on, uint32_t off){
+        OnTime = on;
+        OffTime = off;
+    }
+
+    void loop(){
+        uint32_t currentMillis = millis();
+
+        if((ledState == HIGH) && (currentMillis - previousMillis > OnTime))
+        {
+            setOutput(LOW, currentMillis);
+        }
+        else if ((ledState == LOW) && (currentMillis - previousMillis > OffTime))
+        {
+            setOutput(HIGH, currentMillis);
+        }
+    }
+};
+
+Led ledState = Led(ledPin);
+//Led tftLed = Led(tft.width - 10, tft.height - 10, tft.width, tft.height); // position X-start, Y-start, X-end, Y-end
 
 
 // ----------------------------------------------------------------------------
@@ -649,25 +701,36 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   // todo: Code below need many optimizations!
   JsonObject obj = doc["conf"]; //.as<JsonObject>();
 
-  const char *state_p = obj["state"];
-  const char *reset_p = obj["state"];
+  const char *state_ptr = obj["state"];
+  const char *light_ptr = obj["light"];
+  const char *reset_ptr = obj["reset"];
 
   // below is sort-of trigger button
   // todo: make a JsonObject loop.
-  if ( state_p != nullptr)
+  if ( state_ptr != nullptr)
   {
-      const bool stt = (char)atoi(state_p);
+      const bool stt = (char)atoi(state_ptr);
       raceState = (stt) ? START : STOP;
   }
 
-  if ( reset_p != nullptr)
+  if ( light_ptr != nullptr)
   {
-      const bool stt = (char)atoi(reset_p);
+      const bool stt = (char)atoi(light_ptr);
+      if (stt){
+          ledState.set(5000, 1);
+      }
+      else{
+          ledState.set(1, 5000);
+      }
+  }
+
+  if ( reset_ptr != nullptr)
+  {
+      const bool stt = (char)atoi(reset_ptr);
       if (stt)
       {
           uiConfig.reset = false;
       }
-
   }
 
   if (obj.containsKey("light"))
@@ -897,56 +960,6 @@ void button_init()
 #endif
 
 
-
-// ----------------------------------------------------------------------------
-//  Led Class: simple view of ENUM race state
-// todo: use the enum raceState ?
-// ----------------------------------------------------------------------------
-class Led{
-private:
-    uint16_t _ledPin;
-    uint32_t OnTime = 1000;     // milliseconds of on-time
-    uint32_t OffTime = 1000;    // milliseconds of off-time
-    bool ledState = LOW;                 // ledState used to set the LED
-    uint32_t previousMillis;   // will store last time LED was updated
- 
-    void setOutput(bool state_, uint32_t currentMillis_){
-        ledState = state_;
-        previousMillis = currentMillis_;
-        digitalWrite(_ledPin, state_);
-    }
-
-public:
-    Led(uint16_t _lepPin)
-    {
-        this->_ledPin = _ledPin;
-        pinMode(_ledPin, OUTPUT);
-        previousMillis = 0; 
-    }
-
-    void set(uint32_t on, uint32_t off){
-        OnTime = on;
-        OffTime = off;
-    }
-
-    void loop(){
-        uint32_t currentMillis = millis();
-
-        if((ledState == HIGH) && (currentMillis - previousMillis > OnTime))
-        {
-            setOutput(LOW, currentMillis);
-        }
-        else if ((ledState == LOW) && (currentMillis - previousMillis > OffTime))
-        {
-            setOutput(HIGH, currentMillis);
-        }
-    }
-};
-
-Led ledState = Led(ledPin);
-//Led tftLed = Led(tft.width - 10, tft.height - 10, tft.width, tft.height); // position X-start, Y-start, X-end, Y-end
-
-
 // ----------------------------------------------------------------------------
 //  Setup call...
 // todo: cleaning/separate function?
@@ -955,8 +968,8 @@ void setup(void) {
   Serial.begin(9600);
 
   if(!SPIFFS.begin()){
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
+      Serial.println("An Error has occurred while mounting SPIFFS");
+      return;
   }
 
   ESPAsync_WiFiManager ESPAsync_wifiManager(&server, nullptr , "RicinoNextAP"); // &dns
@@ -1039,8 +1052,8 @@ void loop() {
 // ----------------------------------------------------------------------------
 #if defined(DEBUG)
 void writeJSONDebug(){
-  static uint32_t lastMillis = 0;
-  uint32_t delayMillis = 1000;
+  static uint16_t lastMillis = 0;
+  uint16_t delayMillis = 30 * 1000;
   static uint32_t worstMicroLoop = 0;
   static uint32_t oldTimeMicroLoop = 0;
   
@@ -1172,7 +1185,6 @@ void WriteJSONRace(uint32_t ms){
   if (ms - lastMillis > delayMillis || oldRaceState != raceState)
   {
       lastMillis = millis();
-      oldRaceState = raceState;
 
       StaticJsonDocument<JSON_BUFFER> doc;
       JsonObject race_json = doc.createNestedObject("race");
@@ -1192,6 +1204,8 @@ void WriteJSONRace(uint32_t ms){
       serializeJsonPretty(doc, json); // todo: remove the pretty after
       ws.textAll(json);
   }
+
+  oldRaceState = raceState;
 }
 
 // ----------------------------------------------------------------------------
@@ -1222,7 +1236,7 @@ void fakeIDtrigger(int ms){
     }
     autoResetReady = millis();
 
-    if ( oldRaceStateDebug == START && raceState == RACE && isNew == false)
+    if (oldRaceStateDebug == START && raceState == RACE && isNew == false)
     {
         isNew = true;
         for (uint8_t i = 0; i < NUMBER_RACER; i++)
