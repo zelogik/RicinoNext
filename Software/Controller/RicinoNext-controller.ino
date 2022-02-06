@@ -929,21 +929,18 @@ void setup(void) {
 //  if (WiFi.status() == WL_CONNECTED) { Serial.print(F("Connected. Local IP: ")); Serial.println(WiFi.localIP()); }
 //  else { Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status())); }
   // Route to index.html + favicon.ico
+
   server_init();
 
   #if defined(Button2_USE)
       button_init();
+  //  tft.init();
+  //  tft.setRotation(1);
   #endif
 
   #if defined(DEBUG)
       JSONToConf(JSONconfDebug);
   #endif
-
-//  AsyncElegantOTA.begin(&server);
-//  server.on("/",HTTP_GET, handleRoot);
-
-//  tft.init();
-//  tft.setRotation(1);
 
 //   for (uint8_t i = 5; i != 0; i--){
 //      tft.setCursor(120 - 15, 70 - 25);
@@ -971,8 +968,10 @@ void setup(void) {
 // ----------------------------------------------------------------------------
 void loop() {
 
-  // btn1.loop();
-  // btn2.loop();
+  #if defined(Button2_USE)
+  btn1.loop();
+  btn2.loop();
+  #endif
 
   ledState.loop();
   race.loop();
@@ -1001,7 +1000,6 @@ void writeJSONDebug(){
   static uint32_t worstMicroLoop = 0;
   static uint32_t oldTimeMicroLoop = 0;
   
-  // delayMillis = (race.getCurrentTime() == 0) ? 5000 : 1000;
   // calculate the loop time to execute.
   uint32_t nowMicros = micros();
   uint32_t lastTimeMicro = nowMicros - oldTimeMicroLoop;
@@ -1111,8 +1109,8 @@ void sortIDLoop(){
           {
               for (uint8_t l = 0; l < NUMBER_PROTOCOL; l++)
               {
-                idData[k].positionChange[l] = true; // enable change for all protocols.
-                idData[k - 1].positionChange[l] = true;
+                  idData[k].positionChange[l] = true; // enable change for all protocols.
+                  idData[k - 1].positionChange[l] = true;
               }
 
               idData[0] = idData[k - 1]; // backup copy
@@ -1130,7 +1128,7 @@ void sortIDLoop(){
 
 
 // ----------------------------------------------------------------------------
-// Send JSON if only if idData have changed, update player statistic
+// Send JSON if only idData have changed, update player stats/position
 // ----------------------------------------------------------------------------
 void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
@@ -1138,37 +1136,37 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
   // todo: maybe add a millis delay to don't DDOS client :-D
   // todo: optimization, send only new value! (so need more memory to store lastValue)
   for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++){
-    if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
-    {
-      idData[i].positionChange[protocol] = false;
-      StaticJsonDocument<JSON_BUFFER> doc;
-
-      // Need to fill now...
-      JsonObject live = doc.createNestedObject("live");
-
-      // todo: need to change to char and timeToChar function!
-      live["rank"] = i;
-      // add old rank ?
-      live["id"] = idData[i].ID;
-      live["lap"] = idData[i].laps;
-      live["best"] = idData[i].bestLapTime;
-      live["last"] = idData[i].lastLapTime;
-      live["mean"] = idData[i].meanLapTime;
-      live["total"] = idData[i].lastTotalTime;
-
-      // hum... if gate == 1, could we stop here ?
-      JsonArray live_gate = live.createNestedArray("gate");
-      for ( uint8_t i = 0; i < NUMBER_GATES; i++)
+      if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
       {
-        uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
-        live_gate.add(idData[i].lastCheckPoint[shiftGate]);
-      }
+          idData[i].positionChange[protocol] = false;
+          StaticJsonDocument<JSON_BUFFER> doc;
 
-      char json[JSON_BUFFER];
-      serializeJsonPretty(doc, json); // todo: remove the pretty after
-      ws.textAll(json);
-      break;
-    }
+          // Need to fill now...
+          JsonObject live = doc.createNestedObject("live");
+
+          // todo: need to change to char and timeToChar function!
+          live["rank"] = i;
+          // add old rank ?
+          live["id"] = idData[i].ID;
+          live["lap"] = idData[i].laps;
+          live["best"] = idData[i].bestLapTime;
+          live["last"] = idData[i].lastLapTime;
+          live["mean"] = idData[i].meanLapTime;
+          live["total"] = idData[i].lastTotalTime;
+
+          // hum... if gate == 1, could we stop here ?
+          JsonArray live_gate = live.createNestedArray("gate");
+          for ( uint8_t i = 0; i < NUMBER_GATES; i++)
+          {
+              uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
+              live_gate.add(idData[i].lastCheckPoint[shiftGate]);
+          }
+
+          char json[JSON_BUFFER];
+          serializeJsonPretty(doc, json); // todo: remove the pretty after
+          ws.textAll(json);
+          break;
+      }
   }
 }
 
@@ -1176,7 +1174,6 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
 // Send JSON Race state. ie: lap/state/time
 // ----------------------------------------------------------------------------
 void WriteJSONRace(uint32_t ms){
-  // Send "Race" JSON section
   static race_state_t oldRaceState = raceState;
   static uint32_t lastMillis = 0;
   uint32_t delayMillis;
@@ -1185,27 +1182,26 @@ void WriteJSONRace(uint32_t ms){
 
   if (ms - lastMillis > delayMillis || oldRaceState != raceState)
   {
-    lastMillis = millis();
-    oldRaceState = raceState;
+      lastMillis = millis();
+      oldRaceState = raceState;
 
-    // Need to fill now...
-    StaticJsonDocument<JSON_BUFFER> doc;
-    JsonObject race_json = doc.createNestedObject("race");
+      StaticJsonDocument<JSON_BUFFER> doc;
+      JsonObject race_json = doc.createNestedObject("race");
 
-    race_json["state"] = raceStateChar[raceState];
-    race_json["lap"] = race.getBiggestLaps();
-    race_json["time"] = race.getCurrentTime();
- 
-    char *valueMessage = race.getMessage();
-    if (valueMessage != nullptr)
-    {
-      //  Serial.println(valueMessage);
-       race_json["message"] = valueMessage;
-    }
+      race_json["state"] = raceStateChar[raceState];
+      race_json["lap"] = race.getBiggestLaps();
+      race_json["time"] = race.getCurrentTime();
+  
+      char *valueMessage = race.getMessage();
+      if (valueMessage != nullptr)
+      {
+          //  Serial.println(valueMessage);
+          race_json["message"] = valueMessage;
+      }
 
-    char json[JSON_BUFFER];
-    serializeJsonPretty(doc, json); // todo: remove the pretty after
-    ws.textAll(json);
+      char json[JSON_BUFFER];
+      serializeJsonPretty(doc, json); // todo: remove the pretty after
+      ws.textAll(json);
   }
 }
 
@@ -1233,7 +1229,7 @@ void fakeIDtrigger(int ms){
     if ( millis() - autoResetReady > autoResetReadyDelay)
     {
         isNew = false;
-//        Serial.println("AUTO RESET");
+      //  Serial.println("AUTO RESET");
     }
     autoResetReady = millis();
 
@@ -1298,45 +1294,45 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 
   for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++)
   {
-    if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
-    {
-      idData[i].positionChange[protocol] = false;
-
-      for (uint8_t k = 0; k < 15 ; k++){
-        Serial.println();
-      }
-      for (uint8_t j = 1; j < (NUMBER_RACER + 1) ; j++)
+      if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
       {
-        Serial.print(j);
-        Serial.print(F(" |ID: "));
-        Serial.print(idData[j].ID);
-        Serial.print(F(" |laps: "));
-        Serial.print(idData[j].laps);
-        Serial.print(F(" |Time: "));
-        timeToChar(timeChar, 10, idData[j].lastTotalTime);
-        Serial.print(timeChar);
-        Serial.print(F(" |last: "));
-        timeToChar(timeChar, 10, idData[j].lastLapTime);
-        Serial.print(timeChar);
-        Serial.print(F(" |best: "));
-        timeToChar(timeChar, 10, idData[j].bestLapTime);
-        Serial.print(timeChar);
-        Serial.print(F(" |mean: "));
-        timeToChar(timeChar, 10, idData[j].meanLapTime);
-        Serial.print(timeChar);
+          idData[i].positionChange[protocol] = false;
 
-        for ( uint8_t i = 0; i < NUMBER_GATES; i++)
-        {
-            // Shift Gate order:
-            uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
-            timeToChar(timeChar, 10, idData[j].lastCheckPoint[shiftGate]);
-            // Serial.print(timeChar);
+          for (uint8_t k = 0; k < 15 ; k++){
+              Serial.println();
+          }
+          for (uint8_t j = 1; j < (NUMBER_RACER + 1) ; j++)
+          {
+              Serial.print(j);
+              Serial.print(F(" |ID: "));
+              Serial.print(idData[j].ID);
+              Serial.print(F(" |laps: "));
+              Serial.print(idData[j].laps);
+              Serial.print(F(" |Time: "));
+              timeToChar(timeChar, 10, idData[j].lastTotalTime);
+              Serial.print(timeChar);
+              Serial.print(F(" |last: "));
+              timeToChar(timeChar, 10, idData[j].lastLapTime);
+              Serial.print(timeChar);
+              Serial.print(F(" |best: "));
+              timeToChar(timeChar, 10, idData[j].bestLapTime);
+              Serial.print(timeChar);
+              Serial.print(F(" |mean: "));
+              timeToChar(timeChar, 10, idData[j].meanLapTime);
+              Serial.print(timeChar);
+
+              for ( uint8_t i = 0; i < NUMBER_GATES; i++)
+              {
+                  // Shift Gate order:
+                  uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
+                  timeToChar(timeChar, 10, idData[j].lastCheckPoint[shiftGate]);
+                  // Serial.print(timeChar);
+              }
+              Serial.println();
+            }
+            break; // don't flood, only one message at a time!
         }
-        Serial.println();
-      }
-      break; // don't flood, only one message at a time!
     }
-  }
 }
 
 
