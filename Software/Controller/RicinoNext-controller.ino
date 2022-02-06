@@ -1052,8 +1052,8 @@ void loop() {
 // ----------------------------------------------------------------------------
 #if defined(DEBUG)
 void writeJSONDebug(){
-  static uint16_t lastMillis = 0;
-  uint16_t delayMillis = 30 * 1000;
+  static uint32_t lastMillis = 0;
+  const uint16_t delayMillis = 30 * 1000;
   static uint32_t worstMicroLoop = 0;
   static uint32_t oldTimeMicroLoop = 0;
   
