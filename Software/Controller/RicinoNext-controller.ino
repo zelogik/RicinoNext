@@ -214,8 +214,8 @@ struct ID_Data_sorted{
 
   // todo, know if up or down or same position.
   void updateRank(uint8_t currentPosition){
-    statPos = lastPos - currentPosition;
-    lastPos = currentPosition;
+      statPos = lastPos - currentPosition;
+      lastPos = currentPosition;
   }
 
 
@@ -224,13 +224,13 @@ struct ID_Data_sorted{
     bool boolUpdate = false;
     for (uint8_t i = 0; i < NUMBER_GATES; i++)
     {
-      if (haveUpdate[protocol][i] == true)
-      {
-        haveUpdate[protocol][i] = false;
-        indexToRefresh = i;
-        boolUpdate = true;
-        break; // don't need to check for any other change, will be done next time
-      }
+        if (haveUpdate[protocol][i] == true)
+        {
+            haveUpdate[protocol][i] = false;
+            indexToRefresh = i;
+            boolUpdate = true;
+            break; // don't need to check for any other change, will be done next time
+        }
     }
     return boolUpdate;
   }
@@ -339,7 +339,7 @@ class Race {
     uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
     uint32_t startTimeOffset;
-    char message[128] = "test Char pointer";
+    char message[128] = {};
     char message_buffer[128];
     uint8_t currentSortPosition;
     uint32_t currentSortTime;
@@ -500,6 +500,7 @@ class Race {
 
             if (biggestLap == numberTotalLaps - 1)
             {
+                memcpy(message, "Final Lap", sizeof(message[0])*128);
             }
             if (biggestLap == numberTotalLaps)
             {
@@ -587,17 +588,15 @@ Race race = Race();
 // is used somewhere? don't remember!
 // ----------------------------------------------------------------------------
 void notFound(AsyncWebServerRequest* request) {
-  request->send(404, "text/plain", "Not found");
+    request->send(404, "text/plain", "Not found");
 }
 
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: struct --> json<char[size]>
-//  char test[512];
-//  confToJSON(&uiConfig, test);
 // todo: need a special function to calculate dynamic size
 // ----------------------------------------------------------------------------
-void confToJSON(char* output){ // const struct UI_config* data,
+void confToJSON(char* output, bool connection){ // const struct UI_config* data,
   StaticJsonDocument<JSON_BUFFER_CONF> doc;
 
   JsonObject conf = doc.createNestedObject("conf");
@@ -617,6 +616,16 @@ void confToJSON(char* output){ // const struct UI_config* data,
       conf_players[i]["id"] = uiConfig.names[i].id;
       conf_players[i]["name"] = uiConfig.names[i].name;
       conf_players[i]["color"] = uiConfig.names[i].color;
+  }
+
+  if (connection)
+  {
+      #if defined(DEBUG)
+      JsonObject debug = doc.createNestedObject("debug");
+      debug["message"] = compile_date;
+      #endif
+      JsonObject race_obj = doc.createNestedObject("race");
+      race_obj["message"] = "Welcome on RicinoNext";
   }
 
   serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
@@ -703,7 +712,6 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: interrupt based function, receive JSON from client
-// todo: finish, make it works
 // ----------------------------------------------------------------------------
 void onEvent(AsyncWebSocket       *server,
              AsyncWebSocketClient *client,
@@ -717,7 +725,7 @@ void onEvent(AsyncWebSocket       *server,
     switch (type) {
         case WS_EVT_CONNECT:
             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-            confToJSON(json);
+            confToJSON(json, true);
             client->text(json);
             break;
     
@@ -734,7 +742,7 @@ void onEvent(AsyncWebSocket       *server,
                     // todo: Add an UI lock/unlock state?
                     JSONToConf((char*)data);
 
-                    confToJSON(json);
+                    confToJSON(json, false);
                     ws.textAll(json);
                 }
                 else
@@ -1004,7 +1012,6 @@ void setup(void) {
 //  Main loop, keep it small as possible for readability.
 // ----------------------------------------------------------------------------
 void loop() {
-
   #if defined(Button2_USE)
   btn1.loop();
   btn2.loop();
@@ -1022,7 +1029,7 @@ void loop() {
   ReadSerial();
 
   #if defined(DEBUG)
-    writeJSONDebug();
+  writeJSONDebug();
   #endif
 }
 
@@ -1055,7 +1062,7 @@ void writeJSONDebug(){
       StaticJsonDocument<JSON_BUFFER_DEBUG> doc;
       JsonObject debug_obj = doc.createNestedObject("debug");
 
-      // debug_obj["console"] = "";
+      // debug_obj["console"] = ""; 
       debug_obj["time"] = worstMicroLoop;
       worstMicroLoop = 0;
 
@@ -1347,7 +1354,7 @@ void ReadSerial(){
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
 
-            confToJSON(confJSON); 
+            confToJSON(confJSON, false); 
             ws.textAll(confJSON);
             break;
 
