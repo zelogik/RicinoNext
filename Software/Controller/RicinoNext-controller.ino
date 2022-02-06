@@ -40,6 +40,9 @@ Todo: Add author(s), descriptions, etc here...
   void fakeIDtrigger(int ms); //debug function (replace i2c connection)
   #define JSON_BUFFER_DEBUG 256
   const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";
+  const char compile_date[] = __DATE__ " " __TIME__;
+  char debug_message[128] = "test test test";
+  // char debug_message_buffer[128];
 #endif
 
 // ----------------------------------------------------------------------------
@@ -127,85 +130,85 @@ UI_config uiConfig;
 // ----------------------------------------------------------------------------
 struct ID_Data_sorted{
   public:
-    // get info from i2c/gate
-    uint32_t ID;
-    uint32_t lapTime;
-    uint8_t currentGate;
+      // get info from i2c/gate
+      uint32_t ID;
+      uint32_t lapTime;
+      uint8_t currentGate;
 
-    // todo: check the init condition after a start/stop
-    // Calculated value:
-    uint16_t laps;
-//    uint32_t offsetLap;
-    // Make all variable below private ?
-    uint32_t bestLapTime, meanLapTime, lastLapTime, lastTotalTime;
-  
-    uint32_t lastTotalCheckPoint[NUMBER_GATES];
-    uint32_t lastCheckPoint[NUMBER_GATES];
-    uint32_t bestCheckPoint[NUMBER_GATES];
-    uint32_t meanCheckPoint[NUMBER_GATES];
-    uint32_t sumCheckPoint[NUMBER_GATES]; // 1193Hours for a buffer overflow?
+      // todo: check the init condition after a start/stop
+      // Calculated value:
+      uint16_t laps;
+      //  uint32_t offsetLap;
+      // Make all variable below private ?
+      uint32_t bestLapTime, meanLapTime, lastLapTime, lastTotalTime;
 
-    bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES];
-    bool positionChange[NUMBER_PROTOCOL]; // serial, json, serial
+      uint32_t lastTotalCheckPoint[NUMBER_GATES];
+      uint32_t lastCheckPoint[NUMBER_GATES];
+      uint32_t bestCheckPoint[NUMBER_GATES];
+      uint32_t meanCheckPoint[NUMBER_GATES];
+      uint32_t sumCheckPoint[NUMBER_GATES]; // 1193Hours for a buffer overflow?
 
-    // todo: clean
-    int8_t statPos;
-    uint8_t lastPos;
-    bool haveMissed;
-    uint8_t lastGate;
-    bool haveInitStart = 0;
-    uint8_t indexToRefresh; 
+      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES];
+      bool positionChange[NUMBER_PROTOCOL]; // serial, json, serial
+
+      // todo: clean
+      int8_t statPos;
+      uint8_t lastPos;
+      bool haveMissed;
+      uint8_t lastGate;
+      bool haveInitStart = 0;
+      uint8_t indexToRefresh; 
 
 
   void reset(){
-    ID, laps = 0;
-    lapTime, lastTotalTime, bestLapTime, meanLapTime, lastLapTime = 0;
-    currentGate = addressAllGates[0];
+      ID, laps = 0;
+      lapTime, lastTotalTime, bestLapTime, meanLapTime, lastLapTime = 0;
+      currentGate = addressAllGates[0];
 
-    memset(positionChange, 0, sizeof(positionChange)); // serial, tft, web,... add more
-    memset(haveUpdate, 0, sizeof(haveUpdate)); // false?
+      memset(positionChange, 0, sizeof(positionChange)); // serial, tft, web,... add more
+      memset(haveUpdate, 0, sizeof(haveUpdate)); // false?
 
-    memset(lastTotalCheckPoint, 0, sizeof(lastTotalCheckPoint));
-    memset(lastCheckPoint, 0, sizeof(lastCheckPoint));
-    memset(bestCheckPoint, 0, sizeof(bestCheckPoint));
-    memset(meanCheckPoint, 0, sizeof(meanCheckPoint));
-    memset(sumCheckPoint, 0, sizeof(sumCheckPoint));
+      memset(lastTotalCheckPoint, 0, sizeof(lastTotalCheckPoint));
+      memset(lastCheckPoint, 0, sizeof(lastCheckPoint));
+      memset(bestCheckPoint, 0, sizeof(bestCheckPoint));
+      memset(meanCheckPoint, 0, sizeof(meanCheckPoint));
+      memset(sumCheckPoint, 0, sizeof(sumCheckPoint));
   }
 
 
   void updateTime(uint32_t timeMs, uint8_t gate){
-    currentGate = gate;
-    lapTime = timeMs;
-//    uint32_t tmp_lastTotalLapTime = totalLapTime;
-    uint8_t idxGates = gateIndex(gate);
+      currentGate = gate;
+      lapTime = timeMs;
+  //    uint32_t tmp_lastTotalLapTime = totalLapTime;
+      uint8_t idxGates = gateIndex(gate);
 
-    if (haveInitStart){
-      // one complete lap done
-      if (currentGate == addressAllGates[0]){
-        // todo: add only if " < race.numberTotalLaps ?
-        laps++;
-        // Calculation of full lap!
-        lastCalc(&lastLapTime, &lastTotalTime, nullptr, timeMs);
-        meanCalc(&meanLapTime, nullptr, timeMs);
-        bestCalc(&bestLapTime, lastLapTime);
+      if (haveInitStart){
+          // one complete lap done
+          if (currentGate == addressAllGates[0]){
+              // todo: add only if " < race.numberTotalLaps ?
+              laps++;
+              // Calculation of full lap!
+              lastCalc(&lastLapTime, &lastTotalTime, nullptr, timeMs);
+              meanCalc(&meanLapTime, nullptr, timeMs);
+              bestCalc(&bestLapTime, lastLapTime);
+          }
+
+          // Calculation of checkpoint
+          uint8_t prevIndex = (idxGates == 0) ? ((uint8_t)NUMBER_GATES - 1) : (idxGates - 1);
+      
+          for (uint8_t i = 0; i < NUMBER_PROTOCOL; i++)
+          {
+              haveUpdate[i][idxGates] = true;
+          }
+          lastCalc(&lastCheckPoint[idxGates], &lastTotalCheckPoint[idxGates], &lastTotalCheckPoint[prevIndex], timeMs);
+          meanCalc(&meanCheckPoint[idxGates], &sumCheckPoint[idxGates], lastCheckPoint[idxGates]);
+          bestCalc(&bestCheckPoint[idxGates], lastCheckPoint[idxGates]);      
       }
-
-      // Calculation of checkpoint
-      uint8_t prevIndex = (idxGates == 0) ? ((uint8_t)NUMBER_GATES - 1) : (idxGates - 1);
-  
-      for (uint8_t i = 0; i < NUMBER_PROTOCOL; i++)
+      else
       {
-        haveUpdate[i][idxGates] = true;
+          haveInitStart = true;
+          // initOffset()?
       }
-      lastCalc(&lastCheckPoint[idxGates], &lastTotalCheckPoint[idxGates], &lastTotalCheckPoint[prevIndex], timeMs);
-      meanCalc(&meanCheckPoint[idxGates], &sumCheckPoint[idxGates], lastCheckPoint[idxGates]);
-      bestCalc(&bestCheckPoint[idxGates], lastCheckPoint[idxGates]);      
-    }
-    else
-    {
-      haveInitStart = true;
-      // initOffset()?
-    }
   }
 
 
@@ -335,10 +338,12 @@ class Race {
     uint32_t finishRaceMillis;
     uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
-    const uint8_t messageLength = 128;
     uint32_t startTimeOffset;
     char message[128] = "test Char pointer";
     char message_buffer[128];
+    uint8_t currentSortPosition;
+    uint32_t currentSortTime;
+    uint8_t currentSortGate;
 
 //      // keep for i2c gates
 //      APP_Data *app_ptr;
@@ -368,8 +373,70 @@ class Race {
 
 
     void setMessage(char *test_char[128]){
-      memcpy(message, test_char, sizeof(test_char[0])*128);
+      memcpy(message, test_char, sizeof(message[0])*128);
       // Now set an 
+    }
+
+
+    // ----------------------------------------------------------------------------
+    //  Function below need to be/get called at each triggered gate.
+    // take ID, buffering in a temp struct before to be processed by the sortIDLoop().
+    // The most important loop,need to be the fastest possible (idBuffer overflow? bad sorting? who know...)
+    // This function checking new data in bufferingID()/idBuffer[i]
+    // sorting struct/table and process idBuffer -> idData.
+    // don't know if it's add value to integrating directly in the race private class...
+    // ----------------------------------------------------------------------------
+    void sortIDLoop(){
+
+      // check if new data available
+      for (uint8_t i = 0; i < NUMBER_RACER ; i++)
+      {
+          if (idBuffer[i].isNew == true)
+          {
+              idBuffer[i].isNew = false;
+              // look ID at current position
+              currentSortPosition = 0;
+              currentSortTime = idBuffer[i].totalLapsTime;
+              currentSortGate = idBuffer[i].gateNumber;
+
+              // get current position
+              for (uint8_t j = 1; j < NUMBER_RACER + 1 ; j++)
+              {
+                  if ( idBuffer[i].ID == idData[j].ID )
+                  {
+                      currentSortPosition = j;
+                      if (isIdRunning(idData[currentSortPosition].laps))
+                      {
+                          idData[currentSortPosition].updateTime(currentSortTime, currentSortGate);
+                      }
+                      // update biggestLap.
+                      setBiggestLap(idData[currentSortPosition].laps);
+
+                      break; // Processing only one idBuffer at a time!
+                  }
+              }
+              //  check if ID get up in position/rank.
+              for (uint8_t k = currentSortPosition; k > 1 ; k--)
+              {
+                  if (idData[k].laps > idData[k - 1].laps)
+                  {
+                      for (uint8_t l = 0; l < NUMBER_PROTOCOL; l++)
+                      {
+                          idData[k].positionChange[l] = true; // enable change for all protocols.
+                          idData[k - 1].positionChange[l] = true;
+                      }
+
+                      idData[0] = idData[k - 1]; // backup copy
+                      idData[k - 1] = idData[k];
+                      idData[k] = idData[0];
+                  }
+                  else
+                  {
+                    break; // Useless to continu for better position
+                  }
+              }
+          }
+      }
     }
 
 
@@ -480,17 +547,17 @@ class Race {
     }
 
     uint16_t getBiggestLaps(){
-      return biggestLap;
+        return biggestLap;
     }
 
     uint32_t getCurrentTime(){
       if (raceState == RACE || raceState == FINISH)
       {
-        return ( millis() - startTimeOffset );
+          return ( millis() - startTimeOffset );
       }
       else
       {
-        return 0;
+          return 0;
       }
     }
 
@@ -721,115 +788,78 @@ void server_init()
   
   // Route to load css files
   server.on("/css/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/css/style.css", "text/css");
+      request->send(SPIFFS, "/css/style.css", "text/css");
   });
   server.on("/css/bootstrap.min.css", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/css/bootstrap.min.css", "text/css");
+      request->send(SPIFFS, "/css/bootstrap.min.css", "text/css");
   });
   server.on("/css/bootstrap.min.css.map", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/css/bootstrap.min.css.map", "text/css");
+      request->send(SPIFFS, "/css/bootstrap.min.css.map", "text/css");
   });
 
   // Route to load javascript files
   server.on("/js/jquery.min.js", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/js/jquery.min.js", "text/javascript");
+      request->send(SPIFFS, "/js/jquery.min.js", "text/javascript");
   });
   server.on("/js/bootstrap.bundle.min.js", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/js/bootstrap.bundle.min.js", "text/javascript");
+      request->send(SPIFFS, "/js/bootstrap.bundle.min.js", "text/javascript");
   });
   server.on("/js/bootstrap.bundle.min.js.map", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/js/bootstrap.bundle.min.js.map", "text/javascript");
+      request->send(SPIFFS, "/js/bootstrap.bundle.min.js.map", "text/javascript");
   });
   server.on("/js/scripts.js", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/js/scripts.js", "text/javascript");
+      request->send(SPIFFS, "/js/scripts.js", "text/javascript");
   });
 
   server.on("/update", HTTP_GET, [&](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/update.html", "text/html");
+      request->send(SPIFFS, "/update.html", "text/html");
   });
 
 
-  server.on("/update", HTTP_POST, [&](AsyncWebServerRequest *request) {
+  server.on("/update", HTTP_POST, [&](AsyncWebServerRequest *request){
                 AsyncWebServerResponse *response = request->beginResponse((Update.hasError())?500:200, "text/plain", (Update.hasError())?"FAIL":"OK");
                 response->addHeader("Connection", "close");
                 response->addHeader("Access-Control-Allow-Origin", "*");
                 request->send(response);
                 yield();
                 ESP.restart();
-            }, [&](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-                    // #if defined(ESP8266)
-                    //     int cmd = (filename == "filesystem") ? U_FS : U_FLASH;
-                    //     Update.runAsync(true);
-                    //     size_t fsSize = ((size_t) &_FS_end - (size_t) &_FS_start);
-                    //     uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-                    //     if (!Update.begin((cmd == U_FS)?fsSize:maxSketchSpace, cmd)){ // Start with max available size
-                    // #elif defined(ESP32)
-                int cmd = (filename == "filesystem") ? U_SPIFFS : U_FLASH;
-                if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) { // Start with max available size
-                    // #endif
-                    //     Update.printError(Serial);
-                    //     return request->send(400, "text/plain", "OTA could not begin");
-                    // }
-                        }
+  }, [&](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+          // #if defined(ESP8266)
+          //     int cmd = (filename == "filesystem") ? U_FS : U_FLASH;
+          //     Update.runAsync(true);
+          //     size_t fsSize = ((size_t) &_FS_end - (size_t) &_FS_start);
+          //     uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+          //     if (!Update.begin((cmd == U_FS)?fsSize:maxSketchSpace, cmd)){ // Start with max available size
+          // #elif defined(ESP32)
+      int cmd = (filename == "filesystem") ? U_SPIFFS : U_FLASH;
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) { // Start with max available size
+          // #endif
+          //     Update.printError(Serial);
+          //     return request->send(400, "text/plain", "OTA could not begin");
+          // }
+              }
 
-                // Write chunked data to the free sketch space
-                if(len){
-                    if (Update.write(data, len) != len) {
-                        return request->send(400, "text/plain", "OTA could not begin");
-                    }
-                }
-                    
-                if (final) { // if the final flag is set then this is the last frame of data
-                    if (!Update.end(true)) { //true to set the size to the current progress
-                        Update.printError(Serial);
-                        return request->send(400, "text/plain", "Could not end OTA");
-                    }
-                }else{
-                    return;
-                }
-            });
-
-
-
-    //   request->sendHeader("Connection", "close");
-    //   request->send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-    //   ESP.restart();
-    // }, []() {
-    //   HTTPUpload& upload = server.upload();
-    //   if (upload.status == UPLOAD_FILE_START) {
-    //     Serial.printf("Update: %s\n", upload.filename.c_str());
-    //     if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
-    //       Update.printError(Serial);
-    //     }
-    //   } else if (upload.status == UPLOAD_FILE_WRITE) {
-    //     /* flashing firmware to ESP*/
-    //     if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-    //       Update.printError(Serial);
-    //     }
-    //   } else if (upload.status == UPLOAD_FILE_END) {
-    //     if (Update.end(true)) { //true to set the size to the current progress
-    //       Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-    //     } else {
-    //       Update.printError(Serial);
-    //     }
-    //   }
-    // });
+      // Write chunked data to the free sketch space
+      if(len){
+          if (Update.write(data, len) != len) {
+              return request->send(400, "text/plain", "OTA could not begin");
+          }
+      }
+          
+      if (final) { // if the final flag is set then this is the last frame of data
+          if (!Update.end(true)) { //true to set the size to the current progress
+              Update.printError(Serial);
+              return request->send(400, "text/plain", "Could not end OTA");
+          }
+      }else{
+          return;
+      }
+  });
 
   server.begin();
-
-
-  if (!MDNS.begin("ricinoNext"))
-  {
-      Serial.println("Error setting up MDNS responder!");
-      while(1){
-          delay(1000);
-      }
-  }
-
-
+  yield();
   ws.onEvent(onEvent);
   server.addHandler(&ws);
-  // Serial.println("isOK");
 }
 
 
@@ -942,6 +972,13 @@ void setup(void) {
       JSONToConf(JSONconfDebug);
   #endif
 
+  if (!MDNS.begin("ricinoNext"))
+  {
+      Serial.println("Error setting up MDNS responder!");
+  }
+
+  memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
+
 //   for (uint8_t i = 5; i != 0; i--){
 //      tft.setCursor(120 - 15, 70 - 25);
 //      tft.setTextSize(5);
@@ -1011,20 +1048,27 @@ void writeJSONDebug(){
   }
 
   // send every sec
-  if (millis() - lastMillis > delayMillis)
+  if (millis() - lastMillis > delayMillis && millis() > 10000)
   {
-    lastMillis = millis();
+      lastMillis = millis();
 
-    StaticJsonDocument<JSON_BUFFER_DEBUG> doc;
-    JsonObject debug_obj = doc.createNestedObject("debug");
+      StaticJsonDocument<JSON_BUFFER_DEBUG> doc;
+      JsonObject debug_obj = doc.createNestedObject("debug");
 
-    // debug_obj["console"] = "";
-    debug_obj["time"] = worstMicroLoop;
-    worstMicroLoop = 0;
+      // debug_obj["console"] = "";
+      debug_obj["time"] = worstMicroLoop;
+      worstMicroLoop = 0;
 
-    char json[JSON_BUFFER_DEBUG];
-    serializeJsonPretty(doc, json);
-    ws.textAll(json);
+      if (debug_message[0] != '\0')
+      {
+          // memcpy(debug_message, message, sizeof(message[0])*128);
+          debug_obj["message"] = debug_message;
+          debug_message[0] = '\0';
+      }
+
+      char json[JSON_BUFFER_DEBUG];
+      serializeJsonPretty(doc, json);
+      ws.textAll(json);
   }
 }
 #endif
@@ -1060,68 +1104,6 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
           }
       }
       break; // Only one ID by message, end the loop faster
-    }
-  }
-}
-
-
-// ----------------------------------------------------------------------------
-//  Function below need to be/get called at each triggered gate.
-// take ID, buffering in a temp struct before to be processed by the sortIDLoop().
-// The most important loop,need to be the fastest possible (idBuffer overflow? bad sorting? who know...)
-// This function checking new data in bufferingID()/idBuffer[i]
-// sorting struct/table and process idBuffer -> idData.
-// don't know if it's add value to integrating directly in the race private class...
-// ----------------------------------------------------------------------------
-void sortIDLoop(){
-
-  // check if new data available
-  for (uint8_t i = 0; i < NUMBER_RACER ; i++)
-  {
-    if (idBuffer[i].isNew == true)
-    {
-       idBuffer[i].isNew = false;
-       // look ID at current position
-       uint8_t currentPosition = 0;
-       uint32_t currentTime = idBuffer[i].totalLapsTime;
-       uint8_t currentGate = idBuffer[i].gateNumber;
-
-       // get current position
-       for (uint8_t j = 1; j < NUMBER_RACER + 1 ; j++)
-       {
-         if ( idBuffer[i].ID == idData[j].ID )
-         {
-            currentPosition = j;
-            if (race.isIdRunning(idData[currentPosition].laps))
-            {
-                idData[currentPosition].updateTime(currentTime, currentGate);
-            }
-            // update biggestLap.
-            race.setBiggestLap(idData[currentPosition].laps);
-
-            break; // Processing only one idBuffer at a time!
-         }
-       }
-       //  check if ID get up in position/rank.
-       for (uint8_t k = currentPosition; k > 1 ; k--)
-       {
-          if (idData[k].laps > idData[k - 1].laps)
-          {
-              for (uint8_t l = 0; l < NUMBER_PROTOCOL; l++)
-              {
-                  idData[k].positionChange[l] = true; // enable change for all protocols.
-                  idData[k - 1].positionChange[l] = true;
-              }
-
-              idData[0] = idData[k - 1]; // backup copy
-              idData[k - 1] = idData[k];
-              idData[k] = idData[0];
-          }
-          else
-          {
-            break; // Useless to continu for better position
-          }
-       }
     }
   }
 }
@@ -1253,7 +1235,7 @@ void fakeIDtrigger(int ms){
             if (ms - idListLastMillis[i] > idListTimer[i])
             {
                 idListLastMillis[i] = ms;
-                idListTimer[i] = random(1500, 3300);
+                idListTimer[i] = random(1000, 4000);
                 uint8_t gateNumber_tmp = idGateNumber[i];
                 uint8_t gate = (gateNumber_tmp < lastGatesDebug) ? (gateNumber_tmp + 1 ): addressAllGates[0];
                 idGateNumber[i] = gate;

@@ -141,7 +141,7 @@ function onMessage(evt) {
 
             if ('message' in obj.race) {
                 snackBar(obj.race.message);
-                document.getElementById('websockConsole').innerHTML = "" + obj.websockConsole;
+                // document.getElementById('websockConsole').innerHTML = "" + obj.race.message;
             }
 
             if ('time' in obj.race) {
@@ -173,6 +173,10 @@ function onMessage(evt) {
     if ('debug' in obj) {
         if ('time' in obj.debug) {
             document.getElementById('websockLoopTime').innerHTML = "" + obj.debug.time;
+        }
+
+        if ('message' in obj.debug) {
+            document.getElementById('websockConsole').innerHTML = "" + obj.debug.message;
         }
     }
 
