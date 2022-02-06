@@ -38,7 +38,7 @@ Todo: Add author(s), descriptions, etc here...
 #if defined(DEBUG)
   void fakeIDtrigger(int ms); //debug function (replace i2c connection)
   #define JSON_BUFFER_DEBUG 256
-  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"0112\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";
+  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";
 #endif
 
 // ----------------------------------------------------------------------------
@@ -1206,7 +1206,7 @@ void WriteJSONRace(uint32_t ms){
 void fakeIDtrigger(int ms){
 
     static uint32_t startMillis;
-    const uint32_t idList[] = { 1234, 0112, 1337, 2468, 0x4321, 0x2222, 0x1111, 0x1357};
+    const uint32_t idList[] = { 1234, 1111, 1337, 2468, 4321, 2222, 1313, 1357};
     static uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
     static uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
     static uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
