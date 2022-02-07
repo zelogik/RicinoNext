@@ -64,11 +64,13 @@ function onClose(evt) {
 
 // Called when a message is received from the server
 function onMessage(evt) {
-
-    // Print out our received message
-    console.log("Received: " + evt.data);
-    
     obj = JSON.parse(evt.data);
+ 
+    if ( !('live' in obj) || (DEBUG_LIVE) ){
+        // Print out our received message
+        console.log("Received: " + evt.data);
+    }
+
     //var size = Object.keys(obj).length
     // no sanety check for player update... but cleaner!?!
     if ('data' in obj) {
@@ -129,9 +131,9 @@ function onMessage(evt) {
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
             }
-            // else if (obj.race.state === "STOP") {
-            //     stopStopWatches();
-            // }
+            else if (obj.race.state === "STOP") {
+                stopStopWatches();
+            }
             else {
                 sliderLock.disabled = true;
                 raceButton.innerHTML = "Stop";
@@ -177,7 +179,8 @@ function onMessage(evt) {
         updatePlayer( id1, obj.live.id );
 
         if (obj.live.lap == config_global.conf.laps) {
-            console.log(obj.live.lap);            stopStopWatches(id1);
+            console.log(obj.live.lap);
+            stopwatches[id1 + "_current"].stop();
         }
 
     }
@@ -491,16 +494,16 @@ function snackBar(message) {
     console.log(message);
   }
 
-function stopStopWatches(position)
+function stopStopWatches()
 {
     // todo: need a trigger message from the server?
     Object.keys(stopwatches).forEach(function(key)
     {
-        console.log("key" + key); 
+        // console.log("key" + key); 
 
-        if (key == position ) {
+        // if (key == position ) {
             stopwatches[key].stop();
-        }
+        // }
     });
     stopwatch.stop();
 }
@@ -554,6 +557,7 @@ class Stopwatch {
 
 }
 
+var DEBUG_LIVE = false; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
 let config_global = "";
