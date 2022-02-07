@@ -128,11 +128,10 @@ function onMessage(evt) {
                 sliderLock.disabled = false;
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
-                // stopStopWatches(); //If you hit Stop, you don't receive a stop, the state just changes to WAIT
             }
-            else if (obj.race.state === "STOP") {
-                stopStopWatches();
-            }
+            // else if (obj.race.state === "STOP") {
+            //     stopStopWatches();
+            // }
             else {
                 sliderLock.disabled = true;
                 raceButton.innerHTML = "Stop";
@@ -176,6 +175,11 @@ function onMessage(evt) {
         modifyValue( id1, "total", formatTime(obj.live.total, 0));
         stopwatches[ id1 + "_current"].start(id1 + "_current", obj.live.total);
         updatePlayer( id1, obj.live.id );
+
+        if (obj.live.lap == config_global.conf.laps) {
+            console.log(obj.live.lap);            stopStopWatches(id1);
+        }
+
     }
 
 
@@ -487,12 +491,16 @@ function snackBar(message) {
     console.log(message);
   }
 
-function stopStopWatches()
+function stopStopWatches(position)
 {
     // todo: need a trigger message from the server?
     Object.keys(stopwatches).forEach(function(key)
     {
-        stopwatches[key].stop();
+        console.log("key" + key); 
+
+        if (key == position ) {
+            stopwatches[key].stop();
+        }
     });
     stopwatch.stop();
 }
