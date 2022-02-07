@@ -35,15 +35,25 @@ Todo: Add author(s), descriptions, etc here...
 // DEBUG global assigment, add receiver/emitter simulation (put in struct?)
 // ----------------------------------------------------------------------------
 #define DEBUG 1
+#define DEBUG_GATE 1
+
+#if defined(DEBUG_GATE)
+  void fakeIDtrigger(int ms); //debug function (replace i2c connection)
+  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";  // ,\"light_brightness\":255
+#endif
 
 #if defined(DEBUG)
-  void fakeIDtrigger(int ms); //debug function (replace i2c connection)
-  #define JSON_BUFFER_DEBUG 256
-  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"light_brightness\":255,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";
   const char compile_date[] = __DATE__ " " __TIME__;
   char debug_message[128] = {};
-  // char debug_message_buffer[128];
+  #define JSON_BUFFER_DEBUG 256
+
+  //example :
+  //snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
+  // strncpy(debug_message, "light :", 128);
+  // strncat(debug_message, light_ptr, 128);
+  // memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 #endif
+
 
 // ----------------------------------------------------------------------------
 // AsyncWebServer stuff, JSON stuff
@@ -103,11 +113,11 @@ struct UI_config{
   uint8_t players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
   uint8_t gates = NUMBER_GATES; // 1…?8 max?
 
-  uint8_t light_brightness = 255;
+  // uint8_t light_brightness = 255;
 
   // Todo Add  enable sound/voice/etc... here
   bool state = false; // trigger a race start/stop
-  bool light = false;
+  uint8_t light = false;
   bool reset = false; // trigger reset struct idData
   // todo: find a way to implement
   bool read_ID = false; // trigger an one shot ID reading
@@ -487,7 +497,7 @@ class Race {
             break;
 
         case RACE:
-            #if defined(DEBUG)
+            #if defined(DEBUG_GATE)
                 fakeIDtrigger(millis()); //only used for debug
             #endif
             sortIDLoop(); // processing ID.
@@ -515,7 +525,7 @@ class Race {
             break;
 
         case FINISH:
-            #if defined(DEBUG)
+            #if defined(DEBUG_GATE)
                 fakeIDtrigger(millis()); //only used for debug
             #endif
 
@@ -655,8 +665,8 @@ void confToJSON(char* output, bool connection){ // const struct UI_config* data,
   conf["laps"] = uiConfig.laps;
   conf["players"] = uiConfig.players;
   conf["gates"] = uiConfig.gates;
-  conf["light"] = uiConfig.light ? 1 : 0;
-  conf["light_brightness"] = uiConfig.light_brightness;
+  conf["light"] = uiConfig.light;
+  // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
   JsonArray conf_players = conf.createNestedArray("names");
@@ -713,17 +723,6 @@ void JSONToConf(const char* input){ // struct UI_config* data,
       raceState = (stt) ? START : STOP;
   }
 
-  if ( light_ptr != nullptr)
-  {
-      const bool stt = (char)atoi(light_ptr);
-      if (stt){
-          ledState.set(5000, 1);
-      }
-      else{
-          ledState.set(1, 5000);
-      }
-  }
-
   if ( reset_ptr != nullptr)
   {
       const bool stt = (char)atoi(reset_ptr);
@@ -733,9 +732,9 @@ void JSONToConf(const char* input){ // struct UI_config* data,
       }
   }
 
-  if (obj.containsKey("light"))
+  if (light_ptr != nullptr)
   {
-      uiConfig.light = doc["conf"]["light"];
+      uiConfig.light = atoi(light_ptr); //doc["conf"]["light"];
   }
 
   // below is number
@@ -754,16 +753,17 @@ void JSONToConf(const char* input){ // struct UI_config* data,
       uiConfig.gates = doc["conf"]["gates"];
   }
 
-  if (obj.containsKey("light_brightness"))
-  {
-      uiConfig.light_brightness = doc["conf"]["light_brightness"];
-  }
+  // if (obj.containsKey("light_brightness"))
+  // {
+  //     uiConfig.light_brightness = doc["conf"]["light_brightness"];
+  // }
   // todo: need to find ID/position
   if (obj.containsKey("names"))
   {
       uint8_t count = 0;
       JsonArray plrs = doc["conf"]["names"];
       for (JsonObject plr : plrs) {
+        //sprintf(str,"%d",value) converts to decimal base.
           uiConfig.names[count].id = plr["id"].as<long>();
           strlcpy(uiConfig.names[count].name, plr["name"] | "", sizeof(uiConfig.names[count].name));
           strlcpy(uiConfig.names[count].color, plr["color"] | "", sizeof(uiConfig.names[count].color));
@@ -1053,7 +1053,7 @@ void loop() {
 #if defined(DEBUG)
 void writeJSONDebug(){
   static uint32_t lastMillis = 0;
-  const uint16_t delayMillis = 30 * 1000;
+  const uint16_t delayMillis = 10 * 1000;
   static uint32_t worstMicroLoop = 0;
   static uint32_t oldTimeMicroLoop = 0;
   
@@ -1068,7 +1068,7 @@ void writeJSONDebug(){
   }
 
   // send every sec
-  if (millis() - lastMillis > delayMillis && millis() > 10000)
+  if (millis() - lastMillis > delayMillis || debug_message[0] != '\0')
   {
       lastMillis = millis();
 
@@ -1212,7 +1212,7 @@ void WriteJSONRace(uint32_t ms){
 // Debug Loop, simulate the gates
 // make it changeable at compile time when i2c will be merged
 // ----------------------------------------------------------------------------
-#if defined(DEBUG)
+#if defined(DEBUG_GATE)
 void fakeIDtrigger(int ms){
 
     static uint32_t startMillis;

@@ -93,26 +93,28 @@ function onMessage(evt) {
         if ('laps' in obj.conf) {
             var laps_value = document.getElementById("lapsSlider").value;
 
-            if ( obj.conf.light != laps_value) {
+            if ( obj.conf.laps != laps_value) {
                 document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
                 document.getElementById("lapsSlider").value = "" + obj.conf.laps;
             }
         }
 
-        if ('light' in obj) {
-            var light_value = document.getElementById("light");
+        if ('light' in obj.conf) {
+            var light_obj = document.getElementById("light");
+            // var light_state = ((document.getElementById("light").innerHTML) === "Off" ? 0 : 1 );
 
-            if (obj.conf.light != light_value){
-                if (obj.conf.laps === 1) {
-                    x.innerHTML = "Off";
-                    x.style.color = "blue";
+            // console.log("light" + light_obj)
+            // if (obj.conf.light != light_state){
+                if (obj.conf.light > 1) {
+                    light_obj.innerHTML = "On";
+                    light_obj.style.color = "black";
             //      x.style.bgcolor = "red";
                 } else {
-                    x.innerHTML = "On";
-                    x.style.color = "black";
+                    light_obj.innerHTML = "Off";
+                    light_obj.style.color = "blue";
             //      x.style.bgcolor = "grey";
                 }
-            }
+            // }
         }
     }
 
@@ -272,9 +274,9 @@ function lightToggle() {
     var x = document.getElementById("light");
     
     if (x.innerHTML === "On") {
-        var data = JSON.stringify({"conf": {"light": "1"}});
-    } else {
         var data = JSON.stringify({"conf": {"light": "0"}});
+    } else {
+        var data = JSON.stringify({"conf": {"light": "255"}});
     }
     doSend(data);
 }
