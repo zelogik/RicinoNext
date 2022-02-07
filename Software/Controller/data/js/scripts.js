@@ -64,11 +64,13 @@ function onClose(evt) {
 
 // Called when a message is received from the server
 function onMessage(evt) {
-
-    // Print out our received message
-    console.log("Received: " + evt.data);
-    
     obj = JSON.parse(evt.data);
+
+    if ( !('live' in obj) || (DEBUG_LIVE) ){
+        // Print out our received message
+        console.log("Received: " + evt.data);
+    }
+
     //var size = Object.keys(obj).length
     // no sanety check for player update... but cleaner!?!
     if ('data' in obj) {
@@ -128,7 +130,6 @@ function onMessage(evt) {
                 sliderLock.disabled = false;
                 raceButton.innerHTML = "Start";
                 raceButton.style.color = "green";
-                // stopStopWatches(); //If you hit Stop, you don't receive a stop, the state just changes to WAIT
             }
             else if (obj.race.state === "STOP") {
                 stopStopWatches();
@@ -176,6 +177,11 @@ function onMessage(evt) {
         modifyValue( id1, "total", formatTime(obj.live.total, 0));
         stopwatches[ id1 + "_current"].start(id1 + "_current", obj.live.total);
         updatePlayer( id1, obj.live.id );
+
+        if (obj.live.lap == config_global.conf.laps) {
+            console.log(obj.live.lap);
+            stopwatches[id1 + "_current"].stop();
+        }
     }
 
 
@@ -546,6 +552,7 @@ class Stopwatch {
 
 }
 
+var DEBUG_LIVE = false; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
 let config_global = "";
