@@ -65,7 +65,6 @@ function onClose(evt) {
 // Called when a message is received from the server
 function onMessage(evt) {
     obj = JSON.parse(evt.data);
- 
     if ( !('live' in obj) || (DEBUG_LIVE) ){
         // Print out our received message
         console.log("Received: " + evt.data);
@@ -182,7 +181,6 @@ function onMessage(evt) {
             console.log(obj.live.lap);
             stopwatches[id1 + "_current"].stop();
         }
-
     }
 
 
@@ -195,62 +193,8 @@ function onMessage(evt) {
             document.getElementById('websockConsole').innerHTML = "" + obj.debug.message;
         }
     }
-
-// @Peck07,  used by you? if not you can delete.
-
-    // if ('stopwatch' in obj) {
-    //     // var x = document.getElementById("startstop_watch");
-    //     if (obj.stopwatch === 1) {
-    //         // x.innerHTML = "Stop";
-    //         // x.style.color = "red";
-    //         stopwatch.start("stopwatch", 1);
-    //     } else {
-    //         // x.innerHTML = "Start";
-    //         // x.style.color = "green";
-    //         stopwatch.stop();
-    //     }
-    // }
-
-
-    // // Lock
-    // if ('startLock' in obj) {
-    //     var x = document.getElementById("race");
-    //     if (obj.startLock === 1) {
-    //         x.disabled = true;
-    //     } else {
-    //         x.disabled = false;
-    //     }
-    // }
-
-    // if ('lightLock' in obj) {
-    //     var x = document.getElementById("light");
-    //     if (obj.lightLock === 1) {
-    //         x.disabled = true;
-    //     } else {
-    //         x.disabled = false;
-    //     }
-    // }
-
-    // if ('connectLock' in obj) {
-    //     var x = document.getElementById("connect");
-    //     if (obj.connectLock === 1) {
-    //         x.disabled = true;
-    //     } else {
-    //         x.disabled = false;
-    //     }
-    // }
 }
 
-// @Peck07,  used by you? if not you can delete.
-function lockElement(what){
-    var colors = {
-        'Blue': function(){ alert('Light-Blue'); },
-        'Red': function(){ alert('Deep-Red'); },
-        'Green': function(){ alert('Deep-Green'); }
-        }
-    try {colors[what]();}
-    catch(err) {colors['Green']();}//default behaviour
-}
 // Called when a WebSocket error occurs
 function onError(evt) {
     console.log("ERROR: " + evt.data);
@@ -290,36 +234,10 @@ function lightToggle() {
     doSend(data);
 }
 
-// @Peck07,  used by you? if not you can delete.
-// as it's automatic now, maybe if we readd zround compatability...
-// But you have done excellent work with the frontend :-D
-
-function connectToggle() {
-    //tempTest();
-    stopwatch.start("stopwatch", 1);
-
-    var x = document.getElementById("connect");
-    if (x.innerHTML === "Connect") {
-        doSend("{ \"connect\": 1}");
-    } else {
-        doSend("{ \"connect\": 0}");
-    }
-}
-
 function resetTrigger() {
             clearLines();
             var data = JSON.stringify({"conf": {"reset": "1"}});
             doSend(data);
-}
-
-// @Peck07,  used by you? if not you can delete.
-function watchToggle_temp() {
-    var x = document.getElementById("startstop_watch");
-    if (x.innerHTML === "Start") {
-        doSend("{ \"stopwatch\": 1}");
-    } else {
-        doSend("{ \"stopwatch\": 0}");
-    }
 }
 
 function updateLaps(element) {
@@ -327,32 +245,6 @@ function updateLaps(element) {
     // console.log("Sending: " + sliderValue);
     var data = JSON.stringify({"conf": {"laps": sliderValue}});
     doSend(data);
-}
-
-
-// @Peck07,  used by you? if not you can delete.
-function refresh(clicked_id) {
-    //var x = document.getElementById(clicked_id);
-
-    var button = {
-        'start': function(){ doSend("{ \"race\": 1}"); },
-        'race': function(){ doSend("{ \"race\": 1}"); },
-        'stop': function(){ doSend("{ \"race\": 0}"); },
-        'light': function(){ doSend("{ \"light\": 1}"); },
-        'connect': function(){ doSend("{ \"connect\": 1}"); },
-        'disconnect': function(){ doSend("{ \"connect\": 0}"); },
-        'lapsSlider': function(){ doSend("{ \"setlaps\": "+ x.value +" }"); }
-    };
-
-    try
-    {
-		button[clicked_id]();
-    }
-    catch (err)
-    {
-	//alert(clicked_id);
-        console.log(err);
-    } //default behaviour
 }
 
 function generateDiv(class_name, id1, string)
@@ -446,18 +338,6 @@ function clearLines()
     {
         removeLine(i);
     }
-}
-
-// @Peck07,  used by you? if not you can delete.
-function tempTest()
-{
-    for (var i = 1; i <= 4; i++)
-    {
-        removeLine(i);
-        generateLine(i);
-    }
-    //snackBar("Hello message");
-    //stopwatch.start("stopwatch", 1);
 }
 
 function formatTime(time, startTime)
