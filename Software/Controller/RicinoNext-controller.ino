@@ -8,27 +8,35 @@ Todo: Add author(s), descriptions, etc here...
 // Imcludes library, header
 // ----------------------------------------------------------------------------
 // todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
-#if defined(ESP8266)
-    #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
-    #include <ESPAsyncTCP.h>
-#else
-    #include <WiFi.h>      //ESP32 Core WiFi Library
-    #include <AsyncTCP.h>
+#if defined(ESP8266) || defined(ESP32)
+    #define HAVE_WIFI 1
     #include <Update.h>  // arduinoOTA
     #include <ESPmDNS.h>
+    #include <ESPAsync_WiFiManager.h>
+    #include <ESPAsyncWebServer.h>
+    #include <FS.h> // need to choose!
+    #include "SPIFFS.h" // need to choose!
+    #include <SPI.h> // need to choose!
+#elif defined(ESP8266)
+    #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
+    #include <ESPAsyncTCP.h>
+#elif defined(ESP32)
+    #include <WiFi.h>      //ESP32 Core WiFi Library
+    #include <AsyncTCP.h>
+#elif defined(ARDUINO_SAMD_ZERO)
+    // set pinLed
+    // maybe an simple 328p as ESP01 will take web load.
+#elif defined(ARDUINO_AVR_MEGA2560)
+    // set pinLed
+#else
+    #error “Unsupported board selected!”
 #endif
 
-// todo: need to check too with esp8266 compatibility..
-#include <ESPAsync_WiFiManager.h>
-#include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>  // needed for every messages
+#define JSON_BUFFER 512
+#define JSON_BUFFER_CONF 1024 // need to test with 8 players or more...
 
-#include <FS.h> // need to choose!
-#include "SPIFFS.h" // need to choose!
-#include <SPI.h> // need to choose!
-
-#include <ArduinoJson.h>
-
-#include <Wire.h>     // need for the i2c gate.
+#include <Wire.h>         // needed for the i2c gates/addons.
 
 
 // ----------------------------------------------------------------------------
@@ -46,9 +54,9 @@ Todo: Add author(s), descriptions, etc here...
   const char compile_date[] = __DATE__ " " __TIME__;
   char debug_message[128] = {};
   #define JSON_BUFFER_DEBUG 256
-
-  //example :
-  //snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
+  //example /reminder :
+  // stoi(s1)
+  // snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
   // strncpy(debug_message, "light :", 128);
   // strncat(debug_message, light_ptr, 128);
   // memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
@@ -58,13 +66,11 @@ Todo: Add author(s), descriptions, etc here...
 // ----------------------------------------------------------------------------
 // AsyncWebServer stuff, JSON stuff
 // ----------------------------------------------------------------------------
+#if defined(HAVE_WIFI)
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 // DNSServer dns; // as it's local, why use DNS on the server...?
-//todo: separate live/race/conf json OR make a dynamic calculation
-#define JSON_BUFFER 512
-#define JSON_BUFFER_CONF 1024 // need to test with 8 players or more...
-
+#endif
 
 // ----------------------------------------------------------------------------
 //  External components part. ie: button/tft/esp01 etc...
@@ -649,9 +655,9 @@ Led ledState = Led(ledPin);
 //  Web Stuff: Error function config JSON
 // is used somewhere? don't remember!
 // ----------------------------------------------------------------------------
-void notFound(AsyncWebServerRequest* request) {
-    request->send(404, "text/plain", "Not found");
-}
+// void notFound(AsyncWebServerRequest* request) {
+//     request->send(404, "text/plain", "Not found");
+// }
 
 
 // ----------------------------------------------------------------------------
@@ -776,6 +782,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 // ----------------------------------------------------------------------------
 //  Web Stuff: interrupt based function, receive JSON from client
 // ----------------------------------------------------------------------------
+#if defined(HAVE_WIFI)
 void onEvent(AsyncWebSocket       *server,
              AsyncWebSocketClient *client,
              AwsEventType          type,
@@ -826,6 +833,7 @@ void onEvent(AsyncWebSocket       *server,
             break;
     }
 }
+#endif
 
 
 // ----------------------------------------------------------------------------
@@ -847,6 +855,7 @@ void onEvent(AsyncWebSocket       *server,
 // ----------------------------------------------------------------------------
 //  Web Stuff: Only run one time, setup differents web address
 // ----------------------------------------------------------------------------
+#if defined(HAVE_WIFI)
 void server_init()
 {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -932,6 +941,7 @@ void server_init()
   ws.onEvent(onEvent);
   server.addHandler(&ws);
 }
+#endif
 
 
 // ----------------------------------------------------------------------------
@@ -967,6 +977,7 @@ void button_init()
 void setup(void) {
   Serial.begin(9600);
 
+  #if defined(HAVE_WIFI)
   if(!SPIFFS.begin()){
       Serial.println("An Error has occurred while mounting SPIFFS");
       return;
@@ -982,6 +993,11 @@ void setup(void) {
   // Route to index.html + favicon.ico
 
   server_init();
+  if (!MDNS.begin("ricinoNext"))
+  {
+      Serial.println("Error setting up MDNS responder!");
+  }
+  #endif
 
   #if defined(Button2_USE)
       button_init();
@@ -992,11 +1008,6 @@ void setup(void) {
   #if defined(DEBUG)
       JSONToConf(JSONconfDebug);
   #endif
-
-  if (!MDNS.begin("ricinoNext"))
-  {
-      Serial.println("Error setting up MDNS responder!");
-  }
 
   memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 
@@ -1088,7 +1099,9 @@ void writeJSONDebug(){
 
       char json[JSON_BUFFER_DEBUG];
       serializeJsonPretty(doc, json);
+      #if defined(HAVE_WIFI)
       ws.textAll(json);
+      #endif
   }
 }
 #endif
@@ -1166,7 +1179,11 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
 
           char json[JSON_BUFFER];
           serializeJsonPretty(doc, json); // todo: remove the pretty after
+          
+          #if defined(HAVE_WIFI)
           ws.textAll(json);
+          #endif
+
           break;
       }
   }
@@ -1202,7 +1219,10 @@ void WriteJSONRace(uint32_t ms){
 
       char json[JSON_BUFFER];
       serializeJsonPretty(doc, json); // todo: remove the pretty after
+
+      #if defined(HAVE_WIFI)      
       ws.textAll(json);
+      #endif
   }
 
   oldRaceState = raceState;
@@ -1368,8 +1388,10 @@ void ReadSerial(){
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
 
-            confToJSON(confJSON, false); 
+            confToJSON(confJSON, false);
+            #if defined(HAVE_WIFI)
             ws.textAll(confJSON);
+            #endif
             break;
 
         case 'E': //mpty Test Message
