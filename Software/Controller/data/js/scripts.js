@@ -49,6 +49,7 @@ function onOpen(evt) {
     // refreshElements(evt.data);
     // Get the current state of ??
     // doSend("get??State");
+    // screen.orientation.lock()
 }
 
 // Called when the WebSocket connection is closed
@@ -188,6 +189,7 @@ function onMessage(evt) {
         }
     }
 
+// @Peck07,  used by you? if not you can delete.
 
     // if ('stopwatch' in obj) {
     //     // var x = document.getElementById("startstop_watch");
@@ -232,6 +234,7 @@ function onMessage(evt) {
     // }
 }
 
+// @Peck07,  used by you? if not you can delete.
 function lockElement(what){
     var colors = {
         'Blue': function(){ alert('Light-Blue'); },
@@ -249,11 +252,10 @@ function onError(evt) {
 // Sends a message to the server (and prints it to the console)
 function doSend(message) {
     console.log("Sending: " + message);
-    try
-    {
+    try{
         websocket.send(message);
-    } catch (err)
-    {
+    }
+    catch (err) {
         //socket error
     }
 }
@@ -281,25 +283,29 @@ function lightToggle() {
     doSend(data);
 }
 
-// function connectToggle() {
-//     //tempTest();
-//     stopwatch.start("stopwatch", 1);
+// @Peck07,  used by you? if not you can delete.
+// as it's automatic now, maybe if we readd zround compatability...
+// But you have done excellent work with the frontend :-D
 
-//     var x = document.getElementById("connect");
-//     if (x.innerHTML === "Connect") {
-//         doSend("{ \"connect\": 1}");
-//     } else {
-//         doSend("{ \"connect\": 0}");
-//     }
-// }
+function connectToggle() {
+    //tempTest();
+    stopwatch.start("stopwatch", 1);
+
+    var x = document.getElementById("connect");
+    if (x.innerHTML === "Connect") {
+        doSend("{ \"connect\": 1}");
+    } else {
+        doSend("{ \"connect\": 0}");
+    }
+}
 
 function resetTrigger() {
             clearLines();
             var data = JSON.stringify({"conf": {"reset": "1"}});
             doSend(data);
-    }
+}
 
-
+// @Peck07,  used by you? if not you can delete.
 function watchToggle_temp() {
     var x = document.getElementById("startstop_watch");
     if (x.innerHTML === "Start") {
@@ -316,6 +322,8 @@ function updateLaps(element) {
     doSend(data);
 }
 
+
+// @Peck07,  used by you? if not you can delete.
 function refresh(clicked_id) {
     //var x = document.getElementById(clicked_id);
 
@@ -433,6 +441,7 @@ function clearLines()
     }
 }
 
+// @Peck07,  used by you? if not you can delete.
 function tempTest()
 {
     for (var i = 1; i <= 4; i++)
