@@ -21,12 +21,10 @@
 
 	<div class="row">
 		<div class="col-md-2" id="menu">
-			<p>websockTimer: <span id="websockTimer">NaN</span></p>
-			<p>websockCount: <span id="lapCounter">NaN</span> : <span id="lapsValue">10</span></p>
-			<p>wsDebugMessage: <span id="websockConsole">NULL</span></p> 
-			<p>wsBackLoop(us): <span id="websockLoopTime">0</span></p> 
-			<p>wsFreeMemory: <span id="websockFreeMemory">0</span></p> 
+			<p>Current Time: <span id="websockTimer">NaN</span></p>
+			<p>Lap / Total: <span id="lapCounter">NaN</span> / <span id="laps">NaN</span></p>
 
+			<br><br>
 			<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">Start</button>
 			<button id="light" type="button" class="btn btn-info" onclick="lightToggle()">On</button>
 			<button id="reset" type="button" class="btn btn-danger" onclick="resetTrigger()">Reset</button>
@@ -37,6 +35,7 @@
 			</div>
 			<!-- <progress id="percentLap" value="0"></progress> -->
 
+			<br>
 			<div class="slidecontainer">
 				Laps :
 				<input type="range" oninput="updateLaps(this)" id="lapsSlider" min="1" max="100" value="1" step="1" class="slider"> <!--onchange="updateLaps(this)" -->
@@ -44,13 +43,13 @@
 
 			<p></p>
 			<div class="slidecontainer">
-				<p>Players :</p>
+				<p>Number Players: <span id="players">NaN</span></p>
 				<input type="range" oninput="updatePlayers(this)" id="playersSlider" min="1" max="16" value="1" step="1" class="slider">
 			</div>
 
 			<p></p>
 			<div class="slidecontainer">
-				<p>Gates :</p>
+				<p>Number Gates: <span id="gates">NaN</span></p>
 				<input type="range" oninput="updateGates(this)" id="gatesSlider" min="1" max="8" value="1" step="1" class="slider">
 			</div>
 
@@ -58,10 +57,15 @@
 				Show Snackbar?
 			</button> -->
 
-			<div class="stopwatch"></div>
-
-			<p> Time: <span id="stopwatch">00:00.000</span></p>
-			<p>ATime: <span id="debugtime">00:00.000</span></p>
+			<br>
+			<div class="debug">
+				<p>DebugMessage: <span id="websockConsole">NULL</span></p> 
+				<p>DebugLoop(us): <span id="websockLoopTime">0</span></p> 
+				<p>DebugFreeMem: <span id="websockFreeMemory">0</span></p> 
+				<p>DebugRColor: <span id="websockRandomColor">0</span></p> 
+				<p>DebugOffTime: <span id="debugOffset">00:00.000</span></p>
+				<p>DebugTime: <span id="debugTime">00:00.000</span></p>
+			</div>
 
 		</div>
 		<div class="col-md-10" id="stats">

@@ -51,21 +51,20 @@ Todo: Add author(s), descriptions, etc here...
 #define DEBUG_GATE 1
 
 #if defined(DEBUG_GATE)
-  void fakeIDtrigger(int ms); //debug function (replace i2c connection)
-  // todo: define a random generator (should be useful with color anyway)
-  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
+    void fakeIDtrigger(int ms); //debug function (replace i2c connection)
+    // todo: define a random generator (should be useful with color anyway)
+    const char JSONconfDebug[2048] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
 #endif
 
 #if defined(DEBUG)
-  const char compile_date[] = __DATE__ " " __TIME__;
-  char debug_message[128] = {};
-  #define JSON_BUFFER_DEBUG 256
-  //example /reminder :
-  // stoi(s1)
-  // snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
-  // strncpy(debug_message, "light :", 128);
-  // strncat(debug_message, light_ptr, 128);
-  // memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
+    const char compile_date[] = __DATE__ " " __TIME__;
+    char debug_message[128] = {};
+    #define JSON_BUFFER_DEBUG 256
+    //example /reminder : stoi(s1)
+    // snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
+    // strncpy(debug_message, "light :", 128);
+    // strncat(debug_message, light_ptr, 128);
+// memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 #endif
 
 
@@ -73,9 +72,9 @@ Todo: Add author(s), descriptions, etc here...
 // AsyncWebServer stuff, JSON stuff
 // ----------------------------------------------------------------------------
 #if defined(HAVE_WIFI)
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
-// DNSServer dns; // as it's local, why use DNS on the server...?
+    AsyncWebServer server(80);
+    AsyncWebSocket ws("/ws");
+    // DNSServer dns; // as it's local, why use DNS on the server...?
 #endif
 
 // ----------------------------------------------------------------------------
@@ -305,11 +304,11 @@ struct ID_Data_sorted{
         uint32_t value;
         if (lastPrevTotal_ptr == nullptr)
         { // full laps
-          *last_ptr = fullTime - *lastTotal_ptr;
+            *last_ptr = fullTime - *lastTotal_ptr;
         }
         else
         { // checkpoint
-          *last_ptr  = fullTime - *lastPrevTotal_ptr;
+            *last_ptr  = fullTime - *lastPrevTotal_ptr;
         }
         *lastTotal_ptr = fullTime;
 
@@ -386,8 +385,9 @@ class Race {
         oldRaceState = raceState;
         // todo:
         //startTimeOffset
-        
-        for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX); i++ )
+
+        uiConfig.reset = false;
+        for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX + 1); i++ )
         {
             idData[i].reset();
         }
@@ -688,6 +688,7 @@ void confToJSON(char* output, bool connection){ // const struct UI_config* data,
   conf["players"] = uiConfig.players;
   conf["gates"] = uiConfig.gates;
   conf["light"] = uiConfig.light;
+  conf["reset"] = uiConfig.reset;
   // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
@@ -750,11 +751,10 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 
   if ( reset_ptr != nullptr)
   {
-      const bool stt = (char)atoi(reset_ptr);
-      if (stt)
-      {
-          uiConfig.reset = false;
-      }
+    //   const bool stt = (char)atoi(reset_ptr);
+      raceState = RESET; // trigger backend reset
+    //   const bool stt = (char)atoi(reset_ptr);
+      uiConfig.reset = true; // broadcast trigger!
   }
 
   if (light_ptr != nullptr)
@@ -939,7 +939,7 @@ void server_init()
           //     Update.printError(Serial);
           //     return request->send(400, "text/plain", "OTA could not begin");
           // }
-              }
+      }
 
       // Write chunked data to the free sketch space
       if(len){
@@ -1058,25 +1058,25 @@ void setup(void) {
 //  Main loop, keep it small as possible for readability.
 // ----------------------------------------------------------------------------
 void loop() {
-  #if defined(Button2_USE)
-  btn1.loop();
-  btn2.loop();
-  #endif
+    #if defined(Button2_USE)
+    btn1.loop();
+    btn2.loop();
+    #endif
 
-  ledState.loop();
-  race.loop();
+    ledState.loop();
+    race.loop();
 
-  // add in a class ?
-  WriteJSONLive(millis(), 1); // 1 = web
-  WriteJSONRace(millis());
+    // add in a class ?
+    WriteJSONLive(millis(), 1); // 1 = web
+    WriteJSONRace(millis());
 
-  // same here. make a class ?
-  // WriteSerialLive(millis(), 0); // 0 = serial
-  ReadSerial();
+    // same here. make a class ?
+    // WriteSerialLive(millis(), 0); // 0 = serial
+    ReadSerial();
 
-  #if defined(DEBUG)
-  writeJSONDebug();
-  #endif
+    #if defined(DEBUG)
+    writeJSONDebug();
+    #endif
 }
 
 
@@ -1108,11 +1108,10 @@ void writeJSONDebug(){
       StaticJsonDocument<JSON_BUFFER_DEBUG> doc;
       JsonObject debug_obj = doc.createNestedObject("debug");
 
-      // debug_obj["console"] = ""; 
       debug_obj["time"] = worstMicroLoop;
       worstMicroLoop = 0;
 
-      #if defined(ESP32)
+      #if defined(ESP32) || defined(ESP8266) 
       char freeMemory[16];
       sprintf(freeMemory,"%lu", ESP.getFreeHeap());
       debug_obj["memory"] = freeMemory;
@@ -1126,6 +1125,10 @@ void writeJSONDebug(){
           debug_obj["message"] = debug_message;
           debug_message[0] = '\0';
       }
+
+      char color[8];
+      getRandomColor(color, 8);
+      debug_obj["color"] = color;
 
       char json[JSON_BUFFER_DEBUG];
       #if defined(DEBUG)
@@ -1152,26 +1155,26 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
   {
     if (idBuffer[i].ID == ID)
     {
-      idBuffer[i].totalLapsTime = totalTime;
-      idBuffer[i].gateNumber = gate;
-      idBuffer[i].isNew = true;
-      break; // Only one ID by message, end the loop faster
+        idBuffer[i].totalLapsTime = totalTime;
+        idBuffer[i].gateNumber = gate;
+        idBuffer[i].isNew = true;
+        break; // Only one ID by message, end the loop faster
     }
     else if (idBuffer[i].ID == 0)
     {
-      idBuffer[i].ID = ID;
-      idBuffer[i].totalLapsTime = totalTime;
-      idBuffer[i].gateNumber = gate;
-      idBuffer[i].isNew = true;
-      for (uint8_t j = 1; j < uiConfig.players + 1; j++)
-      {
-          if ( idData[j].ID == 0)
-          {
-              idData[j].ID = idBuffer[i].ID;
-              break; // Only registering the first Null .ID found
-          }
-      }
-      break; // Only one ID by message, end the loop faster
+        idBuffer[i].ID = ID;
+        idBuffer[i].totalLapsTime = totalTime;
+        idBuffer[i].gateNumber = gate;
+        idBuffer[i].isNew = true;
+        for (uint8_t j = 1; j < uiConfig.players + 1; j++)
+        {
+            if ( idData[j].ID == 0)
+            {
+                idData[j].ID = idBuffer[i].ID;
+                break; // Only registering the first Null .ID found
+            }
+        }
+        break; // Only one ID by message, end the loop faster
     }
   }
 }
@@ -1246,53 +1249,53 @@ void WriteJSONRace(uint32_t ms){
 
   if (ms - lastMillis >= delayMillis || isTrig)
   {
-      if (isTrig) // Triggered by change raceState
-      {
-        isTrig = false;
-      }
-      else // Triggered by delayMillis
-      {
-        if (ms - lastMillis > delayMillis + 1000)
+        if (isTrig) // Triggered by change raceState
         {
-            lastMillis = ms; // init
+            isTrig = false;
         }
-        else
+        else // Triggered by delayMillis
         {
-            lastMillis = lastMillis + delayMillis;
+            if (ms - lastMillis >= delayMillis + 1000)
+            {
+                lastMillis = ms; // init
+            }
+            else
+            {
+                lastMillis = lastMillis + delayMillis;
+            }
         }
-      }
 
-      StaticJsonDocument<JSON_BUFFER> doc;
-      JsonObject race_json = doc.createNestedObject("race");
+        StaticJsonDocument<JSON_BUFFER> doc;
+        JsonObject race_json = doc.createNestedObject("race");
 
-      race_json["state"] = raceStateChar[raceState];
-      race_json["lap"] = race.getBiggestLaps();
-      race_json["time"] = race.getCurrentTime();
-  
-      char *valueMessage = race.getMessage();
-      if (valueMessage != nullptr)
-      {
-          //  Serial.println(valueMessage);
-          race_json["message"] = valueMessage;
-      }
+        race_json["state"] = raceStateChar[raceState];
+        race_json["lap"] = race.getBiggestLaps();
+        race_json["time"] = race.getCurrentTime();
 
-      char json[JSON_BUFFER];
-      #if defined(DEBUG)
-      serializeJsonPretty(doc, json);
-      #else
-      serializeJson(doc, json);
-      #endif
+        char *valueMessage = race.getMessage();
+        if (valueMessage != nullptr)
+        {
+            //  Serial.println(valueMessage);
+            race_json["message"] = valueMessage;
+        }
 
-      #if defined(HAVE_WIFI)      
-      ws.textAll(json);
-      #endif
+        char json[JSON_BUFFER];
+        #if defined(DEBUG)
+        serializeJsonPretty(doc, json);
+        #else
+        serializeJson(doc, json);
+        #endif
+
+        #if defined(HAVE_WIFI)      
+        ws.textAll(json);
+        #endif
   }
 
   oldRaceState = raceState;
 }
 
 // ----------------------------------------------------------------------------
-// Debug Loop, simulate the gates
+// Debug Loop, simulate gates
 // make it changeable at compile time when i2c will be merged
 // ----------------------------------------------------------------------------
 #if defined(DEBUG_GATE)
@@ -1326,10 +1329,12 @@ void fakeIDtrigger(int ms){
         for (uint8_t i = 0; i < uiConfig.players; i++)
         {
             idGateNumber[i] = 20;
-            uiConfig.names[i].id == idList[i];
+            uiConfig.names[i].id = idList[i];
+            idListTimer[i] = random(2000, 3000);
+            idListLastMillis[i] = 0;
         }
         oldRaceStateDebug = WARMUP;
-        startMillis = millis();
+        startMillis = millis() + 2000; //warmup time?
         // Serial.println("NEW");
     }
 
@@ -1371,7 +1376,7 @@ void fakeIDtrigger(int ms){
 void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& data){
   static uint32_t lastMillis = 0;
   const uint32_t delayMillis = 2000;
-  char timeChar[10];
+  char timeChar[10]; // 00:00.000
   
  if (ms - lastMillis > delayMillis)
  {
@@ -1395,23 +1400,23 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
               Serial.print(F(" |laps: "));
               Serial.print(idData[j].laps);
               Serial.print(F(" |Time: "));
-              timeToChar(timeChar, 10, idData[j].lastTotalTime);
+              timeToChar(timeChar, idData[j].lastTotalTime);
               Serial.print(timeChar);
               Serial.print(F(" |last: "));
-              timeToChar(timeChar, 10, idData[j].lastLapTime);
+              timeToChar(timeChar, idData[j].lastLapTime);
               Serial.print(timeChar);
               Serial.print(F(" |best: "));
-              timeToChar(timeChar, 10, idData[j].bestLapTime);
+              timeToChar(timeChar, idData[j].bestLapTime);
               Serial.print(timeChar);
               Serial.print(F(" |mean: "));
-              timeToChar(timeChar, 10, idData[j].meanLapTime);
+              timeToChar(timeChar, idData[j].meanLapTime);
               Serial.print(timeChar);
 
               for ( uint8_t i = 0; i < uiConfig.gates; i++)
               {
                   // Shift Gate order:
                   uint8_t shiftGate = ((i + 1) < uiConfig.gates) ? (i + 1) : 0;
-                  timeToChar(timeChar, 10, idData[j].lastCheckPoint[shiftGate]);
+                  timeToChar(timeChar, idData[j].lastCheckPoint[shiftGate]);
                   // Serial.print(timeChar);
               }
               Serial.println();
@@ -1427,7 +1432,6 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 // ----------------------------------------------------------------------------
 void ReadSerial(){
     char confJSON[JSON_BUFFER_CONF];
-
 
     if (Serial.available()) {
     // char test[128] = "test";
@@ -1472,17 +1476,42 @@ void ReadSerial(){
 // Better to process on the mcu c++ or the browser javascript side... ?
 // the len is always 10... "00:00.000"
 // ----------------------------------------------------------------------------
-void timeToChar(char *buf, int len, uint32_t tmpMillis) { 
-  unsigned long nowMillis = tmpMillis;
-  uint32_t tmp_seconds = nowMillis / 1000;
-  uint32_t seconds = tmp_seconds % 60;
-  uint16_t ms = nowMillis % 1000;
-  uint32_t minutes = tmp_seconds / 60;
+void timeToChar(char *buf, uint32_t tmpMillis) { // always int len = 10,
+    unsigned long nowMillis = tmpMillis;
+    uint32_t tmp_seconds = nowMillis / 1000;
+    uint32_t seconds = tmp_seconds % 60;
+    uint16_t ms = nowMillis % 1000;
+    uint32_t minutes = tmp_seconds / 60;
 
-  snprintf(buf, len, "%02d:%02d.%03d", minutes, seconds, ms);
+    snprintf(buf, 10, "%02d:%02d.%03d", minutes, seconds, ms);
 }
 
-// Future template to test speed improvement
+// ----------------------------------------------------------------------------
+// todo: Add crc algo.
+// ----------------------------------------------------------------------------
+void getRandomColor(char *output, uint8_t len) {
+    const char hexValue[17] = "0123456789ABCDEF";
+
+    char color[8] = {};
+
+    color[0] = '#';
+
+    for (uint8_t i = 1; i < 7; i++)
+    {
+        color[i] = hexValue[random(16)];
+    }
+    strncpy(output, color, len);
+
+}
+
+
+// ----------------------------------------------------------------------------
+// todo: Add crc algo.
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// Future template to test speed improvement the len is always 10... "00:00.000"
+// ----------------------------------------------------------------------------
 // uint32_t fastUlongToTimeString(uint64_t secs, char *s)
 // {
 //   // divide by 3600 to calculate hours

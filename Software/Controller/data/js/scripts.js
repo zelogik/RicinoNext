@@ -97,28 +97,28 @@ function onMessage(evt)
         config_global = obj;
 
         if ('laps' in obj.conf) {
-            var laps_value = document.getElementById("lapsSlider").value;
+            var laps_value = document.getElementById("laps").value;
 
+            document.getElementById("laps").innerHTML = "" + obj.conf.laps;
             if ( obj.conf.laps != laps_value) {
-                document.getElementById("lapsValue").innerHTML = "" + obj.conf.laps;
                 document.getElementById("lapsSlider").value = "" + obj.conf.laps;
             }
         }
 
         if ('players' in obj.conf) {
-            var laps_value = document.getElementById("playersSlider").value;
+            var players_value = document.getElementById("players").innerHTML;
 
-            if ( obj.conf.laps != laps_value) {
-                // document.getElementById("textSliderValue").innerHTML = "" + obj.conf.players;
+            document.getElementById("players").innerHTML = "" + obj.conf.players;
+            if ( obj.conf.players != players_value) {
                 document.getElementById("playersSlider").value = "" + obj.conf.players;
             }
         }
 
         if ('gates' in obj.conf) {
-            var laps_value = document.getElementById("gatesSlider").value;
+            var gates_value = document.getElementById("gates").innerHTML;
 
-            if ( obj.conf.laps != laps_value) {
-                // document.getElementById("textSliderValue").innerHTML = "" + obj.conf.gates;
+            document.getElementById("gates").innerHTML = "" + obj.conf.gates;
+            if ( obj.conf.gates != gates_value) {
                 document.getElementById("gatesSlider").value = "" + obj.conf.gates;
             }
         }
@@ -132,6 +132,12 @@ function onMessage(evt)
             } else {
                 light_obj.innerHTML = "Off";
                 light_obj.style.color = "blue";   //      x.style.bgcolor = "grey";
+            }
+        }
+
+        if ('reset') {
+            if (obj.conf.reset){
+                clearLines();
             }
         }
     }
@@ -213,6 +219,10 @@ function onMessage(evt)
         if ('memory' in obj.debug) {
             document.getElementById('websockFreeMemory').innerHTML = "" + obj.debug.memory;
         }
+        
+        if ('color' in obj.debug) {
+            document.getElementById('websockRandomColor').innerHTML = "" + obj.debug.color;
+        }
     }
 }
 
@@ -261,7 +271,6 @@ function lightToggle()
 
 function resetTrigger()
 {
-    clearLines();
     var data = JSON.stringify({"conf": {"reset": "1"}});
     doSend(data);
 }
@@ -482,7 +491,7 @@ class Stopwatch
 
 }
 
-var DEBUG_LIVE = false; //Set this to true if you want to log the live json events as well (spams a lot)
+var DEBUG_LIVE = true; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
 let config_global = "";
