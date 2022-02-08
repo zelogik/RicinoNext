@@ -24,6 +24,7 @@ Todo: Add author(s), descriptions, etc here...
     #include <WiFi.h>      //ESP32 Core WiFi Library
     #include <AsyncTCP.h>
 #elif defined(ARDUINO_SAMD_ZERO)
+    #include <MemoryFree.h>
     // set pinLed
     // maybe an simple 328p as ESP01 will take web load.
 #elif defined(ARDUINO_AVR_MEGA2560)
@@ -31,10 +32,13 @@ Todo: Add author(s), descriptions, etc here...
 #else
     #error “Unsupported board selected!”
 #endif
+#define NUMBER_RACER_MAX 16
+
+
 
 #include <ArduinoJson.h>  // needed for every messages
 #define JSON_BUFFER 512
-#define JSON_BUFFER_CONF 1024 // need to test with 8 players or more...
+#define JSON_BUFFER_CONF 1024 // 1024 for 8players
 
 #include <Wire.h>         // needed for the i2c gates/addons.
 
@@ -47,7 +51,8 @@ Todo: Add author(s), descriptions, etc here...
 
 #if defined(DEBUG_GATE)
   void fakeIDtrigger(int ms); //debug function (replace i2c connection)
-  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"}]}}";  // ,\"light_brightness\":255
+  // todo: define a random generator (should be useful with color anyway)
+  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 5\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
 #endif
 
 #if defined(DEBUG)
@@ -92,10 +97,12 @@ uint16_t ledPin = 13;
 // ----------------------------------------------------------------------------
 //  Default racer/gates/protocol
 // ----------------------------------------------------------------------------
-#define NUMBER_RACER 4 // todo/future: set a fixed 32 struct BUT dynamic player number? to avoiding malloc/free etc..
+// todo: define depend of board esp/samd/avr etc...
+#define NUMBER_RACER_MAX 16
+#define NUMBER_GATES_MAX 8
 // #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
 
-const uint8_t addressAllGates[] = {21, 22, 23}; // Order: 1 Gate-> ... -> Final Gate! | define address in UI ?
+const uint8_t addressAllGates[] = {21, 22, 23, 24, 25, 26, 27, 28}; // Order: 1 Gate-> ... -> Final Gate! | define address in UI ?
 #define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
 
 #define NUMBER_PROTOCOL 3 // 0:serial, 1:web, 2:tft, 3:jsonSerial todo: add enum for easy debug?
@@ -116,9 +123,10 @@ struct UI_config{
   // bool isChanged = false; // is used? / remove ?
 
   uint16_t laps = 10; // 1 - ? unlimited ?
-  uint8_t players = NUMBER_RACER; // 1 - ? 32 max ? (ESP memory/speed limit)
-  uint8_t gates = NUMBER_GATES; // 1…?8 max?
-
+  uint8_t players = 4; // todo: ? EEPROM ?
+  const uint8_t players_max = NUMBER_RACER_MAX;
+  uint8_t gates = 3; // todo: set/get in EEPROM as we don't change setup everytime
+  const uint8_t gates_max = NUMBER_GATES_MAX;
   // uint8_t light_brightness = 255;
 
   // Todo Add  enable sound/voice/etc... here
@@ -135,7 +143,7 @@ struct UI_config{
       uint32_t id; // dedup with idData[i].ID, something to refactoring ?
       char name[16]; // make a "random" username ala reddit ?
       char color[8]; // by char or int/hex value...
-  }names[NUMBER_RACER];
+  }names[NUMBER_RACER_MAX];
 };
 
 UI_config uiConfig;
@@ -159,13 +167,13 @@ struct ID_Data_sorted{
       // Make all variable below private ?
       uint32_t bestLapTime, meanLapTime, lastLapTime, lastTotalTime;
 
-      uint32_t lastTotalCheckPoint[NUMBER_GATES];
-      uint32_t lastCheckPoint[NUMBER_GATES];
-      uint32_t bestCheckPoint[NUMBER_GATES];
-      uint32_t meanCheckPoint[NUMBER_GATES];
-      uint32_t sumCheckPoint[NUMBER_GATES]; // 1193Hours for a buffer overflow?
+      uint32_t lastTotalCheckPoint[NUMBER_GATES_MAX];
+      uint32_t lastCheckPoint[NUMBER_GATES_MAX];
+      uint32_t bestCheckPoint[NUMBER_GATES_MAX];
+      uint32_t meanCheckPoint[NUMBER_GATES_MAX];
+      uint32_t sumCheckPoint[NUMBER_GATES_MAX]; // 1193Hours for a buffer overflow?
 
-      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES];
+      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES_MAX];
       bool positionChange[NUMBER_PROTOCOL]; // serial, json, serial
 
       // todo: clean
@@ -211,7 +219,7 @@ struct ID_Data_sorted{
           }
 
           // Calculation of checkpoint
-          uint8_t prevIndex = (idxGates == 0) ? ((uint8_t)NUMBER_GATES - 1) : (idxGates - 1);
+          uint8_t prevIndex = (idxGates == 0) ? ((uint8_t)uiConfig.gates - 1) : (idxGates - 1);
       
           for (uint8_t i = 0; i < NUMBER_PROTOCOL; i++)
           {
@@ -239,7 +247,7 @@ struct ID_Data_sorted{
   // return true and reset Protocol state
   bool needGateUpdate(uint8_t protocol){
     bool boolUpdate = false;
-    for (uint8_t i = 0; i < NUMBER_GATES; i++)
+    for (uint8_t i = 0; i < uiConfig.gates; i++)
     {
         if (haveUpdate[protocol][i] == true)
         {
@@ -256,7 +264,7 @@ struct ID_Data_sorted{
   private:
     uint8_t gateIndex(uint8_t gate){
         uint8_t idx;
-        for (uint8_t i = 0; i < NUMBER_GATES; i++)
+        for (uint8_t i = 0; i < uiConfig.gates; i++)
         {
             if (gate == addressAllGates[i])
             {
@@ -310,7 +318,7 @@ struct ID_Data_sorted{
     }
 };
 
-ID_Data_sorted idData[NUMBER_RACER + 1]; // number + 1, [0] is the tmp for rank change, and so 1st is [1] and not [0] and so on...
+ID_Data_sorted idData[NUMBER_RACER_MAX + 1]; // number + 1, [0] is the tmp for rank change, and so 1st is [1] and not [0] and so on...
 
 
 // ----------------------------------------------------------------------------
@@ -323,7 +331,7 @@ struct ID_buffer{
   bool isNew = false; //
 };
 
-ID_buffer idBuffer[NUMBER_RACER];
+ID_buffer idBuffer[NUMBER_RACER_MAX];
 
 
 // ----------------------------------------------------------------------------
@@ -373,7 +381,7 @@ class Race {
         delayWarmupTimer = 0;
         oldRaceState = raceState;
         
-        for (uint8_t i = 0 ; i < (NUMBER_RACER + 1); i++ )
+        for (uint8_t i = 0 ; i < (uiConfig.players + 1); i++ ) // NUMBER_RACER_MAX ?
         {
             idData[i].reset();
         }
@@ -406,7 +414,7 @@ class Race {
     void sortIDLoop(){
 
       // check if new data available
-      for (uint8_t i = 0; i < NUMBER_RACER ; i++)
+      for (uint8_t i = 0; i < uiConfig.players ; i++)
       {
           if (idBuffer[i].isNew == true)
           {
@@ -417,7 +425,7 @@ class Race {
               currentSortGate = idBuffer[i].gateNumber;
 
               // get current position
-              for (uint8_t j = 1; j < NUMBER_RACER + 1 ; j++)
+              for (uint8_t j = 1; j < uiConfig.players + 1 ; j++)
               {
                   if ( idBuffer[i].ID == idData[j].ID )
                   {
@@ -462,8 +470,6 @@ class Race {
     ~Race(){};
 
     void loop(){
-
-//        printSerialDebug();
         switch (raceState)
         {
         // Reset everthing (struct,class,UI,JSON)
@@ -489,7 +495,7 @@ class Race {
     
             if (millis() - delayWarmupTimer > delayWarmupDelay)
             {   // i2c gate template
-                // for (uint8_t i = 0; i < NUMBER_GATES; i++)
+                // for (uint8_t i = 0; i < uiConfig.gates; i++)
                 // {
                 //     setCommand(addressAllGates[i], app_ptr->startCmd, sizeof(&app_ptr->startCmd));
                 // }
@@ -509,7 +515,7 @@ class Race {
             sortIDLoop(); // processing ID.
 
             // i2c gate template
-            // for (uint8_t i = 0 ; i < NUMBER_GATES; i++)
+            // for (uint8_t i = 0 ; i < uiConfig.gates; i++)
             // {
             //     getDataFromGate(addressAllGates[i]);
             // }
@@ -695,8 +701,11 @@ void confToJSON(char* output, bool connection){ // const struct UI_config* data,
       JsonObject race_obj = doc.createNestedObject("race");
       race_obj["message"] = "Welcome on RicinoNext";
   }
-
+  #if defined(DEBUG)
   serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
+  #else
+  serializeJson(doc, output, JSON_BUFFER_CONF);
+  #endif
 }
 
 
@@ -1090,6 +1099,14 @@ void writeJSONDebug(){
       debug_obj["time"] = worstMicroLoop;
       worstMicroLoop = 0;
 
+      #if defined(ESP32)
+      char freeMemory[16];
+      sprintf(freeMemory,"%lu", ESP.getFreeHeap());
+      debug_obj["memory"] = freeMemory;
+    //   #else
+    //   freeMemory()
+      #endif
+
       if (debug_message[0] != '\0')
       {
           // memcpy(debug_message, message, sizeof(message[0])*128);
@@ -1098,7 +1115,12 @@ void writeJSONDebug(){
       }
 
       char json[JSON_BUFFER_DEBUG];
+      #if defined(DEBUG)
       serializeJsonPretty(doc, json);
+      #else
+      serializeJson(doc, json);
+      #endif
+
       #if defined(HAVE_WIFI)
       ws.textAll(json);
       #endif
@@ -1113,7 +1135,7 @@ void writeJSONDebug(){
 // ----------------------------------------------------------------------------
 void bufferingID(int ID, uint8_t gate, int totalTime){
 
-  for (uint8_t i = 0; i < NUMBER_RACER; i++)
+  for (uint8_t i = 0; i < uiConfig.players; i++)
   {
     if (idBuffer[i].ID == ID)
     {
@@ -1128,7 +1150,7 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
       idBuffer[i].totalLapsTime = totalTime;
       idBuffer[i].gateNumber = gate;
       idBuffer[i].isNew = true;
-      for (uint8_t j = 1; j < NUMBER_RACER + 1; j++)
+      for (uint8_t j = 1; j < uiConfig.players + 1; j++)
       {
           if ( idData[j].ID == 0)
           {
@@ -1150,42 +1172,46 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
   // Send "live" JSON section
   // todo: maybe add a millis delay to don't DDOS client :-D
   // todo: optimization, send only new value! (so need more memory to store lastValue)
-  for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++){
-      if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
-      {
-          idData[i].positionChange[protocol] = false;
-          StaticJsonDocument<JSON_BUFFER> doc;
+  for (uint8_t i = 1; i < (uiConfig.players + 1) ; i++){
+    if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
+    {
+        idData[i].positionChange[protocol] = false;
+        StaticJsonDocument<JSON_BUFFER> doc;
 
-          // Need to fill now...
-          JsonObject live = doc.createNestedObject("live");
+        // Need to fill now...
+        JsonObject live = doc.createNestedObject("live");
 
-          // todo: need to change to char and timeToChar function!
-          live["rank"] = i;
-          // add old rank ?
-          live["id"] = idData[i].ID;
-          live["lap"] = idData[i].laps;
-          live["best"] = idData[i].bestLapTime;
-          live["last"] = idData[i].lastLapTime;
-          live["mean"] = idData[i].meanLapTime;
-          live["total"] = idData[i].lastTotalTime;
+        // todo: need to change to char and timeToChar function!
+        live["rank"] = i;
+        // add old rank ?
+        live["id"] = idData[i].ID;
+        live["lap"] = idData[i].laps;
+        live["best"] = idData[i].bestLapTime;
+        live["last"] = idData[i].lastLapTime;
+        live["mean"] = idData[i].meanLapTime;
+        live["total"] = idData[i].lastTotalTime;
 
-          // hum... if gate == 1, could we stop here ?
-          JsonArray live_gate = live.createNestedArray("gate");
-          for ( uint8_t i = 0; i < NUMBER_GATES; i++)
-          {
-              uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
-              live_gate.add(idData[i].lastCheckPoint[shiftGate]);
-          }
+        // hum... if gate == 1, could we stop here ?
+        JsonArray live_gate = live.createNestedArray("gate");
+        for ( uint8_t i = 0; i < uiConfig.gates; i++)
+        {
+            uint8_t shiftGate = ((i + 1) < uiConfig.gates) ? (i + 1) : 0;
+            live_gate.add(idData[i].lastCheckPoint[shiftGate]);
+        }
 
-          char json[JSON_BUFFER];
-          serializeJsonPretty(doc, json); // todo: remove the pretty after
-          
-          #if defined(HAVE_WIFI)
-          ws.textAll(json);
-          #endif
+        char json[JSON_BUFFER];
+        #if defined(DEBUG)
+        serializeJsonPretty(doc, json);
+        #else
+        serializeJson(doc, json);
+        #endif
+        
+        #if defined(HAVE_WIFI)
+        ws.textAll(json);
+        #endif
 
-          break;
-      }
+        break;
+    }
   }
 }
 
@@ -1218,7 +1244,11 @@ void WriteJSONRace(uint32_t ms){
       }
 
       char json[JSON_BUFFER];
-      serializeJsonPretty(doc, json); // todo: remove the pretty after
+      #if defined(DEBUG)
+      serializeJsonPretty(doc, json);
+      #else
+      serializeJson(doc, json);
+      #endif
 
       #if defined(HAVE_WIFI)      
       ws.textAll(json);
@@ -1236,17 +1266,18 @@ void WriteJSONRace(uint32_t ms){
 void fakeIDtrigger(int ms){
 
     static uint32_t startMillis;
-    const uint32_t idList[] = { 1234, 1111, 1337, 2468, 4321, 2222, 1313, 1357};
-    static uint16_t idListTimer[] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350}; // used for the first lap!
-    static uint32_t idListLastMillis[] = { 0, 0, 0, 0, 0, 0, 0, 0,};
-    static uint8_t idGateNumber[] = { 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
+    // todo: make a random generator... ?
+    const uint32_t idList[16] = { 1234, 1111, 1337, 2468, 6789, 8080, 7878, 8989, 9999, 2222, 9753, 1357, 0403, 2510, 4333, 5000};
+    static uint16_t idListTimer[16] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350, 2005, 2055, 2255, 2120, 2055, 2155, 2255, 2355}; // used for the first lap!
+    static uint32_t idListLastMillis[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    static uint8_t idGateNumber[16] = { 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
 
     static race_state_t oldRaceStateDebug = START;
     static bool isNew = false;
     static uint32_t autoResetReady = millis();
     const uint32_t autoResetReadyDelay = 1000; // 1sec without call this function.
     uint8_t gateNumber_tmp;
-    const uint8_t lastGatesDebug = addressAllGates[NUMBER_GATES - 1];
+    const uint8_t lastGatesDebug = addressAllGates[uiConfig.gates - 1];
 
     //detect if it's a new race
     if ( millis() - autoResetReady > autoResetReadyDelay)
@@ -1259,7 +1290,7 @@ void fakeIDtrigger(int ms){
     if (oldRaceStateDebug == START && raceState == RACE && isNew == false)
     {
         isNew = true;
-        for (uint8_t i = 0; i < NUMBER_RACER; i++)
+        for (uint8_t i = 0; i < uiConfig.players; i++)
         {
             idGateNumber[i] = 20;
             uiConfig.names[i].id == idList[i];
@@ -1271,7 +1302,7 @@ void fakeIDtrigger(int ms){
 
     if (isNew)
     {
-        for (uint8_t i = 0; i < NUMBER_RACER; i++)
+        for (uint8_t i = 0; i < uiConfig.players; i++)
         {
             if (ms - idListLastMillis[i] > idListTimer[i])
             {
@@ -1312,10 +1343,9 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
  if (ms - lastMillis > delayMillis)
  {
     lastMillis = millis();
-    //  Serial.println(ESP.getFreeHeap()); 237468 237644
  }
 
-  for (uint8_t i = 1; i < (NUMBER_RACER + 1) ; i++)
+  for (uint8_t i = 1; i < (uiConfig.players + 1) ; i++)
   {
       if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
       {
@@ -1324,7 +1354,7 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
           for (uint8_t k = 0; k < 15 ; k++){
               Serial.println();
           }
-          for (uint8_t j = 1; j < (NUMBER_RACER + 1) ; j++)
+          for (uint8_t j = 1; j < (uiConfig.players + 1) ; j++)
           {
               Serial.print(j);
               Serial.print(F(" |ID: "));
@@ -1344,10 +1374,10 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
               timeToChar(timeChar, 10, idData[j].meanLapTime);
               Serial.print(timeChar);
 
-              for ( uint8_t i = 0; i < NUMBER_GATES; i++)
+              for ( uint8_t i = 0; i < uiConfig.gates; i++)
               {
                   // Shift Gate order:
-                  uint8_t shiftGate = ((i + 1) < NUMBER_GATES) ? (i + 1) : 0;
+                  uint8_t shiftGate = ((i + 1) < uiConfig.gates) ? (i + 1) : 0;
                   timeToChar(timeChar, 10, idData[j].lastCheckPoint[shiftGate]);
                   // Serial.print(timeChar);
               }

@@ -1,4 +1,5 @@
-function init() {
+function init()
+{
     ourURL = window.location.href;
     console.log("ourURL = "+ ourURL);
     chop = 0;
@@ -31,7 +32,8 @@ function init() {
 }
 
 // Call this to connect to the WebSocket server
-function wsConnect(websocketUrl) {
+function wsConnect(websocketUrl)
+{
     // Connect to WebSocket server
     websocket = new WebSocket(websocketUrl);
 
@@ -43,17 +45,19 @@ function wsConnect(websocketUrl) {
 }
 
 // Called when a WebSocket connection is established with the server
-function onOpen(evt) {
+function onOpen(evt)
+{
     // Log connection state
     console.log("Connected");
     // refreshElements(evt.data);
-    // Get the current state of ??
+    // Get the current state of ??, From Cédric: The backend send conf: at connection, and race is send every 5 : 1 sec , minimal unknown state...
     // doSend("get??State");
     // screen.orientation.lock()
 }
 
 // Called when the WebSocket connection is closed
-function onClose(evt) {
+function onClose(evt)
+{
 
     // Log disconnection state
     console.log("Disconnected");
@@ -63,13 +67,15 @@ function onClose(evt) {
 }
 
 // Called when a message is received from the server
-function onMessage(evt) {
+function onMessage(evt)
+{
     obj = JSON.parse(evt.data);
     if ( !('live' in obj) || (DEBUG_LIVE) ){
         // Print out our received message
         console.log("Received: " + evt.data);
     }
 
+    // To Roland: is below used anymore for you ? look like a old code from me :-D, we can remove it
     //var size = Object.keys(obj).length
     // no sanety check for player update... but cleaner!?!
     if ('data' in obj) {
@@ -88,75 +94,86 @@ function onMessage(evt) {
     }
 
     if ('conf' in obj) {
-        //var names = Object.keys(jsonObj.products);
-        // products = ["laptop", "cellphone", "tablets"];
         config_global = obj;
 
         if ('laps' in obj.conf) {
             var laps_value = document.getElementById("lapsSlider").value;
 
             if ( obj.conf.laps != laps_value) {
-                document.getElementById("textSliderValue").innerHTML = "" + obj.conf.laps;
+                document.getElementById("lapsValue").innerHTML = "" + obj.conf.laps;
                 document.getElementById("lapsSlider").value = "" + obj.conf.laps;
+            }
+        }
+
+        if ('players' in obj.conf) {
+            var laps_value = document.getElementById("playersSlider").value;
+
+            if ( obj.conf.laps != laps_value) {
+                // document.getElementById("textSliderValue").innerHTML = "" + obj.conf.players;
+                document.getElementById("playersSlider").value = "" + obj.conf.players;
+            }
+        }
+
+        if ('gates' in obj.conf) {
+            var laps_value = document.getElementById("gatesSlider").value;
+
+            if ( obj.conf.laps != laps_value) {
+                // document.getElementById("textSliderValue").innerHTML = "" + obj.conf.gates;
+                document.getElementById("gatesSlider").value = "" + obj.conf.gates;
             }
         }
 
         if ('light' in obj.conf) {
             var light_obj = document.getElementById("light");
-            // var light_state = ((document.getElementById("light").innerHTML) === "Off" ? 0 : 1 );
 
-            // console.log("light" + light_obj)
-            // if (obj.conf.light != light_state){
-                if (obj.conf.light > 1) {
-                    light_obj.innerHTML = "On";
-                    light_obj.style.color = "black";
-            //      x.style.bgcolor = "red";
-                } else {
-                    light_obj.innerHTML = "Off";
-                    light_obj.style.color = "blue";
-            //      x.style.bgcolor = "grey";
-                }
-            // }
+            if (obj.conf.light > 1) {
+                light_obj.innerHTML = "On";
+                light_obj.style.color = "black";  //      x.style.bgcolor = "red";
+            } else {
+                light_obj.innerHTML = "Off";
+                light_obj.style.color = "blue";   //      x.style.bgcolor = "grey";
+            }
         }
     }
 
 
     if ('race' in obj) { // Race is read only!
-            var raceButton = document.getElementById("race");
-            var sliderLock = document.getElementById("lapsSlider");
+        var raceButton = document.getElementById("race");
+        var sliderLock = document.getElementById("lapsSlider");
 
-            if (obj.race.state === "WAIT") {
-                sliderLock.disabled = false;
-                raceButton.innerHTML = "Start";
-                raceButton.style.color = "green";
-            }
-            else if (obj.race.state === "STOP") {
-                stopStopWatches();
-            }
-            else {
-                sliderLock.disabled = true;
-                raceButton.innerHTML = "Stop";
-                raceButton.style.color = "red";
-            }
+        if (obj.race.state === "WAIT") {
+            sliderLock.disabled = false;
+            raceButton.innerHTML = "Start";
+            raceButton.style.color = "green";
+            stopStopWatches(); // todo: backend need to send a STOP went client push stop
+        }
+        else if (obj.race.state === "STOP") {
+            stopStopWatches();
+        }
+        else {
+            sliderLock.disabled = true;
+            raceButton.innerHTML = "Stop";
+            raceButton.style.color = "red";
+        }
 
-            if ('lap' in obj.race) {
-                var tmpWidth = obj.race.lap / document.getElementById("lapsSlider").value* 100;
-                // console.log("ERROR: " + tmpWidth);
-                document.getElementById('percentLap').style.width = tmpWidth + "%";
-                document.getElementById('percentLap').innerHTML = obj.race.lap;
-                // document.getElementById('percentLap').value = obj.conf.laps;
-                document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
-            }
+        if ('lap' in obj.race) {
+            var tmpWidth = obj.race.lap / document.getElementById("lapsSlider").value* 100;
+            // console.log("ERROR: " + tmpWidth);
+            document.getElementById('percentLap').style.width = tmpWidth + "%";
+            document.getElementById('percentLap').innerHTML = obj.race.lap;
+            // document.getElementById('percentLap').value = obj.conf.laps;
+            document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
+        }
 
-            if ('message' in obj.race) {
-                snackBar(obj.race.message);
-                // document.getElementById('websockConsole').innerHTML = "" + obj.race.message;
-            }
+        if ('message' in obj.race) {
+            snackBar(obj.race.message);
+            // document.getElementById('websockConsole').innerHTML = "" + obj.race.message;
+        }
 
-            if ('time' in obj.race) {
-                document.getElementById('websockTimer').innerHTML = "" + obj.race.time;
-                // document.getElementById('debugtime').innerHTML = "" + obj.race.time;
-            }
+        if ('time' in obj.race) {
+            document.getElementById('websockTimer').innerHTML = "" + obj.race.time;
+            // document.getElementById('debugtime').innerHTML = "" + obj.race.time;
+        }
     }
 
 
@@ -192,16 +209,22 @@ function onMessage(evt) {
         if ('message' in obj.debug) {
             document.getElementById('websockConsole').innerHTML = "" + obj.debug.message;
         }
+
+        if ('memory' in obj.debug) {
+            document.getElementById('websockFreeMemory').innerHTML = "" + obj.debug.memory;
+        }
     }
 }
 
 // Called when a WebSocket error occurs
-function onError(evt) {
+function onError(evt)
+{
     console.log("ERROR: " + evt.data);
 }
 
 // Sends a message to the server (and prints it to the console)
-function doSend(message) {
+function doSend(message)
+{
     console.log("Sending: " + message);
     try{
         websocket.send(message);
@@ -212,7 +235,8 @@ function doSend(message) {
 }
 
 // UI functions callback
-function raceToggle() {
+function raceToggle()
+{
     var x = document.getElementById("race");
     
     if (x.innerHTML === "Start") {
@@ -223,7 +247,8 @@ function raceToggle() {
     doSend(data);
 }
 
-function lightToggle() {
+function lightToggle()
+{
     var x = document.getElementById("light");
     
     if (x.innerHTML === "On") {
@@ -234,16 +259,35 @@ function lightToggle() {
     doSend(data);
 }
 
-function resetTrigger() {
-            clearLines();
-            var data = JSON.stringify({"conf": {"reset": "1"}});
-            doSend(data);
+function resetTrigger()
+{
+    clearLines();
+    var data = JSON.stringify({"conf": {"reset": "1"}});
+    doSend(data);
 }
 
-function updateLaps(element) {
+// todo: factorize three below slider functions
+function updateLaps(element)
+{
     var sliderValue = document.getElementById("lapsSlider").value;
-    // console.log("Sending: " + sliderValue);
     var data = JSON.stringify({"conf": {"laps": sliderValue}});
+    // todo: send only new value every x sec, avoid flooding
+    doSend(data);
+}
+
+function updatePlayers(element)
+{
+    var sliderValue = document.getElementById("playersSlider").value;
+    var data = JSON.stringify({"conf": {"players": sliderValue}});
+    // todo: send only new value every x sec, avoid flooding
+    doSend(data);
+}
+
+function updateGates(element)
+{
+    var sliderValue = document.getElementById("gatesSlider").value;
+    var data = JSON.stringify({"conf": {"gates": sliderValue}});
+    // todo: send only new value every x sec, avoid flooding
     doSend(data);
 }
 
@@ -333,8 +377,7 @@ function removeLine(line_id)
 
 function clearLines()
 {
-    // todo: should get the line number from conf?
-    for (var i = 1; i <= 4; i++)
+    for (var i = 1; i <= config_global.conf.players; i++)
     {
         removeLine(i);
     }
@@ -372,7 +415,7 @@ function snackBar(message) {
     x.className = "show";
     setTimeout(function(){ x.className = x.className.replace("show", ""); }, 5000);
     console.log(message);
-  }
+}
 
 function stopStopWatches()
 {
@@ -388,7 +431,8 @@ function stopStopWatches()
     stopwatch.stop();
 }
 
-class Stopwatch {
+class Stopwatch
+{
     constructor(id, delay=151) { //Delay in ms
       this.state = "paused";
       this.delay = delay;
