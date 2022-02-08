@@ -351,7 +351,7 @@ function generateLine(line_id)
 
 	new_line.appendChild(generateDiv('col-md-0', line_id + '_id', line_id));
 	new_line.appendChild(generateDiv('col-md-1', line_id + '_lap', '-'));
-	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver' + line_id));
+	new_line.appendChild(generateDiv('col-md-1', line_id + '_name', 'Driver '+ line_id));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_last', '-'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_best', '-'));
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_mean', '-'));
@@ -377,6 +377,7 @@ function removeLine(line_id)
 
 function clearLines()
 {
+    // todo: except if sliderValue have changed...
     for (var i = 1; i <= config_global.conf.players; i++)
     {
         removeLine(i);

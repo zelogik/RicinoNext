@@ -52,7 +52,7 @@ Todo: Add author(s), descriptions, etc here...
 #if defined(DEBUG_GATE)
   void fakeIDtrigger(int ms); //debug function (replace i2c connection)
   // todo: define a random generator (should be useful with color anyway)
-  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 5\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
+  const char JSONconfDebug[1024] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
 #endif
 
 #if defined(DEBUG)
@@ -388,7 +388,7 @@ class Race {
     }
 
 
-    void printSerialDebug(){
+    void oneShotStateChange(){
         if (oldRaceState != raceState)
         {
             Serial.println(raceStateChar[oldRaceState]);
@@ -594,14 +594,18 @@ class Race {
     char* getMessage(){
       // Send message only one time!
       // could be better !?!
-      if (message[0] != '\0')
-      {
-          // char message_tmp[128];
-          memcpy(message_buffer, message, sizeof(message[0])*128);
-          message[0] = '\0';
-          return message_buffer;
-      }
-      return nullptr;
+        if (oldRaceState != raceState)
+        {
+            if (message[0] != '\0')
+            {
+                memcpy(message_buffer, message, sizeof(message[0])*128);
+                message[0] = '\0';
+                return message_buffer;
+            }
+            // Serial.println(raceStateChar[oldRaceState]);
+            oldRaceState = raceState;
+        }
+        return nullptr;
     }
 };
 
@@ -881,6 +885,9 @@ void server_init()
   });
   server.on("/css/bootstrap.min.css", HTTP_GET, [](AsyncWebServerRequest *request){
       request->send(SPIFFS, "/css/bootstrap.min.css", "text/css");
+  });
+  server.on("/css/bootstrap.css", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send(SPIFFS, "/css/bootstrap.css", "text/css");
   });
   server.on("/css/bootstrap.min.css.map", HTTP_GET, [](AsyncWebServerRequest *request){
       request->send(SPIFFS, "/css/bootstrap.min.css.map", "text/css");
@@ -1223,6 +1230,7 @@ void WriteJSONRace(uint32_t ms){
   static uint32_t lastMillis = 0;
   uint32_t delayMillis;
   
+  // todo: add sort of % 1000ms
   delayMillis = (race.getCurrentTime() == 0) ? 5000 : 1000;
 
   if (ms - lastMillis > delayMillis || oldRaceState != raceState)
