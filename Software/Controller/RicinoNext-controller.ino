@@ -2,13 +2,14 @@
 Todo: Add author(s), descriptions, etc here...
 */
 
+#define VSCODIUM_COLOR_HACK 1 // force vscodium color
 
 
 // ----------------------------------------------------------------------------
 // Imcludes library, header
 // ----------------------------------------------------------------------------
 // todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
-#if defined(ESP8266) || defined(ESP32)
+#if defined(ESP8266) || defined(ESP32) || defined(VSCODIUM_COLOR_HACK)
     #define HAVE_WIFI 1
     #include <Update.h>  // arduinoOTA
     #include <ESPmDNS.h>
@@ -38,7 +39,7 @@ Todo: Add author(s), descriptions, etc here...
 
 #include <ArduinoJson.h>  // needed for every messages
 #define JSON_BUFFER 512
-#define JSON_BUFFER_CONF 1024 // 1024 for 8players
+#define JSON_BUFFER_CONF 2048 // 1024 for 8players
 
 #include <Wire.h>         // needed for the i2c gates/addons.
 
@@ -203,7 +204,7 @@ struct ID_Data_sorted{
 
   void updateTime(uint32_t timeMs, uint8_t gate){
       currentGate = gate;
-      lapTime = timeMs;
+      lapTime = timeMs; // is used ?
   //    uint32_t tmp_lastTotalLapTime = totalLapTime;
       uint8_t idxGates = gateIndex(gate);
 
@@ -239,8 +240,8 @@ struct ID_Data_sorted{
 
   // todo, know if up or down or same position.
   void updateRank(uint8_t currentPosition){
-      statPos = lastPos - currentPosition;
-      lastPos = currentPosition;
+        statPos = lastPos - currentPosition;
+        lastPos = currentPosition;
   }
 
 
@@ -340,14 +341,15 @@ ID_buffer idBuffer[NUMBER_RACER_MAX];
 enum race_state_t {
   RESET,         // Set parameters(Counter BIP etc...), before start counter, re[set] all struct/class
   WAIT,          // only check gate status, waiting for START call.
-  START,         // Run the warm-up phase, (light, beep,etc) (no registering player for the moment)
+  START,         // TStart RACE put in warm-up phase
+  WARMUP,        // Run the warm-up phase, (light, beep,etc) (no registering player for the moment)
   RACE,          // enable all gate receiver and so, update Race state (send JSON, sendSerial) etc...
   FINISH,        // 1st player have win, terminate after 20s OR all players have finished.
   STOP           // finished auto/manual goto WAIT
 };
 
 race_state_t raceState = RESET;
-const char* raceStateChar[] = {"RESET", "WAIT", "START", "RACE", "FINISH", "STOP"}; // todo: Human readable ENUM,used for message ?
+const char* raceStateChar[] = {"RESET", "WAIT", "START", "WARMUP", "RACE", "FINISH", "STOP"}; // todo: Human readable ENUM,used for message ?
 
 
 // ----------------------------------------------------------------------------
@@ -355,17 +357,19 @@ const char* raceStateChar[] = {"RESET", "WAIT", "START", "RACE", "FINISH", "STOP
 // ----------------------------------------------------------------------------
 class Race {
   private:
-    uint16_t delayWarmupDelay = 2 * 1000; // todo: changeable from UI
-    uint16_t delayWarmupTimer;
+    const uint16_t delayWarmupDelay = 2 * 1000; // todo: changeable from UI
+    uint32_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    uint16_t numberTotalLaps;
+    const uint16_t *numberTotalLaps = &uiConfig.laps;
     uint32_t finishRaceMillis;
-    uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
+    const uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
     uint32_t startTimeOffset;
+    // uint32_t currentTimeOffset;
     char message[128] = {};
     char message_buffer[128];
+
     uint8_t currentSortPosition;
     uint32_t currentSortTime;
     uint8_t currentSortGate;
@@ -380,8 +384,10 @@ class Race {
         finishRaceMillis = 0;
         delayWarmupTimer = 0;
         oldRaceState = raceState;
+        // todo:
+        //startTimeOffset
         
-        for (uint8_t i = 0 ; i < (uiConfig.players + 1); i++ ) // NUMBER_RACER_MAX ?
+        for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX); i++ )
         {
             idData[i].reset();
         }
@@ -414,54 +420,54 @@ class Race {
     void sortIDLoop(){
 
       // check if new data available
-      for (uint8_t i = 0; i < uiConfig.players ; i++)
-      {
-          if (idBuffer[i].isNew == true)
-          {
-              idBuffer[i].isNew = false;
-              // look ID at current position
-              currentSortPosition = 0;
-              currentSortTime = idBuffer[i].totalLapsTime;
-              currentSortGate = idBuffer[i].gateNumber;
+        for (uint8_t i = 0; i < uiConfig.players ; i++)
+        {
+            if (idBuffer[i].isNew == true)
+            {
+                idBuffer[i].isNew = false;
+                // look ID at current position
+                currentSortPosition = 0;
+                currentSortTime = idBuffer[i].totalLapsTime;
+                currentSortGate = idBuffer[i].gateNumber;
 
-              // get current position
-              for (uint8_t j = 1; j < uiConfig.players + 1 ; j++)
-              {
-                  if ( idBuffer[i].ID == idData[j].ID )
-                  {
-                      currentSortPosition = j;
-                      if (isIdRunning(idData[currentSortPosition].laps))
-                      {
-                          idData[currentSortPosition].updateTime(currentSortTime, currentSortGate);
-                      }
-                      // update biggestLap.
-                      setBiggestLap(idData[currentSortPosition].laps);
+                // get current position
+                for (uint8_t j = 1; j < uiConfig.players + 1 ; j++)
+                {
+                    if ( idBuffer[i].ID == idData[j].ID )
+                    {
+                        currentSortPosition = j;
+                        if (isIdRunning(idData[currentSortPosition].laps))
+                        {
+                            idData[currentSortPosition].updateTime(currentSortTime, currentSortGate);
+                        }
+                        // update biggestLap.
+                        setBiggestLap(idData[currentSortPosition].laps);
 
-                      break; // Processing only one idBuffer at a time!
-                  }
-              }
-              //  check if ID get up in position/rank.
-              for (uint8_t k = currentSortPosition; k > 1 ; k--)
-              {
-                  if (idData[k].laps > idData[k - 1].laps)
-                  {
-                      for (uint8_t l = 0; l < NUMBER_PROTOCOL; l++)
-                      {
-                          idData[k].positionChange[l] = true; // enable change for all protocols.
-                          idData[k - 1].positionChange[l] = true;
-                      }
+                        break; // Processing only one idBuffer at a time!
+                    }
+                }
+                //  check if ID get up in position/rank.
+                for (uint8_t k = currentSortPosition; k > 1 ; k--)
+                {
+                    if (idData[k].laps > idData[k - 1].laps)
+                    {
+                        for (uint8_t l = 0; l < NUMBER_PROTOCOL; l++)
+                        {
+                            idData[k].positionChange[l] = true; // enable change for all protocols.
+                            idData[k - 1].positionChange[l] = true;
+                        }
 
-                      idData[0] = idData[k - 1]; // backup copy
-                      idData[k - 1] = idData[k];
-                      idData[k] = idData[0];
-                  }
-                  else
-                  {
-                    break; // Useless to continu for better position
-                  }
-              }
-          }
-      }
+                        idData[0] = idData[k - 1]; // backup copy
+                        idData[k - 1] = idData[k];
+                        idData[k] = idData[0];
+                    }
+                    else
+                    {
+                        break; // Useless to continu for better position
+                    }
+                }
+            }
+        }
     }
 
 
@@ -483,16 +489,18 @@ class Race {
             break;
 
         case START:
-            if (!isReady)
-            {
-                init();
-                delayWarmupTimer = millis();
-                isReady = true;
-                numberTotalLaps = uiConfig.laps;
-                // setMessage("Warm-UP time");
-                memcpy(message, "Warm-UP time", sizeof(message[0])*128);
-            }
-    
+            init();
+            delayWarmupTimer = millis();
+            raceState = WARMUP;
+            // isReady = true;
+            memcpy(message, "Warm-UP time", sizeof(message[0])*128);
+            break;
+
+        case WARMUP:    
+            #if defined(DEBUG_GATE)
+                fakeIDtrigger(millis()); //only used for debug
+            #endif
+
             if (millis() - delayWarmupTimer > delayWarmupDelay)
             {   // i2c gate template
                 // for (uint8_t i = 0; i < uiConfig.gates; i++)
@@ -500,11 +508,9 @@ class Race {
                 //     setCommand(addressAllGates[i], app_ptr->startCmd, sizeof(&app_ptr->startCmd));
                 // }
                 // app_ptr->startOffset = millis();  //(*ptr).offsetLap;
-
                 startTimeOffset = millis();
                 raceState = RACE;
                 memcpy(message, "RUN RUN RUN", sizeof(message[0])*128);
-
             }
             break;
 
@@ -521,12 +527,12 @@ class Race {
             // }
             // test if first player > max LAP
 
-            if (biggestLap == numberTotalLaps - 1)
+            if (biggestLap == *numberTotalLaps - 1)
             {
                 // todo: one time or for each player ?
                 memcpy(message, "Final Lap", sizeof(message[0])*128);
             }
-            if (biggestLap == numberTotalLaps)
+            if (biggestLap == *numberTotalLaps)
             {
                 finishRaceMillis = millis();
                 raceState = FINISH;
@@ -552,7 +558,7 @@ class Race {
             break;
 
         case STOP:
-            isReady = false;
+            // isReady = false;
             raceState = WAIT;
             break;
         
@@ -561,9 +567,9 @@ class Race {
         }
     }
 
-    void setTotalLaps(uint16_t laps) {
-        numberTotalLaps = laps;
-    }
+    // void setTotalLaps(uint16_t laps) {
+    //     numberTotalLaps = laps;
+    // }
 
     void setBiggestLap(uint16_t lap){
         if (lap > biggestLap)
@@ -588,7 +594,7 @@ class Race {
     }
 
     bool isIdRunning(uint8_t lap){
-        return ( lap ==  numberTotalLaps )  ? false : true;
+        return ( lap == *numberTotalLaps )  ? false : true;
     }
 
     char* getMessage(){
@@ -776,7 +782,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   // {
   //     uiConfig.light_brightness = doc["conf"]["light_brightness"];
   // }
-  // todo: need to find ID/position
+  // todo: need to find ID/position?
   if (obj.containsKey("names"))
   {
       uint8_t count = 0;
@@ -1229,13 +1235,32 @@ void WriteJSONRace(uint32_t ms){
   static race_state_t oldRaceState = raceState;
   static uint32_t lastMillis = 0;
   uint32_t delayMillis;
-  
-  // todo: add sort of % 1000ms
-  delayMillis = (race.getCurrentTime() == 0) ? 5000 : 1000;
+  static bool isTrig = false;
+  // todo: check race_state_t instead
+  delayMillis = (raceState >= START && raceState <= FINISH) ? 1000 : 5000;
 
-  if (ms - lastMillis > delayMillis || oldRaceState != raceState)
+  if (oldRaceState != raceState)
   {
-      lastMillis = millis();
+      isTrig = true;
+  }
+
+  if (ms - lastMillis >= delayMillis || isTrig)
+  {
+      if (isTrig) // Triggered by change raceState
+      {
+        isTrig = false;
+      }
+      else // Triggered by delayMillis
+      {
+        if (ms - lastMillis > delayMillis + 1000)
+        {
+            lastMillis = ms; // init
+        }
+        else
+        {
+            lastMillis = lastMillis + delayMillis;
+        }
+      }
 
       StaticJsonDocument<JSON_BUFFER> doc;
       JsonObject race_json = doc.createNestedObject("race");
@@ -1295,7 +1320,7 @@ void fakeIDtrigger(int ms){
     }
     autoResetReady = millis();
 
-    if (oldRaceStateDebug == START && raceState == RACE && isNew == false)
+    if (oldRaceStateDebug == START && raceState == WARMUP && isNew == false)
     {
         isNew = true;
         for (uint8_t i = 0; i < uiConfig.players; i++)
@@ -1303,7 +1328,7 @@ void fakeIDtrigger(int ms){
             idGateNumber[i] = 20;
             uiConfig.names[i].id == idList[i];
         }
-        oldRaceStateDebug = RACE;
+        oldRaceStateDebug = WARMUP;
         startMillis = millis();
         // Serial.println("NEW");
     }

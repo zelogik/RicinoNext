@@ -39,20 +39,19 @@
 
 			<div class="slidecontainer">
 				Laps :
-				<input type="range" oninput="updateLaps(this)" onchange="updateLaps(this)" id="lapsSlider" min="1" max="100" value="1" step="1" class="slider">
+				<input type="range" oninput="updateLaps(this)" id="lapsSlider" min="1" max="100" value="1" step="1" class="slider"> <!--onchange="updateLaps(this)" -->
 			</div>
-			<!-- <input type="range" onchange="updateLaps(this)" id="lapsSlider" min="1" max="100" value="10" step="1" class="slider"> -->
 
 			<p></p>
 			<div class="slidecontainer">
 				<p>Players :</p>
-				<input type="range" oninput="updatePlayers(this)" onchange="updatePlayers(this)" id="playersSlider" min="1" max="16" value="1" step="1" class="slider">
+				<input type="range" oninput="updatePlayers(this)" id="playersSlider" min="1" max="16" value="1" step="1" class="slider">
 			</div>
 
 			<p></p>
 			<div class="slidecontainer">
 				<p>Gates :</p>
-				<input type="range" oninput="updateGates(this)" onchange="updateGates(this)" id="gatesSlider" min="1" max="8" value="1" step="1" class="slider">
+				<input type="range" oninput="updateGates(this)" id="gatesSlider" min="1" max="8" value="1" step="1" class="slider">
 			</div>
 
 			<!-- <button id="snackBbutton" type="button" class="btn btn-success" onclick="snackBar()">
