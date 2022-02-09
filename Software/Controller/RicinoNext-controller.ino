@@ -42,7 +42,7 @@ Todo: Add author(s), descriptions, etc here...
 #define JSON_BUFFER_CONF 2048 // 1024 for 8players
 
 #include <Wire.h>         // needed for the i2c gates/addons.
-
+#define PACKET_SIZE 13     // I2C packet size, slave will send 14 bytes to master? todo: so why 13...
 
 // ----------------------------------------------------------------------------
 // DEBUG global assigment, add receiver/emitter simulation (put in struct?)
@@ -64,7 +64,7 @@ Todo: Add author(s), descriptions, etc here...
     // snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
     // strncpy(debug_message, "light :", 128);
     // strncat(debug_message, light_ptr, 128);
-// memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
+    // memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 #endif
 
 
@@ -617,6 +617,19 @@ class Race {
 
 Race race = Race();
 
+// ----------------------------------------------------------------------------
+//  Struct of Gates information
+// ----------------------------------------------------------------------------
+struct GATE_Data {
+    uint8_t address;
+    uint8_t receiverState; //0-255 to 0-100%
+    uint8_t deltaOffsetGate; //0-255 to 0-100%
+    uint8_t bytesInBuffer; //typo wait
+    uint8_t loopTime; //wait
+};
+
+GATE_Data gateData[NUMBER_GATES];
+
 
 // ----------------------------------------------------------------------------
 //  Led Class: simple view of ENUM race state
@@ -1077,6 +1090,8 @@ void loop() {
     #if defined(DEBUG)
     writeJSONDebug();
     #endif
+
+    //     gatePing();
 }
 
 
@@ -1506,8 +1521,175 @@ void getRandomColor(char *output, uint8_t len) {
 
 
 // ----------------------------------------------------------------------------
-// todo: Add crc algo.
+// CRC8 algo.
 // ----------------------------------------------------------------------------
+uint8_t CRC8(const uint8_t *data, uint8_t len) {
+  uint8_t crc = 0x00;
+  while (len--)
+  {
+    uint8_t extract = *data++;
+    for (uint8_t i = 8; i; i--)
+    {
+      uint8_t sum = (crc ^ extract) & 0x01;
+      crc >>= 1;
+      if (sum)
+      {
+        crc ^= 0x8C;
+      }
+      extract >>= 1;
+    }
+  }
+  return crc;
+}
+
+// ----------------------------------------------------------------------------
+// !!! First I2C integration code !!! DONT USE FUNCTION BELOW AS IT NOW !!!
+// ----------------------------------------------------------------------------
+void setCommand(uint8_t addressSendGate, const uint8_t *command, uint8_t commandLength){
+    Wire.beginTransmission(addressSendGate);
+    Wire.write(command, commandLength);
+    Wire.endTransmission();
+}
+
+
+void gatePing(){
+    static uint32_t gateRequestTimer = millis();
+    const uint32_t gateRequestDelay = 100;
+    
+    if (millis() - gateRequestTimer >= gateRequestDelay){
+
+        gateRequestTimer = millis();
+
+        for (uint8_t i = 0 ; i < NUMBER_GATES; i++)
+        {
+           getDataFromGate(addressAllGates[i]);
+        }
+    }
+}
+
+
+// I2C Request data from slave, need to be proceessed after that.
+bool getDataFromGate(uint8_t addressRequestGate){ //, bufferData* Info)
+    bool state;
+    uint8_t I2C_Packet[PACKET_SIZE];
+    // uint32_t stupidI2CBugByte = (uint32_t)addressRequestGate;
+    
+    Wire.requestFrom((int)addressRequestGate, PACKET_SIZE);
+
+    // Find a way to stop the i2c the fastest way possible if receiver send less Bytes.
+    uint8_t countPosArray = 0;
+    while(Wire.available())
+    {
+        I2C_Packet[countPosArray++] = Wire.read();
+    }
+
+    // If we got an I2C packet, we can extract the values
+    switch (I2C_Packet[0])
+    {
+    case 0x82: //get pong data
+        processIDData(I2C_Packet);
+        break;
+
+    case 0x83: // get id data
+        processGateData(I2C_Packet);
+        break;
+
+    default:
+        break;
+    }
+
+    return state;
+}
+
+
+void processGateData(uint8_t *dataArray){
+    
+    for (uint8_t i = 0; i < sizeof(addressAllGates); i++)
+    {
+        if (dataArray[1] == gateData[i].address || gateData[i].address == 0)
+        {
+            if (gateData[i].address == 0)
+            {
+                gateData[i].address = dataArray[1];
+            }
+
+            // gateData[i].checksum = dataArray[2];
+            gateData[i].receiverState = dataArray[3];
+            gateData[i].deltaOffsetGate = dataArray[4];
+            gateData[i].bytesInBuffer = dataArray[5];
+            gateData[i].loopTime = dataArray[6];
+
+            break;
+        }
+    }
+}
+
+
+void processIDData(uint8_t *dataArray){
+
+    uint32_t idTmp = ( ((uint32_t)dataArray[6] << 24)
+                    + ((uint32_t)dataArray[5] << 16)
+                    + ((uint32_t)dataArray[4] <<  8)
+                    + ((uint32_t)dataArray[3]) );
+
+    uint32_t msTmp = ( ((uint32_t)dataArray[10] << 24)
+                    + ((uint32_t)dataArray[9] << 16)
+                    + ((uint32_t)dataArray[8] <<  8)
+                    + ((uint32_t)dataArray[7]) );
+
+    uint8_t hit = dataArray[11]; // don't know where to display...
+    uint8_t strength = dataArray[12]; // don't know where to display...
+
+    //todo: CHECK!! is below code? sortIDLoop clone?
+
+    // for (uint8_t playerPos = 0; playerPos < NUMBER_PLAYERS; playerPos++){
+    //     if (idTmp == idData[playerPos].id || idData[playerPos].id == 0) // Take the first NULL id
+    //     {
+    //         if (idData[playerPos].id == 0)
+    //         {
+    //             idData[playerPos].id = idTmp;
+    //         }
+
+    //         uint8_t gatePos = 0;
+
+    //         for (gatePos; gatePos < NUMBER_GATES; gatePos++)
+    //         {
+    //             if (addressAllGates[gatePos] == dataArray[0])
+    //             {
+    //                 break;
+    //             }
+    //         }
+
+    //         // Next is some BrainFuck calculation ...
+    //         if (isRightGate(playerPos, gatePos, msTmp)) // Check valid Gate
+    //         {
+    //             idData[playerPos].fullTimeCheckPoint[gatePos] = msTmp; // - offsetLap;
+    //             idData[playerPos].countGateTriggered[gatePos]++;
+
+    //             if (gatePos == 0) // Update Only for a Full Lap
+    //             {
+    //                 // idData[playerPos].countLap[0]++; // = idData[playerPos].numberLap + 1;
+    //                 // idData[playerPos].fullTimeCheckPoint[0] = msTmp - offsetLap;
+    //                 idData[playerPos].meanFullLap = meanCalculation(&idData[playerPos].fullTimeCheckPoint[gatePos], &idData[playerPos].countGateTriggered[gatePos]);
+    //                 idData[playerPos].lastFullLap = idData[playerPos].fullTimeCheckPoint[0] - msTmp;
+    //                 idData[playerPos].bestFullLap = bestCalculation(&idData[playerPos].bestFullLap, &idData[playerPos].lastFullLap);
+
+    //             }
+
+    //             uint32_t prevTimeTriggered = idData[playerPos].prevTimeTriggered;
+    //             uint32_t prevCheckPoint = idData[playerPos].lastCheckPoint[gatePos];
+
+    //             idData[playerPos].prevTimeTriggered = idData[playerPos].fullTimeCheckPoint[gatePos];
+    //             idData[playerPos].lastCheckPoint[gatePos] = idData[playerPos].prevTimeTriggered - prevTimeTriggered;
+    //             idData[playerPos].totalMeanCheckPoint[gatePos] = idData[playerPos].totalMeanCheckPoint[gatePos] + idData[playerPos].lastCheckPoint[gatePos];
+    //             idData[playerPos].meanCheckPoint[gatePos] = meanCalculation(&idData[playerPos].totalMeanCheckPoint[gatePos], &idData[playerPos].countGateTriggered[gatePos]);
+    //             idData[playerPos].bestCheckPoint[gatePos] = bestCalculation(&idData[playerPos].bestCheckPoint[gatePos], &idData[playerPos].lastCheckPoint[gatePos]);
+    //             idData[playerPos].deltaPrevCheckPoint[gatePos] = idData[playerPos].lastCheckPoint[gatePos] - prevCheckPoint;
+    //         }
+    //     }
+    //     break;
+    // }
+}
 
 // ----------------------------------------------------------------------------
 // Future template to test speed improvement the len is always 10... "00:00.000"
@@ -1533,4 +1715,3 @@ void getRandomColor(char *output, uint8_t len) {
 
 //  return 0;
 // }
-
