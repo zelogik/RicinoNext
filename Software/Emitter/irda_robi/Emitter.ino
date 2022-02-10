@@ -117,7 +117,7 @@ void codeLoop(){
 
         // 3x1Byte + 1Byte checksum,
         for (uint8_t i = 0 ; i < 4; i++){ // [0] to [2] + checksum
-            idMask = 0x80 // 128; // 0b10000000
+            idMask = 0x80; // 128; // 0b10000000
             pulse(true); // start byte
             _delay_us(PERIOD_WAIT_START);
 
