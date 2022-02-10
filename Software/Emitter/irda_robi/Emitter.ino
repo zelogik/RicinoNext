@@ -8,6 +8,11 @@
 // we could use an array of uint16_t for a almost perfect timing but the attiny will see his RAM burning
 // 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,   105, 115, 125, 135, 145, 155, 165, 175, 185, 195,   210, 220, 230, 240, 250, 260, 270, 280, 290, 300,   315, 325, 335, 345, 355, 365, 375, 385, 395, 405
 
+
+// attiny85
+// LEDIR PB1 ?
+// LEDPIN PB0 ?
+
 #define F_CPU 8000000UL // (really important?), arduino stack should set it
 
 #if defined( __AVR_ATtinyX5__ )
@@ -135,7 +140,7 @@ void codeLoop(){
 //        Serial.println();
 }
 
-// Only needed to set the EEPROM if txID not set
+// Only needed to setting the EEPROM if txID not set
 // but fill the arrayID with precalculated checksum and parity
 void setUniqueID(){
 //      if ( EEPROM.read(0) != 0xff )
