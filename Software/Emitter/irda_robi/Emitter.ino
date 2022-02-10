@@ -40,7 +40,7 @@ bool resetID = false; // set True to force reset ID at "each" reboot...
 uint8_t arrayID[ARRAY_ID_LEN] = {};
 
 void setup() {
-//  Serial.begin(9600); for debug
+//  Serial.begin(9600); // debug, of course working only on bigger atmega
 
     #if defined( __AVR_ATtinyX5__ )
         DDRB&=~(1<<RESETPIN);
@@ -58,20 +58,20 @@ void setup() {
 
     setUniqueID();
 //    delay(10); // why not, 68bits more
-    
+
 //    pinMode(LEDPIN, OUTPUT); // 100bits more...
     #if defined( __AVR_ATtinyX5__ )
-        DDRB |= _BV(LEDPIN); // Blinking LED ////DDRB...
+    DDRB |= _BV(LEDPIN); // Blinking LED ////DDRB...
     #else if defined ( __AVR_ATtinyX4__ )
-        DDRA |= _BV(LEDPIN); // Blinking LED ////DDRB...
+    DDRA |= _BV(LEDPIN); // Blinking LED ////DDRA...
     #endif
     
-    DDRB |= _BV(LEDIR); // IR LED
+    DDRB |= _BV(LEDIR); // IR LED set to Output
 }
 
 
 void loop() {
-    const uint8_t intervals[] = {2, 1, 3, 100}; // heartbeat pulsation
+    const uint8_t intervals[] = {2, 1, 3, 100}; // lookalike heartbeat pulsation
     static uint8_t state = 0;
     static uint16_t counterLoop = 0;
     static uint16_t delaySend = 1000; // random time between pulse
@@ -88,51 +88,56 @@ void loop() {
     // like an heartbeat pulsation! but small one!
     if (counterLoop > intervals[state] * 1800)
     {
-      if ( state % 2 ? 1 : 0){
-        #if defined( __AVR_ATtinyX5__ )
+        if ( state % 2 ? 1 : 0)
+        {
+            #if defined( __AVR_ATtinyX5__ )
             PORTB |= (1 << LEDPIN); 
-        #else if defined ( __AVR_ATtinyX4__ )
+            #else if defined ( __AVR_ATtinyX4__ )
             PORTA |= (1 << LEDPIN); 
-        #endif
-      }
-      else
-      {
-        #if defined( __AVR_ATtinyX5__ )
+            #endif
+        }
+        else
+        {
+            #if defined( __AVR_ATtinyX5__ )
             PORTB &= ~(1 << LEDPIN);
-        #else if defined ( __AVR_ATtinyX4__ )
+            #else if defined ( __AVR_ATtinyX4__ )
             PORTA &= ~(1 << LEDPIN); 
-        #endif
-      }
-//      digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
-      if (state > sizeof(intervals)){
-          state = 0;
-      }else{
-          state++;
-      }
-      counterLoop = 0;
+            #endif
+        }
+    //      digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
+        if (state > sizeof(intervals))
+        {
+            state = 0;
+        }
+        else
+        {
+            state++;
+        }
+        counterLoop = 0;
     }
     counterLoop++;
 }
 
 // Block the main loop for around 500us ... time to send the IRDA code.
-// 
-void codeLoop(){
-        uint8_t parityMask = 0x08; //0b00001000 -> 6bits length MSB but LSB order if I remember
+void codeLoop() {
+        uint8_t parityMask = 0x08; //0b00001000 -> 6bits length MSB but LSB order if I remembering well
         uint8_t idMask;
 
         // 3x1Byte + 1Byte checksum,
-        for (uint8_t i = 0 ; i < 4; i++){ // [0] to [2] + checksum
+        for (uint8_t i = 0 ; i < 4; i++)
+        { // [0] to [2] + checksum
             idMask = 0x80; // 128; // 0b10000000
             pulse(true); // start byte
             _delay_us(PERIOD_WAIT_START);
 
-            for (int j = 0; j < 8; j++) {
+            for (int j = 0; j < 8; j++)
+            {
                 pulse((arrayID[i] & idMask) ? 0 : 1); // inverse bit pulse
                 idMask >>= 1;
                 _delay_us(PERIOD_WAIT_BIT);
             }
 
-            pulse(arrayID[5] &  parityMask); // parity bit for each Byte
+            pulse(arrayID[5] & parityMask); // parity bit for each Byte
             parityMask >>= 1;
             _delay_us(PERIOD_WAIT_NEXT_BYTE); // approx IRDA time between 2 bytes...
 //            Serial.print("  ");
@@ -142,19 +147,22 @@ void codeLoop(){
 
 // Only needed to setting the EEPROM if txID not set
 // but fill the arrayID with precalculated checksum and parity
-void setUniqueID(){
+void setUniqueID() {
 //      if ( EEPROM.read(0) != 0xff )
     for (uint8_t i = 0; i < ARRAY_ID_LEN; i++ )
+    {
         arrayID[i] = EEPROM.read(i);
-
-    if(arrayID[5] == 0xFF || resetID){ // checksum is not set OR reset
-        if (txID == 0){ // make a pseudo random txID
+    }
+    
+    if(arrayID[5] == 0xFF || resetID) // checksum is not set OR reset
+    {
+        if (txID == 0)
+        { // make a pseudo random txID
             randomSeed(analogRead(A1));
             for(uint8_t u = 0; u < 254; u++)
             {
                 txID += * ( (byte *) u );  //checksum += the byte number u in the ram
             }
-//            Serial.println();
 //            Serial.println(txID);
         }
 
@@ -174,19 +182,23 @@ void setUniqueID(){
 
         // Write/Save to EEPROM
         for (uint8_t i = 0; i < ARRAY_ID_LEN; i++ )
+        {
             EEPROM.write (i, arrayID[i]);
+        }
     }
 }
 
 // Only needed to setting the EEPROM 
-uint8_t getParity(const uint8_t *data, uint8_t len){
+uint8_t getParity(const uint8_t *data, uint8_t len) {
     uint8_t parity = 0;
     
-    for(uint8_t i = len; i > 0; i--) {
+    for(uint8_t i = len; i > 0; i--)
+    {
         uint8_t extract = *data;
         uint8_t parityBit = 1; // 1 for odd parity
 
-        while(extract){
+        while(extract)
+        {
             parityBit ^= extract & 1;
             extract >>= 1;
         }
@@ -233,12 +245,13 @@ uint8_t getCRC8(const uint8_t *data, size_t len) {
 
 // Pulse or no pulse but with "almost" good time length
 // Yes... an interrupt based pulse could be better... pull request kindly accepted :-)
-void pulse(bool state)
-{
-    if(state){
+void pulse(bool state) {
+    if(state)
+    {
         PORTB |= (1 << LEDIR);      //replaces digitalWrite(, HIGH);
 //        Serial.print("1 ");
-    }else
+    }
+    else
     {
         __asm__("nop\n\t"); // null PORTB manipulation compensation
 //        Serial.print("0 ");
@@ -250,7 +263,8 @@ void pulse(bool state)
     if(state)
     {
         PORTB &= ~(1 << LEDIR);   //replaces digitalWrite(, LOW);
-    }else
+    }
+    else
     {
         __asm__("nop\n\t");// null PORTB manipulation compensation
     }
