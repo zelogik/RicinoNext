@@ -4,6 +4,7 @@ Todo: Add author(s), descriptions, etc here...
 
 #define VSCODIUM_COLOR_HACK 1 // force vscodium color
 // TODO URGENT: https://github.com/me-no-dev/ESPAsyncWebServer#setting-up-the-server, clean OTA, even file browser :)
+// Reminder : https://github.com/me-no-dev/ESPAsyncWebServer#direct-access-to-web-socket-message-buffer  -> confToJSON, avoid ressources waste
 
 // ----------------------------------------------------------------------------
 // Imcludes library, header
