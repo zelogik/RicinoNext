@@ -4,14 +4,13 @@ Todo: Add author(s), descriptions, etc here...
 
 #define VSCODIUM_COLOR_HACK 1 // force vscodium color
 // TODO URGENT: https://github.com/me-no-dev/ESPAsyncWebServer#setting-up-the-server, clean OTA, even file browser :)
-// Reminder : https://github.com/me-no-dev/ESPAsyncWebServer#direct-access-to-web-socket-message-buffer  -> confToJSON, avoid ressources waste
 
 // ----------------------------------------------------------------------------
 // Imcludes library, header
 // ----------------------------------------------------------------------------
 // todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
 
-#if defined(ESP8266)
+#if defined(ESP8266) // todo: check if compile
     #define HAVE_WIFI 1
     #include <ESP8266mDNS.h>
     #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
@@ -37,11 +36,14 @@ Todo: Add author(s), descriptions, etc here...
 #elif defined(ARDUINO_AVR_MEGA2560)
     // set pinLed
 #else
-    #error “Unsupported board selected!”
+    // #error “Unsupported board selected!”
 #endif
 #define NUMBER_RACER_MAX 16
 
-
+#include <Arduino.h>
+// #include <stdlib.h>
+// #include <stdio.h>
+// #include <string.h>
 
 #include <ArduinoJson.h>  // needed for every messages
 #define JSON_BUFFER 512
@@ -700,8 +702,10 @@ Led ledState = Led(ledPin);
 //  Web Stuff: struct --> json<char[size]>
 // todo: need a special function to calculate dynamic size
 // ----------------------------------------------------------------------------
-void confToJSON(char* output, bool connection){ // const struct UI_config* data,
-  StaticJsonDocument<JSON_BUFFER_CONF> doc;
+void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connection){ // const struct UI_config* data,
+//   StaticJsonDocument<JSON_BUFFER_CONF> doc;
+
+  DynamicJsonDocument doc(2048);
 
   JsonObject conf = doc.createNestedObject("conf");
   conf["laps"] = uiConfig.laps;
@@ -723,7 +727,7 @@ void confToJSON(char* output, bool connection){ // const struct UI_config* data,
       conf_players[i]["color"] = uiConfig.names[i].color;
   }
 
-  if (connection)
+  if (client)
   {
       #if defined(DEBUG)
       JsonObject debug = doc.createNestedObject("debug");
@@ -732,11 +736,31 @@ void confToJSON(char* output, bool connection){ // const struct UI_config* data,
       JsonObject race_obj = doc.createNestedObject("race");
       race_obj["message"] = "Welcome on RicinoNext";
   }
+
   #if defined(DEBUG)
-  serializeJsonPretty(doc, output, JSON_BUFFER_CONF);
+  size_t len = measureJsonPretty(doc);
   #else
-  serializeJson(doc, output, JSON_BUFFER_CONF);
+  size_t len = measureJson(doc);
   #endif
+
+  AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len);
+  if (buffer)
+  {
+        #if defined(DEBUG)
+        serializeJsonPretty(doc, (char *)buffer->get(), len + 1); // len + 1);
+        #else
+        serializeJson(doc, (char *)buffer->get(), len + 1);
+        #endif
+        // root.printTo((char *)buffer->get(), len + 1);
+        if (client)
+        {
+            client->text(buffer);
+        }
+        else
+        {
+            ws.textAll(buffer);
+        }
+  }
 }
 
 
@@ -834,8 +858,8 @@ void onEvent(AsyncWebSocket       *server,
     switch (type) {
         case WS_EVT_CONNECT:
             Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-            confToJSON(json, true);
-            client->text(json);
+            confToJSON(client);
+            // client->text(json);
             break;
     
         case WS_EVT_DISCONNECT:
@@ -851,8 +875,8 @@ void onEvent(AsyncWebSocket       *server,
                     // todo: Add an UI lock/unlock state?
                     JSONToConf((char*)data);
 
-                    confToJSON(json, false);
-                    ws.textAll(json);
+                    confToJSON(nullptr);
+                    // ws.textAll(json);
                 }
                 else
                 {
@@ -1443,10 +1467,11 @@ void WriteSerialLive(uint32_t ms, uint8_t protocol){ //, const ID_Data_sorted& d
 void ReadSerial(){
     char confJSON[JSON_BUFFER_CONF];
 
-    if (Serial.available()) {
+    if (Serial.available())
+    {
     // char test[128] = "test";
     
-    byte inByte = Serial.read();
+        byte inByte = Serial.read();
 
         switch (inByte) {
         case 'S': //tart init timer
@@ -1465,9 +1490,10 @@ void ReadSerial(){
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
 
-            confToJSON(confJSON, false);
+            // confToJSON(confJSON, false);
+            confToJSON(nullptr);
             #if defined(HAVE_WIFI)
-            ws.textAll(confJSON);
+            // ws.textAll(confJSON);
             #endif
             break;
 
@@ -1508,7 +1534,8 @@ void getRandomColor(char *output, uint8_t len) {
 
     for (uint8_t i = 1; i < 7; i++)
     {
-        color[i] = hexValue[random(16)];
+        uint8_t randomArray = random(16);
+        color[i] = hexValue[randomArray];
     }
     strncpy(output, color, len);
 
