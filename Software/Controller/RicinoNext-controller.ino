@@ -867,8 +867,11 @@ void onEvent(AsyncWebSocket       *server,
             break;
         }
         case WS_EVT_PONG:
-            // break;
+            Serial.printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), length, (length)?(char*)data:"");
+            break;
+
         case WS_EVT_ERROR:
+            Serial.printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
             break;
     }
 }
@@ -897,89 +900,66 @@ void onEvent(AsyncWebSocket       *server,
 #if defined(HAVE_WIFI)
 void server_init()
 {
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", "text/html");
-  });
+    server.serveStatic("/css/", SPIFFS, "/css/");
+    server.serveStatic("/js/", SPIFFS, "/js/");
+    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
-  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/favicon.ico", "image/ico");
-  });
-  
-  // Route to load css files
-  server.on("/css/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/css/style.css", "text/css");
-  });
-  server.on("/css/bootstrap.min.css", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/css/bootstrap.min.css", "text/css");
-  });
-  server.on("/css/bootstrap.css", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/css/bootstrap.css", "text/css");
-  });
-  server.on("/css/bootstrap.min.css.map", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/css/bootstrap.min.css.map", "text/css");
-  });
+    server.onNotFound([](AsyncWebServerRequest *request){
+        request->send(404);
+    });
 
-  // Route to load javascript files
-  server.on("/js/jquery.min.js", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/js/jquery.min.js", "text/javascript");
-  });
-  server.on("/js/bootstrap.bundle.min.js", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/js/bootstrap.bundle.min.js", "text/javascript");
-  });
-  server.on("/js/bootstrap.bundle.min.js.map", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/js/bootstrap.bundle.min.js.map", "text/javascript");
-  });
-  server.on("/js/scripts.js", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/js/scripts.js", "text/javascript");
-  });
+    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    //     request->send(SPIFFS, "/index.html", "text/html");
+    // });
 
-  server.on("/update", HTTP_GET, [&](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/update.html", "text/html");
-  });
+    server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(SPIFFS, "/favicon.ico", "image/ico");
+    });
 
-//  server.onNotFound([](AsyncWebServerRequest *request){
-//      request->send(404);
-//  });
-    
-  server.on("/update", HTTP_POST, [&](AsyncWebServerRequest *request){
-                AsyncWebServerResponse *response = request->beginResponse((Update.hasError())?500:200, "text/plain", (Update.hasError())?"FAIL":"OK");
-                response->addHeader("Connection", "close");
-                response->addHeader("Access-Control-Allow-Origin", "*");
-                request->send(response);
-                yield();
-                ESP.restart();
-  }, [&](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-          // #if defined(ESP8266)
-          //     int cmd = (filename == "filesystem") ? U_FS : U_FLASH;
-          //     Update.runAsync(true);
-          //     size_t fsSize = ((size_t) &_FS_end - (size_t) &_FS_start);
-          //     uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-          //     if (!Update.begin((cmd == U_FS)?fsSize:maxSketchSpace, cmd)){ // Start with max available size
-          // #elif defined(ESP32)
-      int cmd = (filename == "filesystem") ? U_SPIFFS : U_FLASH;
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) { // Start with max available size
-          // #endif
-          //     Update.printError(Serial);
-          //     return request->send(400, "text/plain", "OTA could not begin");
-          // }
-      }
+    server.on("/update", HTTP_GET, [&](AsyncWebServerRequest *request){
+        request->send(SPIFFS, "/update.html", "text/html");
+    });
 
-      // Write chunked data to the free sketch space
-      if(len){
-          if (Update.write(data, len) != len) {
-              return request->send(400, "text/plain", "OTA could not begin");
-          }
-      }
-          
-      if (final) { // if the final flag is set then this is the last frame of data
-          if (!Update.end(true)) { //true to set the size to the current progress
-              Update.printError(Serial);
-              return request->send(400, "text/plain", "Could not end OTA");
-          }
-      }else{
-          return;
-      }
-  });
+
+    server.on("/update", HTTP_POST, [&](AsyncWebServerRequest *request){
+                    AsyncWebServerResponse *response = request->beginResponse((Update.hasError())?500:200, "text/plain", (Update.hasError())?"FAIL":"OK");
+                    response->addHeader("Connection", "close");
+                    response->addHeader("Access-Control-Allow-Origin", "*");
+                    request->send(response);
+                    yield();
+                    ESP.restart();
+    }, [&](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+            // #if defined(ESP8266)
+            //     int cmd = (filename == "filesystem") ? U_FS : U_FLASH;
+            //     Update.runAsync(true);
+            //     size_t fsSize = ((size_t) &_FS_end - (size_t) &_FS_start);
+            //     uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+            //     if (!Update.begin((cmd == U_FS)?fsSize:maxSketchSpace, cmd)){ // Start with max available size
+            // #elif defined(ESP32)
+        int cmd = (filename == "filesystem") ? U_SPIFFS : U_FLASH;
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) { // Start with max available size
+            // #endif
+            //     Update.printError(Serial);
+            //     return request->send(400, "text/plain", "OTA could not begin");
+            // }
+        }
+
+        // Write chunked data to the free sketch space
+        if(len){
+            if (Update.write(data, len) != len) {
+                return request->send(400, "text/plain", "OTA could not begin");
+            }
+        }
+            
+        if (final) { // if the final flag is set then this is the last frame of data
+            if (!Update.end(true)) { //true to set the size to the current progress
+                Update.printError(Serial);
+                return request->send(400, "text/plain", "Could not end OTA");
+            }
+        }else{
+            return;
+        }
+    });
 
   server.begin();
   yield();
