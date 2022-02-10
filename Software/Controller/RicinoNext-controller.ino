@@ -3,27 +3,32 @@ Todo: Add author(s), descriptions, etc here...
 */
 
 #define VSCODIUM_COLOR_HACK 1 // force vscodium color
-
+// TODO URGENT: https://github.com/me-no-dev/ESPAsyncWebServer#setting-up-the-server, clean OTA, even file browser :)
 
 // ----------------------------------------------------------------------------
 // Imcludes library, header
 // ----------------------------------------------------------------------------
 // todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
-#if defined(ESP8266) || defined(ESP32) || defined(VSCODIUM_COLOR_HACK)
+
+#if defined(ESP8266)
     #define HAVE_WIFI 1
-    #include <Update.h>  // arduinoOTA
-    #include <ESPmDNS.h>
-    #include <ESPAsync_WiFiManager.h>
-    #include <ESPAsyncWebServer.h>
-    #include <FS.h> // need to choose!
-    #include "SPIFFS.h" // need to choose!
-    #include <SPI.h> // need to choose!
-#elif defined(ESP8266)
+    #include <ESP8266mDNS.h>
     #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
     #include <ESPAsyncTCP.h>
+    #include <ESPAsync_WiFiManager.h>
+    #include <ESPAsyncWebServer.h>
 #elif defined(ESP32)
+    #define HAVE_OTA 1
+    #define HAVE_WIFI 1
+    #include <Update.h>  // ? #include <ArduinoOTA.h> ?
+    #include <ESPmDNS.h>
     #include <WiFi.h>      //ESP32 Core WiFi Library
     #include <AsyncTCP.h>
+    #include <FS.h> // Change with littleFS ?
+    #include "SPIFFS.h"
+    #include <SPI.h> // useless ?
+    #include <ESPAsync_WiFiManager.h>
+    #include <ESPAsyncWebServer.h>
 #elif defined(ARDUINO_SAMD_ZERO)
     #include <MemoryFree.h>
     // set pinLed
@@ -74,6 +79,7 @@ Todo: Add author(s), descriptions, etc here...
 #if defined(HAVE_WIFI)
     AsyncWebServer server(80);
     AsyncWebSocket ws("/ws");
+    // AsyncEventSource events("/events"); // Should be a good feature for {race...} AND OTA!! view ESP_AsyncFSBrowser
     // DNSServer dns; // as it's local, why use DNS on the server...?
 #endif
 
@@ -930,7 +936,10 @@ void server_init()
       request->send(SPIFFS, "/update.html", "text/html");
   });
 
-
+//  server.onNotFound([](AsyncWebServerRequest *request){
+//      request->send(404);
+//  });
+    
   server.on("/update", HTTP_POST, [&](AsyncWebServerRequest *request){
                 AsyncWebServerResponse *response = request->beginResponse((Update.hasError())?500:200, "text/plain", (Update.hasError())?"FAIL":"OK");
                 response->addHeader("Connection", "close");
@@ -1046,6 +1055,10 @@ void setup(void) {
 
   memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 
+  // todo:
+  // Add EEPROM or SPIFFS hardware conf (number gate, addons, screen)
+  // OR let setup at compile time... or FS.conf override value at compile time... humhum
+  
 //   for (uint8_t i = 5; i != 0; i--){
 //      tft.setCursor(120 - 15, 70 - 25);
 //      tft.setTextSize(5);
@@ -1091,6 +1104,7 @@ void loop() {
     writeJSONDebug();
     #endif
 
+    // ws.cleanupClients();
     //     gatePing();
 }
 
