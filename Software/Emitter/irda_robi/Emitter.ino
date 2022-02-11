@@ -1,5 +1,6 @@
 // Robitronic compatible attinyX4 transmitter
 
+//#define __AVR_ATtinyX5__ // It seems like if you try to compile for ATtinyX5, the define is missing, so you'll have to set it manually
 #include <EEPROM.h>
 
 //#define NOP __asm__ __volatile__ ("nop\n\t")
