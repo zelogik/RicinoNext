@@ -64,6 +64,7 @@ void setup()
 void loop()
 {
     const uint8_t intervals[] = {2, 1, 3, 100}; // lookalike heartbeat pulsation
+    const uint16_t speed = 100; //need to try and set :-D
     static uint8_t state = 0;
     static uint16_t heartBeatLoop = 0;
     // static uint16_t delaySend = 1000; // random time between pulse
@@ -71,15 +72,8 @@ void loop()
     static uint16_t irLoop = 0;
     static uint16_t irDelay = random(80, 500);
 
-    // // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
-    // if ((micros() - timerSend) > (delaySend))
-    // {
-    //     timerSend = micros();
-    //     delaySend = random(800, 5000);
-    //     codeLoop();
-    // }
+    // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
     _delay_us(10); // Should "break" the heartBeatLoop timing...
-
 
     if (irLoop > irDelay)
     {
@@ -89,9 +83,8 @@ void loop()
     }
     irLoop++;
 
-
     // like an heartbeat pulsation! but small one!
-    if (heartBeatLoop > intervals[state] * 1800)
+    if (heartBeatLoop > intervals[state] * speed)
     {
         if (state % 2 ? 1 : 0)
         {
@@ -102,6 +95,7 @@ void loop()
             PORT_AB &= ~(1 << LEDPIN);
         }
         // digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
+        
         state++;
         if (state >= sizeof(intervals))
         {
