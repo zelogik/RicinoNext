@@ -65,20 +65,33 @@ void loop()
 {
     const uint8_t intervals[] = {2, 1, 3, 100}; // lookalike heartbeat pulsation
     static uint8_t state = 0;
-    static uint16_t counterLoop = 0;
-    static uint16_t delaySend = 1000; // random time between pulse
-    static uint32_t timerSend = micros();
+    static uint16_t heartBeatLoop = 0;
+    // static uint16_t delaySend = 1000; // random time between pulse
+    // static uint32_t timerSend = micros();
+    static uint16_t irLoop = 0;
+    static uint16_t irDelay = random(80, 500);
 
-    // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
-    if ((micros() - timerSend) > (delaySend))
+    // // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
+    // if ((micros() - timerSend) > (delaySend))
+    // {
+    //     timerSend = micros();
+    //     delaySend = random(800, 5000);
+    //     codeLoop();
+    // }
+    _delay_us(10); // Should "break" the heartBeatLoop timing...
+
+
+    if (irLoop > irDelay)
     {
-        timerSend = micros();
-        delaySend = random(800, 5000);
+        irDelay = random(80, 500);
         codeLoop();
+        irLoop = 0;
     }
+    irLoop++;
+
 
     // like an heartbeat pulsation! but small one!
-    if (counterLoop > intervals[state] * 1800)
+    if (heartBeatLoop > intervals[state] * 1800)
     {
         if (state % 2 ? 1 : 0)
         {
@@ -94,9 +107,9 @@ void loop()
         {
             state = 0;
         }
-        counterLoop = 0;
+        heartBeatLoop = 0;
     }
-    counterLoop++;
+    heartBeatLoop++;
 }
 
 // Block the main loop for around 500us ... time to send the IRDA code.
