@@ -34,7 +34,7 @@
 #define PERIOD_WAIT_START 6
 #define PERIOD_WAIT_BIT 5 // for a complete loop of approx 10us
 #define PERIOD_WAIT_NEXT_BYTE 10
-#define ARRAY_ID_LEN 6
+#define ARRAY_ID_LEN 6 // 6 in case of 32bits compatibility
 
 // define tx_id or let to 0 for a "true" random ID.
 uint32_t txID = 0;
@@ -64,11 +64,9 @@ void setup()
 void loop()
 {
     const uint8_t intervals[] = {2, 1, 3, 100}; // lookalike heartbeat pulsation
-    const uint16_t speed = 100; //need to try and set :-D
+    const uint16_t speed = 2000; //need to try and set :-D
     static uint8_t state = 0;
     static uint16_t heartBeatLoop = 0;
-    // static uint16_t delaySend = 1000; // random time between pulse
-    // static uint32_t timerSend = micros();
     static uint16_t irLoop = 0;
     static uint16_t irDelay = random(80, 500);
 
@@ -149,6 +147,9 @@ void setUniqueID()
 
     if (arrayID[5] == 0xFF || resetID) // checksum is not set OR reset
     {
+
+        uint8_t checkID = EEPROM.read(3); // check CRC
+
         if (txID == 0)
         { // make a pseudo random txID
             randomSeed(analogRead(A1));
@@ -173,9 +174,12 @@ void setUniqueID()
         arrayID[5] = getParity(arrayID, 4); // write all parity bits to Byte
 
         // Write/Save to EEPROM
-        for (uint8_t i = 0; i < ARRAY_ID_LEN; i++)
+        if (checkID != arrayID[3])
         {
-            EEPROM.write(i, arrayID[i]);
+            for (uint8_t i = 0; i < ARRAY_ID_LEN; i++)
+            {
+                EEPROM.write(i, arrayID[i]);
+            }
         }
     }
 }
