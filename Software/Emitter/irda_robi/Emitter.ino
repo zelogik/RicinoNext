@@ -19,10 +19,16 @@
   #define LEDIR PB1
   #define LEDPIN PB0
   #define RESETPIN PB2 // reset pin only at start! need test...
+  #define DDR_AB DDRB
+  #define PIN_AB PINB
+  #define PORT_AB PORTB
 #else if defined(__AVR_ATtinyX4__)
   #define LEDIR PB2    // Physical Pin 6 (PB1) on ATtiny85 // PB2
   #define LEDPIN PA7   // Physical Pin 5 // PA7 // PB0
   #define RESETPIN PA6 // reset pin only at start! need test...
+  #define DDR_AB DDRA
+  #define PIN_AB PINA
+  #define PORT_AB PORTA
 #endif
 
 #define PERIOD_WAIT_START 6
@@ -39,31 +45,18 @@ uint8_t arrayID[ARRAY_ID_LEN] = {};
 
 void setup()
 {
-    //  Serial.begin(9600); // debug, of course working only on bigger atmega
+    // Serial.begin(9600); // debug, of course working only on bigger atmega
 
-#if defined(__AVR_ATtinyX5__)
-    DDRB &= ~(1 << RESETPIN);
-    if ((PINB & B01000000) == 1)
+    DDR_AB &= ~(1 << RESETPIN);
+    if ((PIN_AB & B01000000) == 1)
     {
         resetID = true;
     }
-#else if defined(__AVR_ATtinyX4__)
-    DDRA &= ~(1 << RESETPIN);
-    if ((PINA & B01000000) == 1)
-    {
-        resetID = true;
-    }
-#endif
 
     setUniqueID();
-    //    delay(10); // why not, 68bits more
-
-    //    pinMode(LEDPIN, OUTPUT); // 100bits more...
-#if defined(__AVR_ATtinyX5__)
-    DDRB |= _BV(LEDPIN); // Blinking LED ////DDRB...
-#else if defined(__AVR_ATtinyX4__)
-    DDRA |= _BV(LEDPIN); // Blinking LED ////DDRA...
-#endif
+    // delay(10); // why not, 68bits more
+    // pinMode(LEDPIN, OUTPUT); // 100bits more...
+    DDR_AB |= _BV(LEDPIN); // Blinking LED
 
     DDRB |= _BV(LEDIR); // IR LED set to Output
 }
@@ -89,21 +82,13 @@ void loop()
     {
         if (state % 2 ? 1 : 0)
         {
-#if defined(__AVR_ATtinyX5__)
-            PORTB |= (1 << LEDPIN);
-#else if defined(__AVR_ATtinyX4__)
-            PORTA |= (1 << LEDPIN);
-#endif
+            PORT_AB |= (1 << LEDPIN);
         }
         else
         {
-#if defined(__AVR_ATtinyX5__)
-            PORTB &= ~(1 << LEDPIN);
-#else if defined(__AVR_ATtinyX4__)
-            PORTA &= ~(1 << LEDPIN);
-#endif
+            PORT_AB &= ~(1 << LEDPIN);
         }
-        //      digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
+        // digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
         state++;
         if (state >= sizeof(intervals))
         {
@@ -137,9 +122,9 @@ void codeLoop()
         pulse(arrayID[5] & parityMask); // parity bit for each Byte
         parityMask >>= 1;
         _delay_us(PERIOD_WAIT_NEXT_BYTE); // approx IRDA time between 2 bytes...
-                                          //            Serial.print("  ");
+       // Serial.print("  ");
     }
-    //        Serial.println();
+    // Serial.println();
 }
 
 // Only needed to setting the EEPROM if txID not set
@@ -161,7 +146,7 @@ void setUniqueID()
             {
                 txID += *((byte *)u); //checksum += the byte number u in the ram
             }
-            //            Serial.println(txID);
+            // Serial.println(txID);
         }
 
         // let calculate the checksum
@@ -248,16 +233,16 @@ void pulse(bool state)
     if (state)
     {
         PORTB |= (1 << LEDIR); //replaces digitalWrite(, HIGH);
-                               //        Serial.print("1 ");
+        // Serial.print("1 ");
     }
     else
     {
         __asm__("nop\n\t"); // null PORTB manipulation compensation
-                            //        Serial.print("0 ");
+        // Serial.print("0 ");
     }
 
     __asm__("nop\n\tnop\n\tnop\n\tnop\n\tnop\n\t"); // get around 1,6us for complete loop, comply with IRDA, 3/16 bit pulse duration or 1.627us
-                                                    //    __asm__("nop\n\t"); // 0.125us at 8Mhz
+    // __asm__("nop\n\t"); // 0.125us at 8Mhz
 
     if (state)
     {
