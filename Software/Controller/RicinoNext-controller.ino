@@ -757,7 +757,7 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
             client->text(buffer);
         }
         else
-        {
+        {  // todo: add an antiflood function! (ie: send message every 1s for example)
             ws.textAll(buffer);
         }
   }
@@ -1538,7 +1538,6 @@ void getRandomColor(char *output, uint8_t len) {
         color[i] = hexValue[randomArray];
     }
     strncpy(output, color, len);
-
 }
 
 
@@ -1549,24 +1548,38 @@ uint8_t CRC8(const uint8_t *data, uint8_t len) {
   uint8_t crc = 0x00;
   while (len--)
   {
-    uint8_t extract = *data++;
-    for (uint8_t i = 8; i; i--)
-    {
-      uint8_t sum = (crc ^ extract) & 0x01;
-      crc >>= 1;
-      if (sum)
-      {
-        crc ^= 0x8C;
-      }
-      extract >>= 1;
-    }
+        uint8_t extract = *data++;
+        for (uint8_t i = 8; i; i--)
+        {
+            uint8_t sum = (crc ^ extract) & 0x01;
+            crc >>= 1;
+            if (sum)
+            {
+                crc ^= 0x8C;
+            }
+            extract >>= 1;
+        }
   }
   return crc;
 }
 
+
 // ----------------------------------------------------------------------------
 // !!! First I2C integration code !!! DONT USE FUNCTION BELOW AS IT NOW !!!
 // ----------------------------------------------------------------------------
+// Global working algo:
+// Send events:
+// The I2C master send command (START, STOP) to Gate receiver
+// I2C master could send command like (speakTIME, RELAY_ON/OFF, LIGHT_PWM), to others receivers (to discharge the display/master cpu)
+
+// Request Events for GATE.
+// Send "ping" request packet every X time to view status.
+// receiver MUST respond as fast as possible (interrupt based)
+// With two (for the moment) possibility of receiver response.
+// - Simple pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
+// - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
+
+
 void setCommand(uint8_t addressSendGate, const uint8_t *command, uint8_t commandLength){
     Wire.beginTransmission(addressSendGate);
     Wire.write(command, commandLength);
@@ -1574,12 +1587,12 @@ void setCommand(uint8_t addressSendGate, const uint8_t *command, uint8_t command
 }
 
 
-void gatePing(){
+void pingGate() {
     static uint32_t gateRequestTimer = millis();
     const uint32_t gateRequestDelay = 100;
     
-    if (millis() - gateRequestTimer >= gateRequestDelay){
-
+    if (millis() - gateRequestTimer >= gateRequestDelay)
+    {
         gateRequestTimer = millis();
 
         for (uint8_t i = 0 ; i < NUMBER_GATES; i++)
@@ -1608,12 +1621,15 @@ bool getDataFromGate(uint8_t addressRequestGate){ //, bufferData* Info)
     // If we got an I2C packet, we can extract the values
     switch (I2C_Packet[0])
     {
-    case 0x82: //get pong data
-        processIDData(I2C_Packet);
+    case 0x84: //get pong data
+        // 0x84 | ReceiverAddress | pseudo checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms. 25ms = 250, 0.1ms or less = 1
+        // todo: add number to below function: addressRequestGate
+        processGateData(I2C_Packet);
         break;
 
     case 0x83: // get id data
-        processGateData(I2C_Packet);
+        // messagePending, master will receive: 0x83 | ReceiverAddress | Checksum  | ID, TIME, (4bytes (ID) + 4bytes (uint32_t) + 1byte signal Strenght + 1byte Signal count )
+        processIDData(I2C_Packet);
         break;
 
     default:
@@ -1647,7 +1663,7 @@ void processGateData(uint8_t *dataArray){
 }
 
 
-void processIDData(uint8_t *dataArray){
+void processIDData(uint8_t *dataArray, uint8_t gateNumber{
 
     uint32_t idTmp = ( ((uint32_t)dataArray[6] << 24)
                     + ((uint32_t)dataArray[5] << 16)
@@ -1663,6 +1679,8 @@ void processIDData(uint8_t *dataArray){
     uint8_t strength = dataArray[12]; // don't know where to display...
 
     //todo: CHECK!! is below code? sortIDLoop clone?
+    // bufferingID(idList[i], gate, ms - startMillis);
+
 
     // for (uint8_t playerPos = 0; playerPos < NUMBER_PLAYERS; playerPos++){
     //     if (idTmp == idData[playerPos].id || idData[playerPos].id == 0) // Take the first NULL id
