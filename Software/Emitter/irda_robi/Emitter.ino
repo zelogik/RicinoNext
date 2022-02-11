@@ -103,14 +103,9 @@ void loop() {
             #endif
         }
     //      digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
-        if (state > sizeof(intervals))
-        {
-            state = 0;
-        }
-        else
-        {
-            state++;
-        }
+      state++;
+      if (state >= sizeof(intervals))
+          state = 0;
         counterLoop = 0;
     }
     counterLoop++;
