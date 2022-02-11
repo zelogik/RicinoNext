@@ -105,7 +105,7 @@ void loop() {
             #endif
         }
     //      digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
-        if (state > sizeof(intervals))
+        if (state > (sizeof(intervals) - 1 ))
         {
             state = 0;
         }
@@ -128,17 +128,20 @@ void codeLoop() {
         { // [0] to [2] + checksum
             idMask = 0x80; // 128; // 0b10000000
             pulse(true); // start byte
+            // delayMicroseconds(PERIOD_WAIT_START); //add attinyCore compatibility
             _delay_us(PERIOD_WAIT_START);
 
             for (int j = 0; j < 8; j++)
             {
                 pulse((arrayID[i] & idMask) ? 0 : 1); // inverse bit pulse
                 idMask >>= 1;
+                // delayMicroseconds(PERIOD_WAIT_START);
                 _delay_us(PERIOD_WAIT_BIT);
             }
 
             pulse(arrayID[5] & parityMask); // parity bit for each Byte
             parityMask >>= 1;
+            // delayMicroseconds(PERIOD_WAIT_START);
             _delay_us(PERIOD_WAIT_NEXT_BYTE); // approx IRDA time between 2 bytes...
 //            Serial.print("  ");
         }
