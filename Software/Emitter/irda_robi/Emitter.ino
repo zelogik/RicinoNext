@@ -3,15 +3,12 @@
 //#define __AVR_ATtinyX5__ // It seems like if you try to compile for ATtinyX5, the define is missing, so you'll have to set it manually
 #include <EEPROM.h>
 
-//#define NOP __asm__ __volatile__ ("nop\n\t")
-
 //example of timing...
 // we could use an array of uint16_t for a almost perfect timing but the attiny will see his RAM burning
 // 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,   105, 115, 125, 135, 145, 155, 165, 175, 185, 195,   210, 220, 230, 240, 250, 260, 270, 280, 290, 300,   315, 325, 335, 345, 355, 365, 375, 385, 395, 405
+// so we use NOP operation, 0.25us at 8mhz on avr architecture.
+// #define NOP __asm__ __volatile__ ("nop\n\t") // finally less readable than nop\n\t
 
-// attiny85
-// LEDIR PB1 ?
-// LEDPIN PB0 ?
 
 #define F_CPU 8000000UL // (really important?), arduino stack should set it
 
@@ -56,9 +53,8 @@ void setup()
     setUniqueID();
     // delay(10); // why not, 68bits more
     // pinMode(LEDPIN, OUTPUT); // 100bits more...
-    DDR_AB |= _BV(LEDPIN); // Blinking LED
-
-    DDRB |= _BV(LEDIR); // IR LED set to Output
+    DDR_AB |= _BV(LEDPIN); // Blinking LED set to OUTPUT
+    DDRB |= _BV(LEDIR); // IR LED set to OUTPUT
 }
 
 void loop()
@@ -95,7 +91,7 @@ void loop()
         // digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
         
         state++;
-        if (state >= sizeof(intervals))
+        if (state == sizeof(intervals))
         {
             state = 0;
         }
@@ -174,7 +170,7 @@ void setUniqueID()
         arrayID[5] = getParity(arrayID, 4); // write all parity bits to Byte
 
         // Write/Save to EEPROM
-        if (checkID != arrayID[3])
+        if (checkID != arrayID[3]) // don't overwrite EEPROM if CRC8 already the same...
         {
             for (uint8_t i = 0; i < ARRAY_ID_LEN; i++)
             {
