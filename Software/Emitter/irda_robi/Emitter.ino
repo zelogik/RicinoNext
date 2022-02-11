@@ -1,5 +1,6 @@
 // Robitronic compatible attinyX4 transmitter
 
+//#define __AVR_ATtinyX5__ // It seems like if you try to compile for ATtinyX5, the define is missing, so you'll have to set it manually
 #include <EEPROM.h>
 
 //#define NOP __asm__ __volatile__ ("nop\n\t")
@@ -7,7 +8,6 @@
 //example of timing...
 // we could use an array of uint16_t for a almost perfect timing but the attiny will see his RAM burning
 // 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,   105, 115, 125, 135, 145, 155, 165, 175, 185, 195,   210, 220, 230, 240, 250, 260, 270, 280, 290, 300,   315, 325, 335, 345, 355, 365, 375, 385, 395, 405
-
 
 // attiny85
 // LEDIR PB1 ?
@@ -25,8 +25,6 @@
   #define RESETPIN PA6 // reset pin only at start! need test...
 #endif
 
-
-//#define PERIOD_PULSE 2 //use NOP now as _delay_us is 4us mini
 #define PERIOD_WAIT_START 6
 #define PERIOD_WAIT_BIT 5 // for a complete loop of approx 10us
 #define PERIOD_WAIT_NEXT_BYTE 10
@@ -34,7 +32,7 @@
 
 // define tx_id or let to 0 for a "true" random ID.
 uint32_t txID = 0;
-bool resetID = false; // set True to force reset ID at "each" reboot...
+bool resetID = false; // set to true to force reset ID at "each" reboot, but you don't need that :)
 
 // scheme is: [0] LSB 8bit ID + [1] 8Bit ID + [2] 8bit ID + [3] CheckSUM + [4] PARITY(XXXXX000)msb or lsb... 
 uint8_t arrayID[ARRAY_ID_LEN] = {};
@@ -105,6 +103,7 @@ void loop() {
             #endif
         }
     //      digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
+
         if (state > (sizeof(intervals) - 1 ))
         {
             state = 0;
@@ -126,7 +125,7 @@ void codeLoop() {
         // 3x1Byte + 1Byte checksum,
         for (uint8_t i = 0 ; i < 4; i++)
         { // [0] to [2] + checksum
-            idMask = 0x80; // 128; // 0b10000000
+            idMask = 0x80; // 128 or 0b10000000
             pulse(true); // start byte
             // delayMicroseconds(PERIOD_WAIT_START); //add attinyCore compatibility
             _delay_us(PERIOD_WAIT_START);
@@ -248,7 +247,8 @@ uint8_t getCRC8(const uint8_t *data, size_t len) {
 
 // Pulse or no pulse but with "almost" good time length
 // Yes... an interrupt based pulse could be better... pull request kindly accepted :-)
-void pulse(bool state) {
+void pulse(bool state)
+{
     if(state)
     {
         PORTB |= (1 << LEDIR);      //replaces digitalWrite(, HIGH);
