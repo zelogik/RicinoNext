@@ -25,3 +25,30 @@ done:
 
 todo:
 - nothing?
+
+### Emitter pinout
+(check which end starts with -+ on the board :))
+
+* 1 GND
+* 2 VCC
+* 3 MOSI
+* 4 MISO
+* 5 SCK
+* 6 RST
+
+### Arduino ATtiny compiling
+
+By default Arduino IDE doesn't support ATtiny boards, but you can add it manually:
+
+File -> Settings
+Additional Boards Manager URL:
+add:
+https://raw.githubusercontent.com/damellis/attiny/ide-1.6.x-boards-manager/package_damellis_attiny_index.json
+(ATtinycore, not used currently: ~~http://drazzy.com/package_drazzy.com_index.json~~)
+
+Now you can install the ATtiny boards from Board Manager.
+
+### USBasp programming
+probably you'll have to fix your driver:
+
+driver: https://zadig.akeo.ie/
