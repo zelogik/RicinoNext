@@ -181,7 +181,7 @@ void raceLoop() {
     {
         pingPongTimer = millis();
         pingPongTrigger = false;
-        requestToController();
+        // requestToController();
         if (receiverState == DISCONNECTED)
         {
             receiverState = CONNECTED;
@@ -232,84 +232,6 @@ void purgeSerialLoop() {
             //use of .flush();
         }
     }
-}
-
-
-// ----------------------------------------------------------------------------
-//  Send I2C, because pingPongTrigger (controller asked)
-// ----------------------------------------------------------------------------
-void requestToController() {
-    uint8_t I2C_Packet[13] = {};
-    // uint8_t I2C_length = 0;
-
-    if (idBuffer.info[2] == 0x84)
-    {
-        // current idInfo.info Thanks FlipSideRacing !
-        // Byte 1 is the length of the packet including this byte 0D for car detected packets
-        // Byte 2 is the checksum
-        // Byte 3 is the type of packet, 84 if this has car information
-        // Byte 4-5 represent the UID of the car in reverse byte order
-        // Byte 6-7 unknown, 00 in examples given
-        // Byte 8-11 are the seconds in thousandths of a second in reverse byte order
-        // Byte 12 is the number of hits the lap counter detected
-        // Byte 13 is the signal strength
-
-        I2C_Packet[0] = 0x84; // Code saying it's an ID info
-        I2C_Packet[1] = gateInfo.i2cAddress;
-
-        I2C_Packet[3] = idBuffer.info[3]; // id
-        I2C_Packet[4] = idBuffer.info[4]; //
-        I2C_Packet[5] = idBuffer.info[5]; //
-        I2C_Packet[6] = idBuffer.info[6]; // should be 0x00 for a 24bits Ir code
-
-        I2C_Packet[7] = idBuffer.info[7]; // Reverse Order Decode needed for time in millisSeconds
-        I2C_Packet[8] = idBuffer.info[8]; //
-        I2C_Packet[9] = idBuffer.info[9]; //
-        I2C_Packet[10] = idBuffer.info[10]; //
-
-        I2C_Packet[11] = idBuffer.info[11]; // number Hit
-        I2C_Packet[12] = idBuffer.info[11]; // Strength
-
-
-        uint8_t DataToSend[10]; // Id to Strenght for the CRC calculation
-        
-        for (uint8_t i = 0; i < 10; i++){
-            DataToSend[i] = I2C_Packet[i + 3]; // just remove code, address, and checksum
-        }        
-        I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
-        // // Clear idInfo Array.. too soon ?
-        // for (uint8_t i = 0; i < idInfo[0]; i++){
-        //     idInfo[i] = 0;
-        // }
-        idBuffer.isPending = false;
-        // I2C_length = 13;
-    }
-    else if (idBuffer.info[2] == 0x83) // Gate ping
-    {
-//            timeTemp = millis() - offsetTime;
-        I2C_Packet[0] = 0x83;
-        I2C_Packet[1] = gateInfo.i2cAddress;
-
-        I2C_Packet[3] = receiverState; // Better to direct assign the right number ..?!?!
-        I2C_Packet[4] = gateInfo.deltaOffsetGate; //!buffer overflow!!! maybe pass to 2x 8bits... because only 255ms max...
-
-        I2C_Packet[5] = gateInfo.bufferUsed;
-        I2C_Packet[6] = gateInfo.loopTime;
-
-        uint8_t DataToSend[] = {I2C_Packet[3], I2C_Packet[4], I2C_Packet[5], I2C_Packet[6]};
-        I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
-        // I2C_length = 7;
-    }
-    else
-    {  // Unknow message...
-        I2C_Packet[0] = 0x85;
-        I2C_Packet[1] = gateInfo.i2cAddress;
-        // I2C_length = 2;
-    }
-
-    // if (I2C_length != 0) 
-    // {
-    Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
 }
 
 
@@ -419,16 +341,83 @@ void resetGate(bool state){ //0 = stop, 1= reset, stop?
 // - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
 
 
-// todo: set only flag and reduce interrupt function
+// ----------------------------------------------------------------------------
+//  Send I2C, because pingPongTrigger (controller asked)
+// todo: set a flag and send outside interrupt doesn't work...
+// ----------------------------------------------------------------------------
 void requestEvent() {
     // uint8_t dataLength;
     pingPongTrigger = true;
 
-    // I2C_Packet[0] = 0x85;
+    uint8_t I2C_Packet[13] = {};
+    // uint8_t I2C_length = 0;
 
-    // Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
+    if (idBuffer.info[2] == 0x84)
+    {
+        // current idInfo.info Thanks FlipSideRacing !
+        // Byte 1 is the length of the packet including this byte 0D for car detected packets
+        // Byte 2 is the checksum
+        // Byte 3 is the type of packet, 84 if this has car information
+        // Byte 4-5 represent the UID of the car in reverse byte order
+        // Byte 6-7 unknown, 00 in examples given
+        // Byte 8-11 are the seconds in thousandths of a second in reverse byte order
+        // Byte 12 is the number of hits the lap counter detected
+        // Byte 13 is the signal strength
 
-    // uint32_t timeTemp = millis() - offsetTime;
+        I2C_Packet[0] = 0x84; // Code saying it's an ID info
+        I2C_Packet[1] = gateInfo.i2cAddress;
+
+        I2C_Packet[3] = idBuffer.info[3]; // id
+        I2C_Packet[4] = idBuffer.info[4]; //
+        I2C_Packet[5] = idBuffer.info[5]; //
+        I2C_Packet[6] = idBuffer.info[6]; // should be 0x00 for a 24bits Ir code
+
+        I2C_Packet[7] = idBuffer.info[7]; // Reverse Order Decode needed for time in millisSeconds
+        I2C_Packet[8] = idBuffer.info[8]; //
+        I2C_Packet[9] = idBuffer.info[9]; //
+        I2C_Packet[10] = idBuffer.info[10]; //
+
+        I2C_Packet[11] = idBuffer.info[11]; // number Hit
+        I2C_Packet[12] = idBuffer.info[11]; // Strength
+
+
+        uint8_t DataToSend[10]; // Id to Strenght for the CRC calculation
+        
+        for (uint8_t i = 0; i < 10; i++){
+            DataToSend[i] = I2C_Packet[i + 3]; // just remove code, address, and checksum
+        }        
+        I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
+        // // Clear idInfo Array.. too soon ?
+        // for (uint8_t i = 0; i < idInfo[0]; i++){
+        //     idInfo[i] = 0;
+        // }
+        idBuffer.isPending = false;
+        // I2C_length = 13;
+    }
+    else if (idBuffer.info[2] == 0x83) // Gate ping
+    {
+//            timeTemp = millis() - offsetTime;
+        I2C_Packet[0] = 0x83;
+        I2C_Packet[1] = gateInfo.i2cAddress;
+
+        I2C_Packet[3] = receiverState; // Better to direct assign the right number ..?!?!
+        I2C_Packet[4] = gateInfo.deltaOffsetGate; //!buffer overflow!!! maybe pass to 2x 8bits... because only 255ms max...
+
+        I2C_Packet[5] = gateInfo.bufferUsed;
+        I2C_Packet[6] = gateInfo.loopTime;
+
+        uint8_t DataToSend[] = {I2C_Packet[3], I2C_Packet[4], I2C_Packet[5], I2C_Packet[6]};
+        I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
+        // I2C_length = 7;
+    }
+    else
+    {  // Unknow message...
+        I2C_Packet[0] = 0x85;
+        I2C_Packet[1] = gateInfo.i2cAddress;
+        // I2C_length = 2;
+    }
+
+    Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
 }
 
 
@@ -527,11 +516,12 @@ uint8_t CRC8(const uint8_t *data, uint8_t len) {
 // ADD an automatic address set with shunt/pin
 uint8_t setup_gate_id(){
   uint8_t id_gate = 0;
-  const uint8_t i2c_address[] = {20,21,22,23,24,25,26,27,28};
+  const uint8_t i2c_address[] = {0,21,22,23,24,25,26,27,28};
 
   id_gate = digitalRead(GATE_ID_PIN1) ? 1 : 0;
   id_gate = digitalRead(GATE_ID_PIN2) ? id_gate + 2 : id_gate;
   id_gate = digitalRead(GATE_ID_PIN3) ? id_gate + 4: id_gate;
 
+//  if (id_gate == 0) -> no solder and so fixed number!
   return i2c_address[id_gate];
 }
