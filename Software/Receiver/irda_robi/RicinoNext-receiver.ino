@@ -47,15 +47,9 @@ enum RECEIVER_state {
 volatile RECEIVER_state receiverState = DISCONNECTED;
 
 
-struct ID_Buffer {
+struct MSG_Buffer {
     bool isPending = false;
-    uint8_t info[PACKET_SIZE] = {};
-};
-
-ID_Buffer idBuffer;
-
-
-struct GATE_Info {
+    uint8_t array[PACKET_SIZE] = {};
     uint32_t offsetTime; // change to int32_t ?
     uint8_t i2cAddress = I2C_ADDRESS;
     uint32_t deltaOffsetGate = 0; // it's offsetTime vs RobiBridge, change to int32_t ?
@@ -63,7 +57,7 @@ struct GATE_Info {
     uint8_t bufferUsed;
 };
 
-GATE_Info gateInfo;
+MSG_Buffer msgBuffer;
 
 
 class Led // Main class for led blinking rate.
@@ -159,7 +153,6 @@ void setup(void) {
 void loop(void) {
     uint32_t startLoopTime = micros();
 
-    // size_t *loopTime = &gateInfo.loopTime;
     ledStatus.loop();
 
     // purgeSerialLoop();
@@ -175,6 +168,9 @@ void loop(void) {
 void raceLoop() {
     const uint32_t pingPongDelay = 2000; // two second before deconnecting ?
     static uint32_t pingPongTimer = millis();
+
+    const uint32_t gateAliveDelay = 5000;
+    static uint32_t gateAliveTimer = millis();
 //    SoftSerialDebug.println(startLoopTime);
     
     if (pingPongTrigger)
@@ -185,6 +181,7 @@ void raceLoop() {
         if (receiverState == DISCONNECTED)
         {
             receiverState = CONNECTED;
+            gateCommand(true);
         }
     }
 
@@ -193,11 +190,17 @@ void raceLoop() {
         receiverState = DISCONNECTED;
     }
 
-
     switch (receiverState)
     {
+        case CONNECTED:
+            if (millis() - gateAliveTimer > gateAliveDelay)
+            {
+                gateAliveTimer = millis();
+                gateCommand(false);
+            }
+            break;
         case START:
-            resetGate(true);
+            gateCommand(true);
             offsetTime = millis();
             receiverState = RACE;
             break;
@@ -207,7 +210,6 @@ void raceLoop() {
             break;
 
         case STOP:
-            resetGate(false);
             receiverState = CONNECTED;
             break;
 
@@ -251,9 +253,9 @@ void loopTimeRefresh(uint32_t startLoopTime){
         calculation = 1;
     }
 
-    if (calculation > gateInfo.loopTime)
+    if (calculation > msgBuffer.loopTime)
     {
-        gateInfo.loopTime = calculation;
+        msgBuffer.loopTime = calculation;
     }
 }
 
@@ -263,16 +265,33 @@ void loopTimeRefresh(uint32_t startLoopTime){
 // ----------------------------------------------------------------------------
 void irdaBufferRefresh() {
     uint8_t bytesInBuffer = (64 - (uint8_t)Serial.available()) * 4; // default Serial buffer is 64bytes
-    gateInfo.bufferUsed = bytesInBuffer;
+    msgBuffer.bufferUsed = bytesInBuffer;
 }
 
 
-// Processing messge of RobiGate only One at a time.
+// ----------------------------------------------------------------------------
+// Processing message (emptying serial buffer) of ATmega16 only one at a time.
+//  CAR Detected: Thanks FlipSideRacing !
+//    Byte 1 is the length of the packet including this byte 0D for car detected packets
+//    Byte 2 is the checksum
+//    Byte 3 is the type of packet, 84 if this has car information
+//    Byte 4-5 represent the UID of the car in reverse byte order
+//    Byte 6-7 unknown, 00 in examples given
+//    Byte 8-11 are the seconds in thousandths of a second in reverse byte order
+//    Byte 12 is the number of hits the lap counter detected
+//    Byte 13 is the signal strength
+//  Time stamp packet
+//    Byte 1 is the length of the packet 0B in the case of just a time stamp
+//    Byte 2 is a checksum
+//    Byte 3 is the packet type, 83 in the case of time stamp only
+//    Byte 4-7 is the seconds in reverse byte order in thousandths of a second
+//    Bytes 8-11 are unknown but in example were always 14 D0 01 02
+// ----------------------------------------------------------------------------
 void processingGate(){
     static uint32_t whileTimeoutDelay = 5;
 
     // todo: purgeSerial is raceState < START ...
-    if (!idBuffer.isPending)
+    if (!msgBuffer.isPending)
     {
         uint8_t tmpBuff[PACKET_SIZE] = {};
 
@@ -300,82 +319,84 @@ void processingGate(){
         // Update deltaOffsetGate
         if (tmpBuff[2] == 0x83) // is time
         {
+            for (uint8_t i = 0; i < tmpBuff[0]; i++) // replace by memcpy?
+            {
+                msgBuffer.array[i] = tmpBuff[i];
+            }
             uint32_t timeRobi = ( ((uint32_t)tmpBuff[6] << 24)
                                 + ((uint32_t)tmpBuff[5] << 16)
                                 + ((uint32_t)tmpBuff[4] <<  8)
-                                + ((uint32_t)tmpBuff[3] ) );
+                                + ((uint32_t)tmpBuff[3] ));
 
-            gateInfo.deltaOffsetGate = abs(timeRobi - gateInfo.offsetTime);
+            msgBuffer.deltaOffsetGate = abs(timeRobi - msgBuffer.offsetTime);
         }
         else if (tmpBuff[2] == 0x84) // is ID
         {
-            for (uint8_t i = 0; i < PACKET_SIZE; i++) // replace by memcpy?
+            for (uint8_t i = 0; i < tmpBuff[0]; i++) // replace by memcpy?
             {
-                idBuffer.info[i] = tmpBuff[i];
+                msgBuffer.array[i] = tmpBuff[i];
             }
-            idBuffer.isPending = true;
         }
+        else
+        {
+            msgBuffer.array[2] == 0x82;
+        }
+
+        msgBuffer.isPending = true;
     }
 }
 
 
-// todo: need to find the stop byte array
-void resetGate(bool state){ //0 = stop, 1= reset, stop?
-    byte startByte[] = { 0x03, 0xB9, 0x01};
-    byte resetByte[] = { 0x03, 0xB0, 0x02};
-    switch (state) {
-    case false: // init timer
+// ----------------------------------------------------------------------------
+// Gate command send... to AtMega16
+// ----------------------------------------------------------------------------
+void gateCommand(bool state){ //0 = stop, 1= reset, stop?
+    byte startByte[] = { 0x03, 0xB9, 0x01}; // at start
+    byte resetByte[] = { 0x03, 0xB0, 0x02}; // every 5sec
+    
+    if (state)
+    {
         Serial.write(startByte, sizeof(startByte));
-        break;
-
-    case true: // End connection
-        Serial.write(resetByte, sizeof(resetByte));
-        break;
     }
+    else
+    {
+        Serial.write(resetByte, sizeof(resetByte));
+    }
+
 }
 
 
 // ----------------------------------------------------------------------------
 //  Send I2C, because pingPongTrigger (controller asked)
-// todo/bug: set a flag and send outside interrupt doesn't work...
-// - Simple pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
-// - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
+//  todo/bug: set a flag and send outside interrupt with a function doesn't work...
+// - Pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
+// - ID:   0x84 | ReceiverAddress | Checksum | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
+// - Gate: 0x83 | ReceiverAddress | Checksum | TIME 4bytes (reversed)
 // ----------------------------------------------------------------------------
 void requestEvent() {
     // uint8_t dataLength;
     pingPongTrigger = true;
 
-    uint8_t I2C_Packet[13] = {};
+    uint8_t I2C_Packet[13] = {0};
     // uint8_t I2C_length = 0;
 
-    if (idBuffer.info[2] == 0x84)
-    {
-        // current idInfo.info Thanks FlipSideRacing !
-        // Byte 1 is the length of the packet including this byte 0D for car detected packets
-        // Byte 2 is the checksum
-        // Byte 3 is the type of packet, 84 if this has car information
-        // Byte 4-5 represent the UID of the car in reverse byte order
-        // Byte 6-7 unknown, 00 in examples given
-        // Byte 8-11 are the seconds in thousandths of a second in reverse byte order
-        // Byte 12 is the number of hits the lap counter detected
-        // Byte 13 is the signal strength
+    if (msgBuffer.array[2] == 0x84)
+    {   // Code saying it's an ID info
+        I2C_Packet[0] = 0x84;
+        I2C_Packet[1] = msgBuffer.i2cAddress;
 
-        I2C_Packet[0] = 0x84; // Code saying it's an ID info
-        I2C_Packet[1] = gateInfo.i2cAddress;
+        I2C_Packet[3] = msgBuffer.array[3]; // id
+        I2C_Packet[4] = msgBuffer.array[4]; //
+        I2C_Packet[5] = msgBuffer.array[5]; //
+        I2C_Packet[6] = msgBuffer.array[6]; // should be 0x00 for a 24bits Ir code
 
-        I2C_Packet[3] = idBuffer.info[3]; // id
-        I2C_Packet[4] = idBuffer.info[4]; //
-        I2C_Packet[5] = idBuffer.info[5]; //
-        I2C_Packet[6] = idBuffer.info[6]; // should be 0x00 for a 24bits Ir code
+        I2C_Packet[7] = msgBuffer.array[7]; // Reverse Order Decode needed for time in millisSeconds
+        I2C_Packet[8] = msgBuffer.array[8]; //
+        I2C_Packet[9] = msgBuffer.array[9]; //
+        I2C_Packet[10] = msgBuffer.array[10]; //
 
-        I2C_Packet[7] = idBuffer.info[7]; // Reverse Order Decode needed for time in millisSeconds
-        I2C_Packet[8] = idBuffer.info[8]; //
-        I2C_Packet[9] = idBuffer.info[9]; //
-        I2C_Packet[10] = idBuffer.info[10]; //
-
-        I2C_Packet[11] = idBuffer.info[11]; // number Hit
-        I2C_Packet[12] = idBuffer.info[11]; // Strength
-
+        I2C_Packet[11] = msgBuffer.array[11]; // number Hit
+        I2C_Packet[12] = msgBuffer.array[11]; // Strength
 
         uint8_t DataToSend[10]; // Id to Strenght for the CRC calculation
         
@@ -383,35 +404,34 @@ void requestEvent() {
             DataToSend[i] = I2C_Packet[i + 3]; // just remove code, address, and checksum
         }        
         I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
-        // // Clear idInfo Array.. too soon ?
-        // for (uint8_t i = 0; i < idInfo[0]; i++){
-        //     idInfo[i] = 0;
-        // }
-        idBuffer.isPending = false;
-        // I2C_length = 13;
     }
-    else if (idBuffer.info[2] == 0x83) // Gate ping
-    {
+    else if (msgBuffer.array[2] == 0x83) // Gate ping
+    {  // Code saying it's a timeStamp
 //            timeTemp = millis() - offsetTime;
         I2C_Packet[0] = 0x83;
-        I2C_Packet[1] = gateInfo.i2cAddress;
+        I2C_Packet[1] = msgBuffer.i2cAddress;
 
-        I2C_Packet[3] = receiverState; // Better to direct assign the right number ..?!?!
-        I2C_Packet[4] = gateInfo.deltaOffsetGate; //!buffer overflow!!! maybe pass to 2x 8bits... because only 255ms max...
-
-        I2C_Packet[5] = gateInfo.bufferUsed;
-        I2C_Packet[6] = gateInfo.loopTime;
+        I2C_Packet[3] = msgBuffer.array[3]; // id
+        I2C_Packet[4] = msgBuffer.array[4]; //
+        I2C_Packet[5] = msgBuffer.array[5]; //
+        I2C_Packet[6] = msgBuffer.array[6]; // should be 0x00 for a 24bits Ir code
 
         uint8_t DataToSend[] = {I2C_Packet[3], I2C_Packet[4], I2C_Packet[5], I2C_Packet[6]};
         I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
-        // I2C_length = 7;
     }
     else
-    {  // Unknow message...
+    {  // Unknow message... or debug
         I2C_Packet[0] = 0x82;
-        I2C_Packet[1] = gateInfo.i2cAddress;
-        // I2C_length = 2;
+        I2C_Packet[1] = msgBuffer.i2cAddress;
+
+        I2C_Packet[3] = receiverState; // Better to direct assign the right number ..?!?!
+        I2C_Packet[4] = msgBuffer.deltaOffsetGate; //!buffer overflow!!! maybe pass to 2x 8bits... because only 255ms max...
+
+        I2C_Packet[5] = msgBuffer.bufferUsed;
+        I2C_Packet[6] = msgBuffer.loopTime;
     }
+
+    msgBuffer.isPending = false;
 
     Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
 }
@@ -421,12 +441,13 @@ void requestEvent() {
 // todo: set only flag and reduce interrupt function
 void receiveEvent(int howMany)
 {
-    uint8_t receivedByte[howMany] = {}; // only two Bytes now... 
+    uint8_t receivedByte[howMany] = {}; // only XXX Bytes now... 
 
     uint8_t arrayIncrement = 0;
     while (Wire.available()) 
     { 
-        receivedByte[arrayIncrement++] = Wire.read();
+        receivedByte[arrayIncrement] = Wire.read();
+        arrayIncrement++;
     }
 
     switch (receivedByte[0])
@@ -437,6 +458,10 @@ void receiveEvent(int howMany)
 
     case 0x8F: // stop byte
         receiverState = STOP;
+        break;
+        
+    case 0x13: // debug mode
+        // simulation IR code ?
         break;
 
     default:
@@ -518,5 +543,4 @@ uint8_t setup_gate_id(){
 //       SoftSerialDebug.print(Serial.available());
 //       SoftSerialDebug.println();
 //   }
-  
 // }

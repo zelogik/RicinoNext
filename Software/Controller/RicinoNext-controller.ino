@@ -134,7 +134,7 @@ struct UI_config{
   uint16_t laps = 10; // 1 - ? unlimited ?
   uint8_t players = 4; // todo: ? EEPROM ?
   const uint8_t players_max = NUMBER_RACER_MAX;
-  uint8_t gates = 3; // todo: set/get in EEPROM as we don't change setup everytime
+  uint8_t gates = 1; // todo: set/get in EEPROM as we don't change setup everytime
   const uint8_t gates_max = NUMBER_GATES_MAX;
   // uint8_t light_brightness = 255;
 
@@ -1119,7 +1119,7 @@ void loop() {
     writeJSONDebug();
     #endif
 
-
+    requestGate();
     // static uint32_t testGateTimer = millis();
     // const uint16_t testGateDelay = 100;
 
