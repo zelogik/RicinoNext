@@ -108,7 +108,7 @@ uint16_t ledPin = 13;
 // ----------------------------------------------------------------------------
 // todo: define depend of board esp/samd/avr etc...
 #define NUMBER_RACER_MAX 16
-#define NUMBER_GATES_MAX 8
+#define NUMBER_GATES_MAX 7
 // #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
 
 const uint8_t addressAllGates[] = {21, 22, 23, 24, 25, 26, 27, 28}; // Order: 1 Gate-> ... -> Final Gate! | define address in UI ?
@@ -169,6 +169,8 @@ struct ID_Data_sorted{
       uint32_t lapTime;
       uint8_t currentGate;
 
+      uint8_t hit;
+      uint8_t strength;
       // todo: check the init condition after a start/stop
       // Calculated value:
       uint16_t laps;
@@ -195,7 +197,7 @@ struct ID_Data_sorted{
 
 
   void reset(){
-      ID, laps = 0;
+      ID, laps, hit, strength = 0;
       lapTime, lastTotalTime, bestLapTime, meanLapTime, lastLapTime = 0;
       currentGate = addressAllGates[0];
 
@@ -338,6 +340,8 @@ struct ID_buffer{
   uint8_t gateNumber = 0;
   uint32_t totalLapsTime = 0; // in millis ?
   bool isNew = false; //
+  uint8_t hit = 0;
+  uint8_t strength = 0;
 };
 
 ID_buffer idBuffer[NUMBER_RACER_MAX];
@@ -631,13 +635,13 @@ Race race = Race();
 // ----------------------------------------------------------------------------
 struct GATE_Data {
     uint8_t address;
-    uint8_t receiverState; //0-255 to 0-100%
+    uint8_t receiverState; // CONNECTED/START/RACE/STOP
     uint8_t deltaOffsetGate; //0-255 to 0-100%
     uint8_t bytesInBuffer; //typo wait
     uint8_t loopTime; //wait
 };
 
-GATE_Data gateData[NUMBER_GATES];
+GATE_Data gateData[NUMBER_GATES_MAX]; //NUMBER_GATES];
 
 
 // ----------------------------------------------------------------------------
@@ -1062,6 +1066,10 @@ void setup(void) {
 
 
   Wire.begin();
+  for (uint8_t i = 0; i < NUMBER_GATES_MAX; i++)
+  {
+      gateData[i].address = addressAllGates[i];
+  }
   // todo:
   // Add EEPROM or SPIFFS hardware conf (number gate, addons, screen)
   // OR let setup at compile time... or FS.conf override value at compile time... humhum
@@ -1112,13 +1120,13 @@ void loop() {
     #endif
 
 
-    static uint32_t testGateTimer = millis();
-    const uint16_t testGateDelay = 100;
+    // static uint32_t testGateTimer = millis();
+    // const uint16_t testGateDelay = 100;
 
-    if (millis() - testGateTimer > testGateDelay) {
-        testGateComm(21);
-        testGateTimer = millis();
-    }
+    // if (millis() - testGateTimer > testGateDelay) {
+    //     testGateComm(21);
+    //     testGateTimer = millis();
+    // }
 
     // ws.cleanupClients();
     //     gatePing();
@@ -1194,7 +1202,7 @@ void writeJSONDebug(){
 //  Function below need to be/get called at each triggered gate.
 // take ID, buffering in a temp struct before to be processed by the sortIDLoop().
 // ----------------------------------------------------------------------------
-void bufferingID(int ID, uint8_t gate, int totalTime){
+void bufferingID(uint32_t ID, uint8_t gate, uint32_t totalTime, uint8_t hit, uint32_t strength) {
 
   for (uint8_t i = 0; i < uiConfig.players; i++)
   {
@@ -1202,6 +1210,8 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
     {
         idBuffer[i].totalLapsTime = totalTime;
         idBuffer[i].gateNumber = gate;
+        idBuffer[i].hit = hit;
+        idBuffer[i].strength = strength;
         idBuffer[i].isNew = true;
         break; // Only one ID by message, end the loop faster
     }
@@ -1210,6 +1220,8 @@ void bufferingID(int ID, uint8_t gate, int totalTime){
         idBuffer[i].ID = ID;
         idBuffer[i].totalLapsTime = totalTime;
         idBuffer[i].gateNumber = gate;
+        idBuffer[i].hit = hit;
+        idBuffer[i].strength = strength;
         idBuffer[i].isNew = true;
         for (uint8_t j = 1; j < uiConfig.players + 1; j++)
         {
@@ -1403,7 +1415,7 @@ void fakeIDtrigger(int ms){
 
                 // It's the main feature of that function!
                 // Simulate a Gate message!
-                bufferingID(idList[i], gate, ms - startMillis);
+                bufferingID(idList[i], gate, ms - startMillis, 200, 200);
             }
         }
     }
@@ -1413,6 +1425,61 @@ void fakeIDtrigger(int ms){
     }
 }
 #endif
+
+
+// ----------------------------------------------------------------------------
+// Check if Gate have need data to processing
+// ----------------------------------------------------------------------------
+void requestGate() {
+    static uint32_t gateRequestTimer = millis();
+    const uint32_t gateRequestDelay = 50;
+    static uint8_t gateCounter = 0;
+
+    if (millis() - gateRequestTimer >= gateRequestDelay)
+    {
+        gateRequestTimer = millis();
+            // bool needProcessData;
+            uint8_t I2C_Packet[PACKET_SIZE];
+            // uint32_t stupidI2CBugByte = (uint32_t)addressRequestGate;
+            
+            Wire.requestFrom((int)addressAllGates[gateCounter], PACKET_SIZE);
+
+            // Find a way to stop the i2c the fastest way possible if receiver send less Bytes.
+            uint8_t countPosArray = 0;
+            while(Wire.available())
+            {
+                I2C_Packet[countPosArray] = Wire.read();
+                countPosArray++;
+            }
+
+            // If we got an I2C packet, we can extract the values
+            switch (I2C_Packet[0])
+            {
+            case 0x84: //get Gate/pong data
+                // 0x84 | ReceiverAddress | pseudo checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms. 25ms = 250, 0.1ms or less = 1
+                processGateData(I2C_Packet);
+                break;
+
+            case 0x83: // get ID data
+                // messagePending, master will receive: 0x83 | ReceiverAddress | Checksum  | ID, TIME, (4bytes (ID) + 4bytes (uint32_t) + 1byte signal Strenght + 1byte Signal count )
+                processIDData(I2C_Packet, 21);
+                break;
+
+            case 0x82: // error code!
+                processIDData(I2C_Packet, 21);
+                break;
+
+            default:
+                break;
+            }
+
+            gateCounter++;
+            if (gateCounter == uiConfig.gates)
+            {
+                gateCounter = 0;
+            }
+    }
+}
 
 
 // ----------------------------------------------------------------------------
@@ -1556,9 +1623,9 @@ void getRandomColor(char *output, uint8_t len) {
 // CRC8 algo.
 // ----------------------------------------------------------------------------
 uint8_t CRC8(const uint8_t *data, uint8_t len) {
-  uint8_t crc = 0x00;
-  while (len--)
-  {
+    uint8_t crc = 0x00;
+    while (len--)
+    {
         uint8_t extract = *data++;
         for (uint8_t i = 8; i; i--)
         {
@@ -1570,8 +1637,8 @@ uint8_t CRC8(const uint8_t *data, uint8_t len) {
             }
             extract >>= 1;
         }
-  }
-  return crc;
+    }
+    return crc;
 }
 
 
@@ -1590,95 +1657,47 @@ uint8_t CRC8(const uint8_t *data, uint8_t len) {
 // - Simple pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
 // - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
 
-
-void setCommand(uint8_t addressSendGate, const uint8_t *command, uint8_t commandLength){
+//  byte startByte[] = { 0x03, 0xB9, 0x01};
+//  byte resetByte[] = { 0x03, 0xB0, 0x02};
+//  byte setDebug[] = {0x13, 0x37, 0x00};
+void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uint8_t commandLength){
     Wire.beginTransmission(addressSendGate);
     Wire.write(command, commandLength);
     Wire.endTransmission();
 }
 
 
-void pingGate() {
-    static uint32_t gateRequestTimer = millis();
-    const uint32_t gateRequestDelay = 100;
-    
-    if (millis() - gateRequestTimer >= gateRequestDelay)
+// void testGateComm(uint8_t addressRequestGate) {
+//     uint8_t I2C_Packet[13]; // max 13 bytes...
+
+//     Wire.requestFrom((int)addressRequestGate, 13);
+
+//     uint8_t countPosArray = 0;
+//     while(Wire.available())
+//     {
+//         I2C_Packet[countPosArray++] = Wire.read();
+//     }
+
+//     Serial.print(I2C_Packet[0], HEX);
+//     Serial.print(" | ");
+//     Serial.println(I2C_Packet[1], DEC);
+// }
+
+// ----------------------------------------------------------------------------
+//  Get info on gate(s) 
+// ----------------------------------------------------------------------------
+void processGateData(const uint8_t *dataArray) {
+
+    uint8_t gateTmp = dataArray[1];
+
+    for (uint8_t i = 0 ; i < NUMBER_GATES_MAX; i++)
     {
-        gateRequestTimer = millis();
-
-        for (uint8_t i = 0 ; i < NUMBER_GATES; i++)
-        {
-            getDataFromGate(addressAllGates[i]);
-        }
-    }
-}
-
-
-void testGateComm(uint8_t addressRequestGate) {
-    uint8_t I2C_Packet[13]; // max 13 bytes...
-
-    Wire.requestFrom((int)addressRequestGate, 13);
-
-    uint8_t countPosArray = 0;
-    while(Wire.available())
-    {
-        I2C_Packet[countPosArray++] = Wire.read();
-    }
-
-    Serial.print(I2C_Packet[0], HEX);
-    Serial.print(" | ");
-    Serial.println(I2C_Packet[1], DEC);
-}
-
-
-// I2C Request data from slave, need to be proceessed after that.
-bool getDataFromGate(uint8_t addressRequestGate) { //, bufferData* Info)
-    bool state;
-    uint8_t I2C_Packet[PACKET_SIZE];
-    // uint32_t stupidI2CBugByte = (uint32_t)addressRequestGate;
-    
-    Wire.requestFrom((int)addressRequestGate, PACKET_SIZE);
-
-    // Find a way to stop the i2c the fastest way possible if receiver send less Bytes.
-    uint8_t countPosArray = 0;
-    while(Wire.available())
-    {
-        I2C_Packet[countPosArray++] = Wire.read();
-    }
-
-    // If we got an I2C packet, we can extract the values
-    switch (I2C_Packet[0])
-    {
-    case 0x84: //get pong data
-        // 0x84 | ReceiverAddress | pseudo checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms. 25ms = 250, 0.1ms or less = 1
-        // todo: add number to below function: addressRequestGate
-        processGateData(I2C_Packet);
-        break;
-
-    case 0x83: // get id data
-        // messagePending, master will receive: 0x83 | ReceiverAddress | Checksum  | ID, TIME, (4bytes (ID) + 4bytes (uint32_t) + 1byte signal Strenght + 1byte Signal count )
-        processIDData(I2C_Packet, 21);
-        break;
-
-    default:
-        break;
-    }
-
-    return state;
-}
-
-
-void processGateData(uint8_t *dataArray) {
-    
-    for (uint8_t i = 0; i < sizeof(addressAllGates); i++)
-    {
-        if (dataArray[1] == gateData[i].address || gateData[i].address == 0)
+        if (gateTmp == gateData[i].address || gateData[i].address == 0)
         {
             if (gateData[i].address == 0)
             {
                 gateData[i].address = dataArray[1];
             }
-
             // gateData[i].checksum = dataArray[2];
             gateData[i].receiverState = dataArray[3];
             gateData[i].deltaOffsetGate = dataArray[4];
@@ -1690,74 +1709,33 @@ void processGateData(uint8_t *dataArray) {
     }
 }
 
+// ----------------------------------------------------------------------------
+//  get and fill idData with latest 
+// ----------------------------------------------------------------------------
+void processIDData(const uint8_t *dataArray, const uint8_t gateNumber) {
 
-void processIDData(uint8_t *dataArray, uint8_t gateNumber) {
+    uint8_t gateTmp = dataArray[1];
+    uint8_t crcTmp = dataArray[2];
 
     uint32_t idTmp = ( ((uint32_t)dataArray[6] << 24)
-                    + ((uint32_t)dataArray[5] << 16)
-                    + ((uint32_t)dataArray[4] <<  8)
-                    + ((uint32_t)dataArray[3]) );
+                     + ((uint32_t)dataArray[5] << 16)
+                     + ((uint32_t)dataArray[4] <<  8)
+                     + ((uint32_t)dataArray[3]) );
 
     uint32_t msTmp = ( ((uint32_t)dataArray[10] << 24)
-                    + ((uint32_t)dataArray[9] << 16)
-                    + ((uint32_t)dataArray[8] <<  8)
-                    + ((uint32_t)dataArray[7]) );
+                     + ((uint32_t)dataArray[9] << 16)
+                     + ((uint32_t)dataArray[8] <<  8)
+                     + ((uint32_t)dataArray[7]) );
 
     uint8_t hit = dataArray[11]; // don't know where to display...
     uint8_t strength = dataArray[12]; // don't know where to display...
 
     //todo: CHECK!! is below code? sortIDLoop clone?
-    // bufferingID(idList[i], gate, ms - startMillis);
-
-
-    // for (uint8_t playerPos = 0; playerPos < NUMBER_PLAYERS; playerPos++){
-    //     if (idTmp == idData[playerPos].id || idData[playerPos].id == 0) // Take the first NULL id
-    //     {
-    //         if (idData[playerPos].id == 0)
-    //         {
-    //             idData[playerPos].id = idTmp;
-    //         }
-
-    //         uint8_t gatePos = 0;
-
-    //         for (gatePos; gatePos < NUMBER_GATES; gatePos++)
-    //         {
-    //             if (addressAllGates[gatePos] == dataArray[0])
-    //             {
-    //                 break;
-    //             }
-    //         }
-
-    //         // Next is some BrainFuck calculation ...
-    //         if (isRightGate(playerPos, gatePos, msTmp)) // Check valid Gate
-    //         {
-    //             idData[playerPos].fullTimeCheckPoint[gatePos] = msTmp; // - offsetLap;
-    //             idData[playerPos].countGateTriggered[gatePos]++;
-
-    //             if (gatePos == 0) // Update Only for a Full Lap
-    //             {
-    //                 // idData[playerPos].countLap[0]++; // = idData[playerPos].numberLap + 1;
-    //                 // idData[playerPos].fullTimeCheckPoint[0] = msTmp - offsetLap;
-    //                 idData[playerPos].meanFullLap = meanCalculation(&idData[playerPos].fullTimeCheckPoint[gatePos], &idData[playerPos].countGateTriggered[gatePos]);
-    //                 idData[playerPos].lastFullLap = idData[playerPos].fullTimeCheckPoint[0] - msTmp;
-    //                 idData[playerPos].bestFullLap = bestCalculation(&idData[playerPos].bestFullLap, &idData[playerPos].lastFullLap);
-
-    //             }
-
-    //             uint32_t prevTimeTriggered = idData[playerPos].prevTimeTriggered;
-    //             uint32_t prevCheckPoint = idData[playerPos].lastCheckPoint[gatePos];
-
-    //             idData[playerPos].prevTimeTriggered = idData[playerPos].fullTimeCheckPoint[gatePos];
-    //             idData[playerPos].lastCheckPoint[gatePos] = idData[playerPos].prevTimeTriggered - prevTimeTriggered;
-    //             idData[playerPos].totalMeanCheckPoint[gatePos] = idData[playerPos].totalMeanCheckPoint[gatePos] + idData[playerPos].lastCheckPoint[gatePos];
-    //             idData[playerPos].meanCheckPoint[gatePos] = meanCalculation(&idData[playerPos].totalMeanCheckPoint[gatePos], &idData[playerPos].countGateTriggered[gatePos]);
-    //             idData[playerPos].bestCheckPoint[gatePos] = bestCalculation(&idData[playerPos].bestCheckPoint[gatePos], &idData[playerPos].lastCheckPoint[gatePos]);
-    //             idData[playerPos].deltaPrevCheckPoint[gatePos] = idData[playerPos].lastCheckPoint[gatePos] - prevCheckPoint;
-    //         }
-    //     }
-    //     break;
-    // }
+    // just need to fill idBuffer ?
+    // todo: msTmp & offset & ...
+    bufferingID(idTmp, gateTmp, msTmp, hit, strength);
 }
+
 
 // ----------------------------------------------------------------------------
 // Future template to test speed improvement the len is always 10... "00:00.000"

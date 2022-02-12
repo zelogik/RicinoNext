@@ -335,15 +335,11 @@ void resetGate(bool state){ //0 = stop, 1= reset, stop?
 }
 
 
-// if no Data, just send 0x82 | ReceiverAddress | pseudo checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms. 25ms = 250, 0.1ms or less = 1
-// if messagePending, master will receive: 0x83 | ReceiverAddress | Checksum  | ID, TIME, (4bytes (ID) + 4bytes (uint32_t) + 1byte signal Strenght + 1byte Signal count ) 
-// - Simple pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
-// - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
-
-
 // ----------------------------------------------------------------------------
 //  Send I2C, because pingPongTrigger (controller asked)
-// todo: set a flag and send outside interrupt doesn't work...
+// todo/bug: set a flag and send outside interrupt doesn't work...
+// - Simple pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
+// - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
 // ----------------------------------------------------------------------------
 void requestEvent() {
     // uint8_t dataLength;
@@ -412,7 +408,7 @@ void requestEvent() {
     }
     else
     {  // Unknow message...
-        I2C_Packet[0] = 0x85;
+        I2C_Packet[0] = 0x82;
         I2C_Packet[1] = gateInfo.i2cAddress;
         // I2C_length = 2;
     }
@@ -449,8 +445,41 @@ void receiveEvent(int howMany)
 }
 
 
+uint8_t CRC8(const uint8_t *data, uint8_t len) {
+    uint8_t crc = 0x00;
+    while (len--)
+    {
+        uint8_t extract = *data++;
+        for (uint8_t i = 8; i; i--)
+        {
+            uint8_t sum = (crc ^ extract) & 0x01;
+            crc >>= 1;
+            if (sum)
+            {
+                crc ^= 0x8C;
+            }
+            extract >>= 1;
+        }
+    }
+  return crc;
+}
+
+
+// ADD an automatic address set with shunt/pin
+uint8_t setup_gate_id(){
+    uint8_t id_gate = 0;
+    const uint8_t i2c_address[] = {0,21,22,23,24,25,26,27,28};
+
+    id_gate = digitalRead(GATE_ID_PIN1) ? 1 : 0;
+    id_gate = digitalRead(GATE_ID_PIN2) ? id_gate + 2 : id_gate;
+    id_gate = digitalRead(GATE_ID_PIN3) ? id_gate + 4: id_gate;
+
+    //  if (id_gate == 0) -> no solder and so fixed number!
+    return i2c_address[id_gate];
+}
+
+
 // void serial2DebugOutput(uint8_t idInfoSerial[], uint8_t idInfoSize){
-  
 //   uint32_t timeRobi = 0;
 //   uint32_t idRobi = 0;
   
@@ -491,37 +520,3 @@ void receiveEvent(int howMany)
 //   }
   
 // }
-
-
-uint8_t CRC8(const uint8_t *data, uint8_t len) {
-  uint8_t crc = 0x00;
-  while (len--)
-  {
-    uint8_t extract = *data++;
-    for (uint8_t i = 8; i; i--)
-    {
-      uint8_t sum = (crc ^ extract) & 0x01;
-      crc >>= 1;
-      if (sum)
-      {
-        crc ^= 0x8C;
-      }
-      extract >>= 1;
-    }
-  }
-  return crc;
-}
-
-
-// ADD an automatic address set with shunt/pin
-uint8_t setup_gate_id(){
-  uint8_t id_gate = 0;
-  const uint8_t i2c_address[] = {0,21,22,23,24,25,26,27,28};
-
-  id_gate = digitalRead(GATE_ID_PIN1) ? 1 : 0;
-  id_gate = digitalRead(GATE_ID_PIN2) ? id_gate + 2 : id_gate;
-  id_gate = digitalRead(GATE_ID_PIN3) ? id_gate + 4: id_gate;
-
-//  if (id_gate == 0) -> no solder and so fixed number!
-  return i2c_address[id_gate];
-}
