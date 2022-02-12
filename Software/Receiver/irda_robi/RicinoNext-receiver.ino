@@ -19,6 +19,10 @@
 
 #define LED_PIN PIN_PD2
 
+#define GATE_ID_PIN1 PIN_PD5
+#define GATE_ID_PIN2 PIN_PD6
+#define GATE_ID_PIN3 PIN_PD7
+
 // Only used to debug?
 SoftwareSerial SoftSerialDebug(RX,TX); // got 64Bytes of buffer that we will use mainly, buffer overflow... normally not, need more than 5cars in more than 300ms...
 
@@ -27,9 +31,6 @@ SoftwareSerial SoftSerialDebug(RX,TX); // got 64Bytes of buffer that we will use
 #define I2C_ADDRESS 21 // need to be different for each board...
 
 volatile bool pingPongTrigger = false;
-
-
-
 
 volatile uint32_t offsetTime; // it's time uC - start time
 
@@ -69,8 +70,8 @@ class Led // Main class for led blinking rate.
 {
 private:
     uint8_t _ledPin;
-    uint32_t OnTime = 100;     // milliseconds of on-time
-    uint32_t OffTime = 100;    // milliseconds of off-time
+    uint32_t OnTime;     // milliseconds of on-time
+    uint32_t OffTime;    // milliseconds of off-time
     bool ledState = HIGH;                 // ledState used to set the LED
     uint32_t previousMillis;   // will store last time LED was updated
 //    RECEIVER_state *raceState;
@@ -90,11 +91,15 @@ private:
         switch (receiverState)
         {
             case DISCONNECTED:
-                set(200,200);
+                set(100,100);
                 break;
 
             case CONNECTED:
                 set(1000,1000);
+                break;
+            
+            case RACE:
+                set(1000,100);
                 break;
 
             case START:
@@ -120,7 +125,7 @@ public:
         uint32_t currentMillis = millis();
 
         setBlinkRate();
-        
+
         if((ledState == HIGH) && (currentMillis - previousMillis > OnTime))
         {
             setOutput(LOW, currentMillis);
@@ -136,14 +141,20 @@ Led ledStatus = Led(LED_PIN); //, receiverState);
 
 
 void setup(void) {
-  Serial.begin(38400); // connected to IRDA -> UART
-  SoftSerialDebug.begin(9600); // connected for debugging
+    Serial.begin(38400); // connected to IRDA -> UART
+    SoftSerialDebug.begin(9600); // connected for debugging
 
-  Wire.begin(I2C_ADDRESS);    // join i2c bus with address
-  Wire.onRequest(requestEvent); // register event  
-  Wire.onReceive(receiveEvent); // register event
+    pinMode(GATE_ID_PIN1, INPUT);
+    pinMode(GATE_ID_PIN2, INPUT);
+    pinMode(GATE_ID_PIN3, INPUT);
+    
+    // I2C_ADDRESS = setup_gate_id();
 
+    Wire.begin(I2C_ADDRESS);    // join i2c bus with address
+    Wire.onRequest(requestEvent); // register event  
+    Wire.onReceive(receiveEvent); // register event
 }
+
 
 void loop(void) {
     uint32_t startLoopTime = micros();
@@ -154,10 +165,12 @@ void loop(void) {
     // purgeSerialLoop();
     raceLoop();
     processingGate();
+
     irdaBufferRefresh();
 
     loopTimeRefresh(startLoopTime);
 }
+
 
 void raceLoop() {
     const uint32_t pingPongDelay = 2000; // two second before deconnecting ?
@@ -169,6 +182,10 @@ void raceLoop() {
         pingPongTimer = millis();
         pingPongTrigger = false;
         requestToController();
+        if (receiverState == DISCONNECTED)
+        {
+            receiverState = CONNECTED;
+        }
     }
 
     if (millis() - pingPongTimer > pingPongDelay)
@@ -176,7 +193,6 @@ void raceLoop() {
         receiverState = DISCONNECTED;
     }
 
-    // todo: auto if receiverState == RACE and error...
 
     switch (receiverState)
     {
@@ -184,6 +200,10 @@ void raceLoop() {
             resetGate(true);
             offsetTime = millis();
             receiverState = RACE;
+            break;
+
+        case RACE:
+            // todo: auto deconnect if receiverState == RACE and error...
             break;
 
         case STOP:
@@ -220,9 +240,9 @@ void purgeSerialLoop() {
 // ----------------------------------------------------------------------------
 void requestToController() {
     uint8_t I2C_Packet[13] = {};
-    uint8_t I2C_length = 0;
+    // uint8_t I2C_length = 0;
 
-    if (idBuffer.info[2] = 0x84)
+    if (idBuffer.info[2] == 0x84)
     {
         // current idInfo.info Thanks FlipSideRacing !
         // Byte 1 is the length of the packet including this byte 0D for car detected packets
@@ -233,8 +253,6 @@ void requestToController() {
         // Byte 8-11 are the seconds in thousandths of a second in reverse byte order
         // Byte 12 is the number of hits the lap counter detected
         // Byte 13 is the signal strength
-
-        uint8_t I2C_Packet[13] = {};
 
         I2C_Packet[0] = 0x84; // Code saying it's an ID info
         I2C_Packet[1] = gateInfo.i2cAddress;
@@ -264,11 +282,10 @@ void requestToController() {
         //     idInfo[i] = 0;
         // }
         idBuffer.isPending = false;
-        I2C_length = 13;
+        // I2C_length = 13;
     }
-    else if (idBuffer.info[2] = 0x83) // Gate ping
+    else if (idBuffer.info[2] == 0x83) // Gate ping
     {
-
 //            timeTemp = millis() - offsetTime;
         I2C_Packet[0] = 0x83;
         I2C_Packet[1] = gateInfo.i2cAddress;
@@ -281,18 +298,18 @@ void requestToController() {
 
         uint8_t DataToSend[] = {I2C_Packet[3], I2C_Packet[4], I2C_Packet[5], I2C_Packet[6]};
         I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
-        I2C_length = 7;
+        // I2C_length = 7;
     }
     else
     {  // Unknow message...
         I2C_Packet[0] = 0x85;
         I2C_Packet[1] = gateInfo.i2cAddress;
-        I2C_length = 2;
+        // I2C_length = 2;
     }
 
     // if (I2C_length != 0) 
     // {
-    Wire.write(I2C_Packet, I2C_length); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
+    Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
 }
 
 
@@ -406,8 +423,14 @@ void resetGate(bool state){ //0 = stop, 1= reset, stop?
 void requestEvent() {
     // uint8_t dataLength;
     pingPongTrigger = true;
+
+    // I2C_Packet[0] = 0x85;
+
+    // Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
+
     // uint32_t timeTemp = millis() - offsetTime;
 }
+
 
 // receive ping, init, or stop byte.
 // todo: set only flag and reduce interrupt function
@@ -498,4 +521,17 @@ uint8_t CRC8(const uint8_t *data, uint8_t len) {
     }
   }
   return crc;
+}
+
+
+// ADD an automatic address set with shunt/pin
+uint8_t setup_gate_id(){
+  uint8_t id_gate = 0;
+  const uint8_t i2c_address[] = {20,21,22,23,24,25,26,27,28};
+
+  id_gate = digitalRead(GATE_ID_PIN1) ? 1 : 0;
+  id_gate = digitalRead(GATE_ID_PIN2) ? id_gate + 2 : id_gate;
+  id_gate = digitalRead(GATE_ID_PIN3) ? id_gate + 4: id_gate;
+
+  return i2c_address[id_gate];
 }

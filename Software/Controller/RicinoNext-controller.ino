@@ -1060,6 +1060,8 @@ void setup(void) {
 
   memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 
+
+  Wire.begin();
   // todo:
   // Add EEPROM or SPIFFS hardware conf (number gate, addons, screen)
   // OR let setup at compile time... or FS.conf override value at compile time... humhum
@@ -1108,6 +1110,15 @@ void loop() {
     #if defined(DEBUG)
     writeJSONDebug();
     #endif
+
+
+    static uint32_t testGateTimer = millis();
+    const uint16_t testGateDelay = 100;
+
+    if (millis() - testGateTimer > testGateDelay) {
+        testGateComm(21);
+        testGateTimer = millis();
+    }
 
     // ws.cleanupClients();
     //     gatePing();
@@ -1597,14 +1608,31 @@ void pingGate() {
 
         for (uint8_t i = 0 ; i < NUMBER_GATES; i++)
         {
-           getDataFromGate(addressAllGates[i]);
+            getDataFromGate(addressAllGates[i]);
         }
     }
 }
 
 
+void testGateComm(uint8_t addressRequestGate) {
+    uint8_t I2C_Packet[13]; // max 13 bytes...
+
+    Wire.requestFrom((int)addressRequestGate, 13);
+
+    uint8_t countPosArray = 0;
+    while(Wire.available())
+    {
+        I2C_Packet[countPosArray++] = Wire.read();
+    }
+
+    Serial.print(I2C_Packet[0], HEX);
+    Serial.print(" | ");
+    Serial.println(I2C_Packet[1], DEC);
+}
+
+
 // I2C Request data from slave, need to be proceessed after that.
-bool getDataFromGate(uint8_t addressRequestGate){ //, bufferData* Info)
+bool getDataFromGate(uint8_t addressRequestGate) { //, bufferData* Info)
     bool state;
     uint8_t I2C_Packet[PACKET_SIZE];
     // uint32_t stupidI2CBugByte = (uint32_t)addressRequestGate;
@@ -1629,7 +1657,7 @@ bool getDataFromGate(uint8_t addressRequestGate){ //, bufferData* Info)
 
     case 0x83: // get id data
         // messagePending, master will receive: 0x83 | ReceiverAddress | Checksum  | ID, TIME, (4bytes (ID) + 4bytes (uint32_t) + 1byte signal Strenght + 1byte Signal count )
-        processIDData(I2C_Packet);
+        processIDData(I2C_Packet, 21);
         break;
 
     default:
@@ -1640,7 +1668,7 @@ bool getDataFromGate(uint8_t addressRequestGate){ //, bufferData* Info)
 }
 
 
-void processGateData(uint8_t *dataArray){
+void processGateData(uint8_t *dataArray) {
     
     for (uint8_t i = 0; i < sizeof(addressAllGates); i++)
     {
@@ -1663,7 +1691,7 @@ void processGateData(uint8_t *dataArray){
 }
 
 
-void processIDData(uint8_t *dataArray, uint8_t gateNumber{
+void processIDData(uint8_t *dataArray, uint8_t gateNumber) {
 
     uint32_t idTmp = ( ((uint32_t)dataArray[6] << 24)
                     + ((uint32_t)dataArray[5] << 16)
