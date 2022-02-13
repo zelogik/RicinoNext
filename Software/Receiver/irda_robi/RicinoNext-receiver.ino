@@ -34,6 +34,8 @@ volatile bool pingPongTrigger = false;
 
 volatile uint32_t offsetTime; // it's time uC - start time
 
+volatile uint32_t fakdeIDdebug[13];
+
 //remove global here!
 
 enum RECEIVER_state { 
@@ -315,6 +317,17 @@ void processingGate(){
             }
             // serial2DebugOutput(idInfo, sizeof(idInfo));
         }
+        else if (fakdeIDdebug[0] == 0x13)
+        {  //set the fakde ID received from controller
+            for (uint8_t i = 0; i < 13; i++) // replace by memcpy?
+            {
+                tmpBuff[i] = fakdeIDdebug[i]; // change by howMany...
+            }
+            tmpBuff[0] = 0x0D;
+            // tmpBuff[1] = 0x0D; // multi gate faker
+            // tmpBuff[2] = 0x84;
+            fakdeIDdebug[0] = 0; //reset
+        }
 
         // Update deltaOffsetGate
         if (tmpBuff[2] == 0x83) // is time
@@ -330,7 +343,7 @@ void processingGate(){
 
             msgBuffer.deltaOffsetGate = abs(timeRobi - msgBuffer.offsetTime);
         }
-        else if (tmpBuff[2] == 0x84) // is ID
+        else if (tmpBuff[2] == 0x84  | tmpBuff[2] == 0x13) // is ID / fakeID
         {
             for (uint8_t i = 0; i < tmpBuff[0]; i++) // replace by memcpy?
             {
@@ -380,10 +393,18 @@ void requestEvent() {
     uint8_t I2C_Packet[13] = {0};
     // uint8_t I2C_length = 0;
 
-    if (msgBuffer.array[2] == 0x84)
+    if (msgBuffer.array[2] == 0x84 || msgBuffer.array[2] == 0x13)
     {   // Code saying it's an ID info
         I2C_Packet[0] = 0x84;
-        I2C_Packet[1] = msgBuffer.i2cAddress;
+
+        if (msgBuffer.array[2] == 0x84)
+        {
+            I2C_Packet[1] = msgBuffer.i2cAddress;
+        }
+        else
+        {
+            I2C_Packet[1] = msgBuffer.array[1]; // or fake gate...
+        }
 
         I2C_Packet[3] = msgBuffer.array[3]; // id
         I2C_Packet[4] = msgBuffer.array[4]; //
@@ -462,6 +483,11 @@ void receiveEvent(int howMany)
         
     case 0x13: // debug mode
         // simulation IR code ?
+        // it's an fake ID ! yes !!
+        for (uint8_t i = 0; i < 13; i++) // replace by memcpy?
+        {
+            fakdeIDdebug[i] = receivedByte[i]; // change by howMany...
+        }
         break;
 
     default:
