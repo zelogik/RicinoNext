@@ -11,7 +11,7 @@ Todo: Add author(s), descriptions, etc here...
 // todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
 
 #if defined(ESP8266) // todo: check if compile
-    #define HAVE_WIFI 1
+    #define HAVE_WIFI
     #include <ESP8266mDNS.h>
     #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
     #include <ESPAsyncTCP.h>
@@ -54,7 +54,7 @@ Todo: Add author(s), descriptions, etc here...
 // ----------------------------------------------------------------------------
 #define DEBUG 1 //display, output anything debug define
 #define DEBUG_FAKE_ID 1 // when you haven't enougth emitter to test multi
-// #define DEBUG_HARDWARE_LESS 1 // when you haven't receiver/hardware-Free debug
+// #define DEBUG_HARDWARE_LESS // when you haven't receiver/hardware-Free debug
 
 #if defined(DEBUG_HARDWARE_LESS)
     #define DEBUG_FAKE_ID 1
@@ -1360,7 +1360,7 @@ void fakeIDtrigger(int ms){
     if ( ms - autoResetReady > autoResetReadyDelay)
     {
         isNew = false;
-       Serial.println("AUTO RESET");
+    //    Serial.println("AUTO RESET");
     }
     autoResetReady = millis();
 
@@ -1376,7 +1376,7 @@ void fakeIDtrigger(int ms){
         }
         oldRaceStateDebug = WARMUP;
         startMillis = millis() + 2000; //warmup time?
-        Serial.println("NEW");
+        // Serial.println("NEW");
     }
 
     if (isNew)
@@ -1446,47 +1446,47 @@ void requestGate() {
     if (millis() - gateRequestTimer >= gateRequestDelay)
     {
         gateRequestTimer = millis();
-            // bool needProcessData;
-            uint8_t I2C_Packet[PACKET_SIZE];
-            // uint32_t stupidI2CBugByte = (uint32_t)addressRequestGate;
-            
-            Wire.requestFrom((int)addressAllGates[gateCounter], PACKET_SIZE);
+        // bool needProcessData;
+        uint8_t I2C_Packet[PACKET_SIZE];
+        // uint32_t stupidI2CBugByte = (uint32_t)addressRequestGate;
+        
+        Wire.requestFrom((int)addressAllGates[gateCounter], PACKET_SIZE);
 
-            // Find a way to stop the i2c the fastest way possible if receiver send less Bytes.
-            uint8_t countPosArray = 0;
-            while(Wire.available())
-            {
-                I2C_Packet[countPosArray] = Wire.read();
-                countPosArray++;
-            }
+        // Find a way to stop the i2c the fastest way possible if receiver send less Bytes.
+        uint8_t countPosArray = 0;
+        while(Wire.available())
+        {
+            I2C_Packet[countPosArray] = Wire.read();
+            countPosArray++;
+        }
 
-            // If we got an I2C packet, we can extract the values
-            switch (I2C_Packet[0])
-            {
-            case 0x83: //get timeStamp data
-                printI2CDebug(I2C_Packet, 13);
-                processGateData(I2C_Packet);
-                break;
+        // If we got an I2C packet, we can extract the values
+        switch (I2C_Packet[0])
+        {
+        case 0x83: //get timeStamp data
+            // printI2CDebug(I2C_Packet, 13);
+            processGateData(I2C_Packet);
+            break;
 
-            case 0x84: // get ID data
-                printI2CDebug(I2C_Packet, 13);
-                processIDData(I2C_Packet);
-                break;
+        case 0x84: // get ID data
+            // printI2CDebug(I2C_Packet, 13);
+            processIDData(I2C_Packet);
+            break;
 
-            case 0x82: // error code/ info emitter
-                printI2CDebug(I2C_Packet, 13);
-                processReceiverData(I2C_Packet);
-                break;
+        case 0x82: // error code/ info emitter
+            // printI2CDebug(I2C_Packet, 13);
+            processReceiverData(I2C_Packet);
+            break;
 
-            default:
-                break;
-            }
+        default:
+            break;
+        }
 
-            gateCounter++;
-            if (gateCounter == uiConfig.gates)
-            {
-                gateCounter = 0;
-            }
+        gateCounter++;
+        if (gateCounter == uiConfig.gates)
+        {
+            gateCounter = 0;
+        }
     }
 }
 
@@ -1536,7 +1536,6 @@ void printI2CDebug(const uint8_t *data, const uint8_t len)
         Serial.print(" | Time: ");
         Serial.print(timeMs, DEC);
         Serial.print(" | ");
-
     }
     else
     {
