@@ -69,7 +69,7 @@ Todo: Add author(s), descriptions, etc here...
     const char compile_date[] = __DATE__ " " __TIME__;
     char debug_message[128] = {};
     #define JSON_BUFFER_DEBUG 256
-    const char JSONconfDebug[2048] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":1,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
+    const char JSONconfDebug[2048] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
 
     //example /reminder : stoi(s1)
     // snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
@@ -344,8 +344,8 @@ struct ID_buffer{
   uint8_t gateNumber = 0;
   uint32_t totalLapsTime = 0; // in millis ?
   bool isNew = false; //
-//   uint8_t hit = 0;
-//   uint8_t strength = 0;
+  uint8_t hit = 0;
+  uint8_t strength = 0;
 };
 
 ID_buffer idBuffer[NUMBER_RACER_MAX];
@@ -1123,8 +1123,8 @@ void bufferingID(uint32_t ID, uint8_t gate, uint32_t totalTime, uint8_t hit, uin
     {
         idBuffer[i].totalLapsTime = totalTime;
         idBuffer[i].gateNumber = gate;
-        // idBuffer[i].hit = hit;
-        // idBuffer[i].strength = strength;
+        idBuffer[i].hit = hit;
+        idBuffer[i].strength = strength;
         idBuffer[i].isNew = true;
         break; // Only one ID by message, end the loop faster
     }
@@ -1133,8 +1133,8 @@ void bufferingID(uint32_t ID, uint8_t gate, uint32_t totalTime, uint8_t hit, uin
         idBuffer[i].ID = ID;
         idBuffer[i].totalLapsTime = totalTime;
         idBuffer[i].gateNumber = gate;
-        // idBuffer[i].hit = hit;
-        // idBuffer[i].strength = strength;
+        idBuffer[i].hit = hit;
+        idBuffer[i].strength = strength;
         idBuffer[i].isNew = true;
         for (uint8_t j = 1; j < uiConfig.players + 1; j++)
         {
@@ -1345,7 +1345,7 @@ void fakeIDtrigger(int ms){
     static uint32_t startMillis;
     // todo: make a random generator... ?
     const uint32_t idList[16] = { 1234, 1111, 1337, 2468, 6789, 8080, 7878, 8989, 9999, 2222, 9753, 1357, 0403, 2510, 4333, 5000};
-    static uint16_t idListTimer[16] = { 2000, 2050, 2250, 2125, 2050, 2150, 2250, 2350, 2005, 2055, 2255, 2120, 2055, 2155, 2255, 2355}; // used for the first lap!
+    static uint16_t idListTimer[16] = { 2000, 2080, 2250, 2125, 2050, 2150, 2250, 2350, 2005, 2055, 2255, 2120, 2055, 2155, 2255, 2355}; // used for the first lap!
     static uint32_t idListLastMillis[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     static uint8_t idGateNumber[16] = { 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20}; //  Address of first gate - 1
 
@@ -1404,7 +1404,7 @@ void fakeIDtrigger(int ms){
                 #else //send to real i2c receiver!
                 // make a 13byte fake ID ala robi and send to our gate!
                 uint8_t toSend[13] = {};
-                uint8_t startMs = ms - startMillis;
+                uint32_t startMs = ms - startMillis;
                 //uint8_t (*bytes)[4] = (void *) &value;
                 toSend[0] = 0x13;
                 toSend[1] = gate; // use fake gate instead checksum
@@ -1413,13 +1413,13 @@ void fakeIDtrigger(int ms){
                 toSend[4] = (uint32_t)(idList[i] >> 8) & 0xff;
                 toSend[5] = (uint32_t)(idList[i] >> 16) & 0xff;
                 toSend[6] = (uint32_t)(idList[i] >> 24);
-                toSend[7] = (uint32_t)(millis() & 0xff); //millis() for debug...
-                toSend[8] = (uint32_t)(millis() >> 8) & 0xff;
-                toSend[9] = (uint32_t)(millis() >> 24);
-                toSend[10] = (uint32_t)(millis() >> 24);
+                toSend[7] = (uint32_t)(startMs & 0xff);
+                toSend[8] = (uint32_t)(startMs >> 8) & 0xff;
+                toSend[9] = (uint32_t)(startMs >> 24);
+                toSend[10] = (uint32_t)(startMs >> 24);
                 toSend[11] = random(1, 255);
                 toSend[12] = random(1, 255);
-                setCommand(21, toSend, 13);
+                setCommand(21, toSend, 13); //only gate 21 connected...
                 #endif
             }
         }
@@ -1440,7 +1440,7 @@ void fakeIDtrigger(int ms){
 // ----------------------------------------------------------------------------
 void requestGate() {
     static uint32_t gateRequestTimer = millis();
-    const uint32_t gateRequestDelay = 50;
+    const uint32_t gateRequestDelay = 10;
     static uint8_t gateCounter = 0;
 
     if (millis() - gateRequestTimer >= gateRequestDelay)
@@ -1463,15 +1463,18 @@ void requestGate() {
             // If we got an I2C packet, we can extract the values
             switch (I2C_Packet[0])
             {
-            case 0x84: //get timeStamp data
+            case 0x83: //get timeStamp data
+                printI2CDebug(I2C_Packet, 13);
                 processGateData(I2C_Packet);
                 break;
 
-            case 0x83: // get ID data
+            case 0x84: // get ID data
+                printI2CDebug(I2C_Packet, 13);
                 processIDData(I2C_Packet);
                 break;
 
             case 0x82: // error code/ info emitter
+                printI2CDebug(I2C_Packet, 13);
                 processReceiverData(I2C_Packet);
                 break;
 
@@ -1485,6 +1488,81 @@ void requestGate() {
                 gateCounter = 0;
             }
     }
+}
+
+
+// DEBUG FUNCTION!
+void printI2CDebug(const uint8_t *data, const uint8_t len)
+{
+
+    bool noReceiverInfo = true;
+    uint32_t timeMs;
+    uint32_t idRec;
+    static bool wasRealData = false;
+
+    if (data[0] == 0x83)
+    {
+        if (!wasRealData)
+        {
+            Serial.println();
+        }
+        Serial.print("timeStamp:  ");
+        timeMs = ( ((uint32_t)data[6] << 24)
+                 + ((uint32_t)data[5] << 16)
+                 + ((uint32_t)data[4] <<  8)
+                 + ((uint32_t)data[3] ));
+        Serial.print(timeMs, DEC);
+        Serial.print(" | ");
+    }
+    else if (data[0] == 0x84)
+    {
+        if (!wasRealData)
+        {
+            Serial.println();
+        }
+        Serial.print("ID:  ");
+
+        timeMs = ( ((uint32_t)data[10] << 24)
+                + ((uint32_t)data[9] << 16)
+                + ((uint32_t)data[8] <<  8)
+                + ((uint32_t)data[7] ) );
+        idRec = ( ((uint32_t)data[6] << 24)
+                + ((uint32_t)data[5] << 16)
+                + ((uint32_t)data[4] <<  8)
+                + ((uint32_t)data[3] ) );
+        Serial.print(idRec, DEC);
+        Serial.print(" | Gate: ");
+        Serial.print(data[1], DEC);
+        Serial.print(" | Time: ");
+        Serial.print(timeMs, DEC);
+        Serial.print(" | ");
+
+    }
+    else
+    {
+        if (wasRealData)
+        {
+            wasRealData = false;
+        }
+        // Serial.print(".");
+        noReceiverInfo = false;
+    }
+
+    if (noReceiverInfo)
+    {
+        for (uint8_t i = 0; i < len; i++)
+        {
+            Serial.print(data[i], HEX);
+            Serial.print(" ");
+        }
+        wasRealData = true;
+    }
+
+    if (wasRealData)
+    {
+        Serial.println();
+    }
+
 }
 
 
@@ -1670,12 +1748,6 @@ void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uin
     Wire.beginTransmission(addressSendGate);
     Wire.write(command, commandLength);
     Wire.endTransmission();
-    for (uint8_t i = 0; i < commandLength; i++)
-    {
-        Serial.print(command[i], HEX);
-        Serial.print(" ");
-    }
-    Serial.println();
 }
 
 

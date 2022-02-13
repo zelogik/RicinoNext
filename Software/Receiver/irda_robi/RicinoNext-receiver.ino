@@ -34,7 +34,7 @@ volatile bool pingPongTrigger = false;
 
 volatile uint32_t offsetTime; // it's time uC - start time
 
-volatile uint32_t fakdeIDdebug[13];
+volatile uint32_t fakeIDdebug[13] = {};
 
 //remove global here!
 
@@ -184,6 +184,7 @@ void raceLoop() {
         {
             receiverState = CONNECTED;
             gateCommand(true);
+            gateCommand(false);
         }
     }
 
@@ -317,16 +318,17 @@ void processingGate(){
             }
             // serial2DebugOutput(idInfo, sizeof(idInfo));
         }
-        else if (fakdeIDdebug[0] == 0x13)
+        else if (fakeIDdebug[0] == 0x13)
         {  //set the fakde ID received from controller
             for (uint8_t i = 0; i < 13; i++) // replace by memcpy?
             {
-                tmpBuff[i] = fakdeIDdebug[i]; // change by howMany...
+                tmpBuff[i] = fakeIDdebug[i]; // change by howMany...
             }
-            tmpBuff[0] = 0x0D;
+            tmpBuff[0] = 0x13;
             // tmpBuff[1] = 0x0D; // multi gate faker
             // tmpBuff[2] = 0x84;
-            fakdeIDdebug[0] = 0; //reset
+            fakeIDdebug[0] = 0; //reset
+            msgBuffer.isPending = true;
         }
 
         // Update deltaOffsetGate
@@ -342,20 +344,20 @@ void processingGate(){
                                 + ((uint32_t)tmpBuff[3] ));
 
             msgBuffer.deltaOffsetGate = abs(timeRobi - msgBuffer.offsetTime);
+            msgBuffer.isPending = true;
         }
-        else if (tmpBuff[2] == 0x84  | tmpBuff[2] == 0x13) // is ID / fakeID
+        else if (tmpBuff[2] == 0x84) // is ID / fakeID
         {
             for (uint8_t i = 0; i < tmpBuff[0]; i++) // replace by memcpy?
             {
                 msgBuffer.array[i] = tmpBuff[i];
             }
+            msgBuffer.isPending = true;
         }
         else
         {
             msgBuffer.array[2] == 0x82;
         }
-
-        msgBuffer.isPending = true;
     }
 }
 
@@ -393,55 +395,60 @@ void requestEvent() {
     uint8_t I2C_Packet[13] = {0};
     // uint8_t I2C_length = 0;
 
-    if (msgBuffer.array[2] == 0x84 || msgBuffer.array[2] == 0x13)
-    {   // Code saying it's an ID info
-        I2C_Packet[0] = 0x84;
-
+    if (msgBuffer.isPending)
+    {
         if (msgBuffer.array[2] == 0x84)
-        {
+        {   // Code saying it's an ID info
+            I2C_Packet[0] = 0x84;
+
+            if (msgBuffer.array[0] == 0)
+            {
+                I2C_Packet[1] = msgBuffer.i2cAddress;
+            }
+            else
+            {
+                I2C_Packet[1] = msgBuffer.array[1]; // or fake gate...
+            }
+
+            I2C_Packet[3] = msgBuffer.array[3]; // id
+            I2C_Packet[4] = msgBuffer.array[4]; //
+            I2C_Packet[5] = msgBuffer.array[5]; //
+            I2C_Packet[6] = msgBuffer.array[6]; // should be 0x00 for a 24bits Ir code
+
+            I2C_Packet[7] = msgBuffer.array[7]; // Reverse Order Decode needed for time in millisSeconds
+            I2C_Packet[8] = msgBuffer.array[8]; //
+            I2C_Packet[9] = msgBuffer.array[9]; //
+            I2C_Packet[10] = msgBuffer.array[10]; //
+
+            I2C_Packet[11] = msgBuffer.array[11]; // number Hit
+            I2C_Packet[12] = msgBuffer.array[12]; // Strength
+
+            uint8_t DataToSend[10]; // Id to Strength for the CRC calculation
+            
+            for (uint8_t i = 0; i < 10; i++){
+                DataToSend[i] = I2C_Packet[i + 3]; // just remove code, address, and checksum
+            }        
+            I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend));
+        }
+        else if (msgBuffer.array[2] == 0x83) // Gate ping
+        {  // Code saying it's a timeStamp
+    //            timeTemp = millis() - offsetTime;
+            I2C_Packet[0] = 0x83;
             I2C_Packet[1] = msgBuffer.i2cAddress;
+
+            I2C_Packet[3] = msgBuffer.array[3]; // id
+            I2C_Packet[4] = msgBuffer.array[4]; //
+            I2C_Packet[5] = msgBuffer.array[5]; //
+            I2C_Packet[6] = msgBuffer.array[6]; // should be 0x00 for a 24bits Ir code
+
+            uint8_t DataToSend[] = {I2C_Packet[3], I2C_Packet[4], I2C_Packet[5], I2C_Packet[6]};
+            I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
         }
-        else
-        {
-            I2C_Packet[1] = msgBuffer.array[1]; // or fake gate...
-        }
-
-        I2C_Packet[3] = msgBuffer.array[3]; // id
-        I2C_Packet[4] = msgBuffer.array[4]; //
-        I2C_Packet[5] = msgBuffer.array[5]; //
-        I2C_Packet[6] = msgBuffer.array[6]; // should be 0x00 for a 24bits Ir code
-
-        I2C_Packet[7] = msgBuffer.array[7]; // Reverse Order Decode needed for time in millisSeconds
-        I2C_Packet[8] = msgBuffer.array[8]; //
-        I2C_Packet[9] = msgBuffer.array[9]; //
-        I2C_Packet[10] = msgBuffer.array[10]; //
-
-        I2C_Packet[11] = msgBuffer.array[11]; // number Hit
-        I2C_Packet[12] = msgBuffer.array[11]; // Strength
-
-        uint8_t DataToSend[10]; // Id to Strenght for the CRC calculation
-        
-        for (uint8_t i = 0; i < 10; i++){
-            DataToSend[i] = I2C_Packet[i + 3]; // just remove code, address, and checksum
-        }        
-        I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
-    }
-    else if (msgBuffer.array[2] == 0x83) // Gate ping
-    {  // Code saying it's a timeStamp
-//            timeTemp = millis() - offsetTime;
-        I2C_Packet[0] = 0x83;
-        I2C_Packet[1] = msgBuffer.i2cAddress;
-
-        I2C_Packet[3] = msgBuffer.array[3]; // id
-        I2C_Packet[4] = msgBuffer.array[4]; //
-        I2C_Packet[5] = msgBuffer.array[5]; //
-        I2C_Packet[6] = msgBuffer.array[6]; // should be 0x00 for a 24bits Ir code
-
-        uint8_t DataToSend[] = {I2C_Packet[3], I2C_Packet[4], I2C_Packet[5], I2C_Packet[6]};
-        I2C_Packet[2] = CRC8(DataToSend, sizeof(DataToSend)); // need checksum function
+    
+        msgBuffer.isPending = false;
     }
     else
-    {  // Unknow message... or debug
+    {  // Unknow message... or debug log/stat ?
         I2C_Packet[0] = 0x82;
         I2C_Packet[1] = msgBuffer.i2cAddress;
 
@@ -451,8 +458,6 @@ void requestEvent() {
         I2C_Packet[5] = msgBuffer.bufferUsed;
         I2C_Packet[6] = msgBuffer.loopTime;
     }
-
-    msgBuffer.isPending = false;
 
     Wire.write(I2C_Packet, 13); //sizeof(arrayToSend) / sizeof(arrayToSend[0]));
 }
@@ -486,7 +491,7 @@ void receiveEvent(int howMany)
         // it's an fake ID ! yes !!
         for (uint8_t i = 0; i < 13; i++) // replace by memcpy?
         {
-            fakdeIDdebug[i] = receivedByte[i]; // change by howMany...
+            fakeIDdebug[i] = receivedByte[i]; // change by howMany...
         }
         break;
 
