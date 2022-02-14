@@ -19,7 +19,7 @@
 
 #define LED_PIN PIN_PD2
 
-#define GATE_ID_PIN1 PIN_PD5
+#define GATE_ID_PIN1 PIN_PD5 // nearest resonator, IRDA transceiver
 #define GATE_ID_PIN2 PIN_PD6
 #define GATE_ID_PIN3 PIN_PD7
 
