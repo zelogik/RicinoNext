@@ -141,13 +141,19 @@ enum RaceStyle {
 // RaceStyle raceStyle = LAPS;
 const char* raceStyleChar[] = {"Laps", "Time", "Pass", "Solo Time", "Solo Laps"};
 
+struct TIME_debug {
+    uint32_t realTime = millis();
+    uint32_t startTime;
+    uint32_t receiverTime;
+    uint32_t irdaTime;
+} timeDebug;
 
 // ----------------------------------------------------------------------------
 //  UI Config struct
 // That struct is directly changed from client UI.
 // Auto send to client when isChanged or at new connection
 // ----------------------------------------------------------------------------
-struct UI_config{
+struct UI_config {
   // bool isChanged = false; // is used? / remove ?
 
   uint16_t laps = 10; // 1 - ? unlimited ?
