@@ -24,7 +24,7 @@
 			<p>Current Time: <span id="websockTimer">NaN</span></p>
 			<p>Lap / Total: <span id="lapCounter">NaN</span> / <span id="laps">NaN</span></p>
 
-			<br><br>
+			<br>
 			<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">Start</button>
 			<button id="light" type="button" class="btn btn-info" onclick="lightToggle()">On</button>
 			<button id="reset" type="button" class="btn btn-danger" onclick="resetTrigger()">Reset</button>
@@ -57,6 +57,16 @@
 				Show Snackbar?
 			</button> -->
 
+			<br>
+			<div class="selectContainer">
+				Race Style
+				<select id="style" onchange="raceStyleChange()">
+					<option value="0">Laps</option>
+					<option value="1">Time</option>
+					<option value="2">Pass</option>
+					<option value="3">Solo</option>
+				</select>
+			</div>
 			<br>
 			<div class="debug">
 				<p>DebugMessage: <span id="websockConsole">NULL</span></p> 

@@ -130,14 +130,15 @@ void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uin
 // ----------------------------------------------------------------------------
 //  Type Race
 // ----------------------------------------------------------------------------
-enum race_style_t {
+enum RaceStyle {
     LAPS,       // simple race, until LAP
-    SOLO,       // solo mode, only the first ID is detected and show
     TIME,       // race until set time
-    PASS        // when the first overtake/pass the second
+    PASS,       // when the first overtake/pass the second
+    SOLO        // solo mode, only the first ID is detected and show
 };
 
-race_style_t raceStyle = LAPS;
+// RaceStyle raceStyle = LAPS;
+const char* raceStyleChar[] = {"Laps", "Time", "Pass", "Solo"};
 
 
 // ----------------------------------------------------------------------------
@@ -161,6 +162,15 @@ struct UI_config{
   bool reset = false; // trigger reset struct idData
   // todo: find a way to implement
   bool read_ID = false; // trigger an one shot ID reading
+
+  RaceStyle style = LAPS;
+
+//   enum Style {
+//     LAPS,       // simple race, until LAP
+//     TIME,       // race until set time
+//     PASS,       // when the first overtake/pass the second
+//     SOLO        // solo mode, only the first ID is detected and show
+//   } raceStyle = LAPS;
 
   // is separating this nested struct useful ?
   struct Player
@@ -740,6 +750,7 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   conf["gates"] = uiConfig.gates;
   conf["light"] = uiConfig.light;
   conf["reset"] = uiConfig.reset;
+  conf["style"] = uiConfig.style; // raceStyleChar[uiConfig.style];
   // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
@@ -847,6 +858,11 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   if (obj.containsKey("gates"))
   {
       uiConfig.gates = doc["conf"]["gates"];
+  }
+
+  if (obj.containsKey("style"))
+  {
+      uiConfig.style = doc["conf"]["style"];
   }
 
   // if (obj.containsKey("light_brightness"))

@@ -96,6 +96,20 @@ function onMessage(evt)
     if ('conf' in obj) {
         config_global = obj;
 
+        if ('style' in obj.conf) {
+            var val = obj.conf.style;
+            document.getElementById('style').selectedIndex = val;
+            // var opts = sel.options;
+            // for (var opt, j = 0; opt = opts[j]; j++) {
+            //   if (opt.value == val) {
+            //     sel.selectedIndex = j;
+            //     break;
+            //   }
+            // }
+            //querySelector('#mySelect')
+            // document.querySelector("#style").value = "" + obj.conf.style;
+        }
+
         if ('laps' in obj.conf) {
             var laps_value = document.getElementById("laps").value;
 
@@ -274,6 +288,13 @@ function resetTrigger()
     var data = JSON.stringify({"conf": {"reset": "1"}});
     doSend(data);
 }
+
+function raceStyleChange() {
+    var x = document.getElementById("style").value // .toUpperCase();
+    var data = JSON.stringify({"conf": {"style": x}});
+    doSend(data);
+    // document.getElementById("demo").innerHTML = "You selected: " + x;
+  }
 
 // todo: factorize three below slider functions
 function updateLaps(element)
