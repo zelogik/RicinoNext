@@ -132,13 +132,14 @@ void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uin
 // ----------------------------------------------------------------------------
 enum RaceStyle {
     LAPS,       // simple race, until LAP
-    TIME,       // race until set time
-    PASS,       // when the first overtake/pass the second
-    SOLO        // solo mode, only the first ID is detected and show
+    TIME        // race until set time
+    // PASS,       // when the first overtake/pass the second
+    // SOLOLAPS,   // solo mode, only the first ID is detected and show
+    // SOLOTIME    // solo mode but limited by laps
 };
 
 // RaceStyle raceStyle = LAPS;
-const char* raceStyleChar[] = {"Laps", "Time", "Pass", "Solo"};
+const char* raceStyleChar[] = {"Laps", "Time", "Pass", "Solo Time", "Solo Laps"};
 
 
 // ----------------------------------------------------------------------------
@@ -164,6 +165,7 @@ struct UI_config{
   bool read_ID = false; // trigger an one shot ID reading
 
   RaceStyle style = LAPS;
+  bool solo = false; // force UI to change page?
 
 //   enum Style {
 //     LAPS,       // simple race, until LAP
