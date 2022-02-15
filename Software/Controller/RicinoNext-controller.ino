@@ -6,12 +6,13 @@ Todo: Add author(s), descriptions, etc here...
 // todo: https://github.com/me-no-dev/ESPAsyncWebServer#setting-up-the-server, clean OTA, even file browser :)
 
 // ----------------------------------------------------------------------------
-// Imcludes library, header
+// Includes library, header
 // ----------------------------------------------------------------------------
-// todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
 
 #if defined(ESP8266) // todo: check if compile
     #define HAVE_WIFI 1
+    #define NUMBER_GATES_MAX 3
+    #define NUMBER_RACER_MAX 8
     #include <ESP8266mDNS.h>
     #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
     #include <ESPAsyncTCP.h>
@@ -20,6 +21,8 @@ Todo: Add author(s), descriptions, etc here...
 #elif defined(ESP32)
     #define HAVE_OTA 1
     #define HAVE_WIFI 1
+    #define NUMBER_RACER_MAX 16
+    #define NUMBER_GATES_MAX 7
     #include <Update.h>  // ? #include <ArduinoOTA.h> ?
     #include <ESPmDNS.h>
     #include <WiFi.h>      //ESP32 Core WiFi Library
@@ -29,28 +32,32 @@ Todo: Add author(s), descriptions, etc here...
     #include <SPI.h> // useless ?
     #include <ESPAsync_WiFiManager.h>
     #include <ESPAsyncWebServer.h>
-#elif defined(ARDUINO_SAMD_ZERO)
+#elif defined(ARDUINO_SAMD_ZERO) // todo: Doesn't output data as ESP01 is not defined
     #include <MemoryFree.h>
+    #define NUMBER_RACER_MAX 16
+    #define NUMBER_GATES_MAX 7
     // set pinLed
     // maybe an simple 328p as ESP01 will take web load.
 #elif defined(ARDUINO_AVR_MEGA2560)
     // set pinLed
 #else
-    // #error “Unsupported board selected!”
+    #error “Unsupported board selected!”
 #endif
-#define NUMBER_RACER_MAX 16
 
 #include <Arduino.h>
+#include <EEPROM.h>
 
-#include <ArduinoJson.h>  // needed for every messages
+#include <ArduinoJson.h>
 #define JSON_BUFFER 512
 #define JSON_BUFFER_CONF 2048 // 1024 for 8players
 
 #include <Wire.h>         // needed for the i2c gates/addons.
 #define PACKET_SIZE 13     // I2C packet size, slave will send 14 bytes to master? todo: so why 13...
 
+
 // ----------------------------------------------------------------------------
-// DEBUG global assigment, add receiver/emitter simulation (put in struct?)
+// DEBUG:  global assigment, add receiver/emitter simulation (put in struct?),
+// DEBUG:  everything below/here will be removed soon or later.
 // ----------------------------------------------------------------------------
 #define DEBUG 1 //display, output anything debug define
 #define DEBUG_FAKE_ID 1 // when you haven't enougth emitter to test multi
@@ -76,7 +83,16 @@ Todo: Add author(s), descriptions, etc here...
     // strncpy(debug_message, "light :", 128);
     // strncat(debug_message, light_ptr, 128);
     // memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
+    // #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
+
 #endif
+
+struct TIME_debug {
+    uint32_t realTime = millis();
+    uint32_t startTime;
+    uint32_t receiverTime;
+    uint32_t irdaTime;
+} timeDebug;
 
 
 // ----------------------------------------------------------------------------
@@ -88,6 +104,7 @@ Todo: Add author(s), descriptions, etc here...
     // AsyncEventSource events("/events"); // Should be a good feature for {race...} AND OTA!! view ESP_AsyncFSBrowser
     // DNSServer dns; // as it's local, why use DNS on the server...?
 #endif
+
 
 // ----------------------------------------------------------------------------
 //  External components part. ie: button/tft/esp01 etc...
@@ -109,19 +126,14 @@ uint16_t ledPin = 13;
 // ----------------------------------------------------------------------------
 //  Default racer/gates/protocol
 // ----------------------------------------------------------------------------
-// todo: define depend of board esp/samd/avr etc...
-#define NUMBER_RACER_MAX 16
-#define NUMBER_GATES_MAX 7
-// #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
-
 const uint8_t addressAllGates[] = {21, 22, 23, 24, 25, 26, 27, 28}; // Order: 1 Gate-> ... -> Final Gate! | define address in UI ?
 #define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
 
-#define NUMBER_PROTOCOL 3 // 0:serial, 1:web, 2:tft, 3:jsonSerial todo: add enum for easy debug?
+#define NUMBER_PROTOCOL 4 // 0:serial, 1:web, 2:tft, 3:jsonSerial todo: add enum for easy debug?
 
 
 // ----------------------------------------------------------------------------
-//  Prototype
+//  Prototypes
 // ----------------------------------------------------------------------------
 void sortIDLoop(); // todo: add to Race class in future
 void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uint8_t commandLength);
@@ -138,15 +150,8 @@ enum RaceStyle {
     // SOLOTIME    // solo mode but limited by laps
 };
 
-// RaceStyle raceStyle = LAPS;
 const char* raceStyleChar[] = {"Laps", "Time", "Pass", "Solo Time", "Solo Laps"};
 
-struct TIME_debug {
-    uint32_t realTime = millis();
-    uint32_t startTime;
-    uint32_t receiverTime;
-    uint32_t irdaTime;
-} timeDebug;
 
 // ----------------------------------------------------------------------------
 //  UI Config struct
@@ -157,14 +162,18 @@ struct UI_config {
   uint16_t lapsCondition = 10; // 1 - ? unlimited ?
   uint32_t timeCondition = 60 * 1000; // 60sec for debug/test
   uint8_t players = 4; // todo: ? EEPROM ?
-  const uint8_t players_max = NUMBER_RACER_MAX;
   uint8_t gates = 3; // todo: set/get in EEPROM as we don't change setup everytime
-  const uint8_t gates_max = NUMBER_GATES_MAX;
 
   bool state = false; // trigger a race start/stop
   uint8_t light = false;
   bool reset = false; // trigger reset struct idData
   RaceStyle style = LAPS;
+
+  // Give frontend max value accepted
+  const uint16_t laps_max = 100;
+  const uint32_t time_max = 2 * 60 * 60 * 1000; // time in ms, UI set/get min, 2h for debug.
+  const uint8_t players_max = NUMBER_RACER_MAX;
+  const uint8_t gates_max = NUMBER_GATES_MAX;
 
   // todo: below var are not used, find a way to implement
   uint8_t light_brightness = 255;
@@ -455,7 +464,7 @@ class Race {
         }
         else if (*currentStyle == TIME) // check if timeCondition - currentTime < 0
         {
-            if (millis() - startTime > *numberTotalTime - finishRaceDelay) // 10sec for test
+            if (millis() - startTime > *numberTotalTime - finishRaceDelay)
             {
                 finishRaceMillis = millis();
                 raceState = FINISH;
@@ -769,6 +778,12 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   conf["light"] = uiConfig.light;
   conf["reset"] = uiConfig.reset;
   conf["style"] = uiConfig.style; // raceStyleChar[uiConfig.style];
+
+  conf["laps_m"] = uiConfig.laps_max;
+  conf["time_m"] = uiConfig.time_max;
+  conf["players_m"] = uiConfig.players_max;
+  conf["gates_m"] = uiConfig.gates_max;
+
   // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
@@ -867,19 +882,19 @@ void JSONToConf(const char* input){ // struct UI_config* data,
   // obj_p = obj["laps"];
   if (obj.containsKey("laps"))
   {
-      uiConfig.lapsCondition = doc["conf"]["laps"];
+      uiConfig.lapsCondition = (doc["conf"]["laps"] > uiConfig.laps_max) ? uiConfig.laps_max : doc["conf"]["laps"];
   }
   if (obj.containsKey("time"))
   {
-      uiConfig.timeCondition = doc["conf"]["time"];
+      uiConfig.timeCondition = (doc["conf"]["time"] > uiConfig.time_max) ? uiConfig.time_max : doc["conf"]["time"];
   }
   if (obj.containsKey("players"))
   {
-      uiConfig.players = doc["conf"]["players"];
+      uiConfig.players = (doc["conf"]["players"] > uiConfig.players_max) ? uiConfig.players_max : doc["conf"]["players"];
   }
   if (obj.containsKey("gates"))
   {
-      uiConfig.gates = doc["conf"]["gates"];
+      uiConfig.gates = (doc["conf"]["gates"] > uiConfig.gates_max) ? uiConfig.gates_max : doc["conf"]["gates"];
   }
 
   if (obj.containsKey("style"))
