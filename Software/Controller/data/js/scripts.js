@@ -99,29 +99,31 @@ function onMessage(evt)
         if ( maxValueSet == false)
         {
             maxValueSet = true;
-            laps_maximum = obj.race.laps_m;
-            time_maximum = obj.race.time_m;
+            laps_maximum = obj.conf.laps_m;
+            time_maximum = obj.conf.time_m;
 
             document.getElementById('laps').innerHTML = "" + laps_maximum;
-            document.getElementById("lapsSlider").max = "" + laps_maximum;
-
-            document.getElementById("gatesSlider").max = "" + obj.race.gates_m;
-            document.getElementById("playersSlider").max = "" + obj.race.players_m;
+            document.getElementById("conditionSlider").max = laps_maximum;
+            document.getElementById("gatesSlider").max = obj.conf.gates_m;
+            document.getElementById("playersSlider").max = obj.conf.players_m;
         }
 
         if ('style' in obj.conf) {
             var val = obj.conf.style;
-            document.getElementById('style').selectedIndex = val;
-
+            var oldVal = document.getElementById('conditionText').innerHTML;
+   
+ 
             if ( val == 0 ) // Laps Mode
             {
-            // todo: if style == 0, set laps mode, if style == 1 set time mode
-            // document.getElementById('laps').innerHTML = "" + laps_maximum;
-            // document.getElementById("lapsSlider").max = "" + laps_maximum;
+                document.getElementById('conditionText').innerHTML = "Laps";
+                document.getElementById("conditionSlider").max = laps_maximum;
+                document.getElementById('style').selectedIndex = val;
             }
-            else if (val == 1)
+            else if ( val == 1)
             {
-                
+                document.getElementById('conditionText').innerHTML = "Time";
+                document.getElementById("conditionSlider").max = time_maximum;
+                document.getElementById('style').selectedIndex = val;
             }
         }
 
@@ -130,7 +132,7 @@ function onMessage(evt)
 
             document.getElementById("laps").innerHTML = "" + obj.conf.laps;
             if ( obj.conf.laps != laps_value) {
-                document.getElementById("lapsSlider").value = "" + obj.conf.laps;
+                document.getElementById("conditionSlider").value = "" + obj.conf.laps;
             }
         }
 
@@ -174,7 +176,7 @@ function onMessage(evt)
 
     if ('race' in obj) { // Race is read only!
         var raceButton = document.getElementById("race");
-        var sliderLock = document.getElementById("lapsSlider");
+        var sliderLock = document.getElementById("conditionSlider");
 
         if (obj.race.state === "WAIT") {
             sliderLock.disabled = false;
@@ -192,7 +194,7 @@ function onMessage(evt)
         }
 
         if ('lap' in obj.race) {
-            var tmpWidth = obj.race.lap / document.getElementById("lapsSlider").value* 100;
+            var tmpWidth = obj.race.lap / document.getElementById("conditionSlider").value* 100;
             // console.log("ERROR: " + tmpWidth);
             document.getElementById('percentLap').style.width = tmpWidth + "%";
             document.getElementById('percentLap').innerHTML = obj.race.lap;
@@ -312,9 +314,9 @@ function raceStyleChange() {
   }
 
 // todo: factorize three below slider functions
-function updateLaps(element)
+function updateCondition(element)
 {
-    var sliderValue = document.getElementById("lapsSlider").value;
+    var sliderValue = document.getElementById("conditionSlider").value;
     var data = JSON.stringify({"conf": {"laps": sliderValue}});
     // todo: send only new value every x sec, avoid flooding
     doSend(data);

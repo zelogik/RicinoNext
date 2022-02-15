@@ -76,7 +76,7 @@ Todo: Add author(s), descriptions, etc here...
     const char compile_date[] = __DATE__ " " __TIME__;
     char debug_message[128] = {};
     #define JSON_BUFFER_DEBUG 256
-    const char JSONconfDebug[2048] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
+    const char JSONconfDebug[2050] = "{\"conf\":{\"laps\":4,\"players\":4,\"gates\":3,\"light\":0,\"state\":0,\"names\":[{\"id\": \"1234\",\"name\":\"Player 1\",\"color\":\"#FFEB3B\"},{\"id\":\"1111\",\"name\":\"Player 2\",\"color\":\"#F44336\"},{\"id\":\"1337\",\"name\":\"Player 3\",\"color\":\"\#03A9F4\"},{\"id\":\"2468\",\"name\":\"Player 4\",\"color\":\"#8BC34A\"},{\"id\":\"6789\",\"name\":\"Player 5\",\"color\":\"#6942468\"},{\"id\":\"8080\",\"name\":\"Player 6\",\"color\":\"#453575\"},{\"id\":\"7878\",\"name\":\"Player 7\",\"color\":\"#4F4536\"},{\"id\":\"8989\",\"name\":\"Player 8\",\"color\":\"#049331\"}]}}";  // ,\"light_brightness\":255
 
     //example /reminder : stoi(s1)
     // snprintf(s, sizeof(s), "%s is %i years old", name.c_str(), age);
@@ -770,7 +770,7 @@ Led ledState = Led(ledPin);
 void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connection){ // const struct UI_config* data,
 //   StaticJsonDocument<JSON_BUFFER_CONF> doc;
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(JSON_BUFFER_CONF);
 
   JsonObject conf = doc.createNestedObject("conf");
   conf["laps"] = uiConfig.lapsCondition;
@@ -798,7 +798,7 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   if (client)
   {
       conf["laps_m"] = uiConfig.laps_max;
-      conf["time_m"] = uiConfig.time_max;
+      conf["time_m"] = (uiConfig.time_max / (60 * 1000));
       conf["players_m"] = uiConfig.players_max;
       conf["gates_m"] = uiConfig.gates_max;      
 
