@@ -11,7 +11,7 @@ Todo: Add author(s), descriptions, etc here...
 // todo: add samd21 (remove any wifi stack), and use an esp01 as simple jsonToSerial -> serialToWeb, shouldn't be hard but low priority.
 
 #if defined(ESP8266) // todo: check if compile
-    #define HAVE_WIFI
+    #define HAVE_WIFI 1
     #include <ESP8266mDNS.h>
     #include <ESP8266WiFi.h>  //ESP8266 Core WiFi Library
     #include <ESPAsyncTCP.h>
@@ -154,31 +154,24 @@ struct TIME_debug {
 // Auto send to client when isChanged or at new connection
 // ----------------------------------------------------------------------------
 struct UI_config {
-  // bool isChanged = false; // is used? / remove ?
-
-  uint16_t laps = 10; // 1 - ? unlimited ?
+  uint16_t lapsCondition = 10; // 1 - ? unlimited ?
+  uint32_t timeCondition = 60 * 1000; // 60sec for debug/test
   uint8_t players = 4; // todo: ? EEPROM ?
   const uint8_t players_max = NUMBER_RACER_MAX;
   uint8_t gates = 3; // todo: set/get in EEPROM as we don't change setup everytime
   const uint8_t gates_max = NUMBER_GATES_MAX;
-  // uint8_t light_brightness = 255;
 
-  // Todo Add  enable sound/voice/etc... here
   bool state = false; // trigger a race start/stop
   uint8_t light = false;
   bool reset = false; // trigger reset struct idData
-  // todo: find a way to implement
-  bool read_ID = false; // trigger an one shot ID reading
-
   RaceStyle style = LAPS;
-  bool solo = false; // force UI to change page?
 
-//   enum Style {
-//     LAPS,       // simple race, until LAP
-//     TIME,       // race until set time
-//     PASS,       // when the first overtake/pass the second
-//     SOLO        // solo mode, only the first ID is detected and show
-//   } raceStyle = LAPS;
+  // todo: below var are not used, find a way to implement
+  uint8_t light_brightness = 255;
+  bool read_ID = false; // trigger an one shot ID reading
+  bool solo = false; // force UI to change page?
+  // todo: Add enable sound/voice/etc... here
+
 
   // is separating this nested struct useful ?
   struct Player
@@ -408,33 +401,34 @@ class Race {
     uint32_t delayWarmupTimer;
     bool isReady = false;
     uint16_t biggestLap;
-    const uint16_t *numberTotalLaps = &uiConfig.laps;
+    const uint16_t *numberTotalLaps = &uiConfig.lapsCondition;
+    const uint32_t *numberTotalTime = &uiConfig.timeCondition;
     uint32_t finishRaceMillis;
     const uint32_t finishRaceDelay = 2 * 1000; // todo: changeable from UI
     race_state_t oldRaceState;
-    uint32_t startTimeOffset;
+    uint32_t startTime;
+
     // uint32_t currentTimeOffset;
     char message[128] = {};
     char message_buffer[128];
-    const uint8_t startCmd[2] = {0x8A}; //start
-    const uint8_t stopCmd[2] = {0x8F}; //stop
+    const uint8_t startCmd[2] = {0x8A}; // I2C start Byte
+    const uint8_t stopCmd[2] = {0x8F};  // I2C stop Byte
+
+    RaceStyle *currentStyle = &uiConfig.style;
 
     uint8_t currentSortPosition;
     uint32_t currentSortTime;
     uint8_t currentSortGate;
 
-//      // keep for i2c gates
-//      APP_Data *app_ptr;
-//      app_ptr = &appData;
-
-    void init(){
+    void init() {
         biggestLap = 0;
         isReady = false;
         finishRaceMillis = 0;
         delayWarmupTimer = 0;
         oldRaceState = raceState;
+        startTime = 0;
+
         // todo:
-        //startTimeOffset
 
         uiConfig.reset = false;
         for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX + 1); i++ )
@@ -443,8 +437,36 @@ class Race {
         }
     }
 
+    void checkFinal() { //const uint32_t startTime) {
+        if (*currentStyle == LAPS) // check if lapsCondition == 
+        {
+            if (biggestLap == *numberTotalLaps - 1)
+            {
+                // todo: one time or for each player ?
+                memcpy(message, "Final Lap", sizeof(message[0])*128);
+            }
+            if (biggestLap == *numberTotalLaps)
+            {
+                finishRaceMillis = millis();
+                raceState = FINISH;
+                // todo: Only trig one time!
+                memcpy(message, "Hurry UP!", sizeof(message[0])*128);
+            }
+        }
+        else if (*currentStyle == TIME) // check if timeCondition - currentTime < 0
+        {
+            if (millis() - startTime > *numberTotalTime - finishRaceDelay) // 10sec for test
+            {
+                finishRaceMillis = millis();
+                raceState = FINISH;
+                // todo: Only trig one time!
+                memcpy(message, "X second remaining", sizeof(message[0])*128);
+            }
+        }
 
-    void oneShotStateChange(){
+    }
+
+    void oneShotStateChange() {
         if (oldRaceState != raceState)
         {
             Serial.println(raceStateChar[oldRaceState]);
@@ -453,7 +475,7 @@ class Race {
     }
 
 
-    void setMessage(char *test_char[128]){
+    void setMessage(char *test_char[128]) {
       memcpy(message, test_char, sizeof(message[0])*128);
       // Now set an 
     }
@@ -467,8 +489,7 @@ class Race {
     // sorting struct/table and process idBuffer -> idData.
     // don't know if it's add value to integrating directly in the race private class...
     // ----------------------------------------------------------------------------
-    void sortIDLoop(){
-
+    void sortIDLoop() {
       // check if new data available
         for (uint8_t i = 0; i < uiConfig.players ; i++)
         {
@@ -546,7 +567,7 @@ class Race {
             memcpy(message, "Warm-UP time", sizeof(message[0])*128);
             break;
 
-        case WARMUP:    
+        case WARMUP:
             #if defined(DEBUG_FAKE_ID)
                 fakeIDtrigger(millis()); //only used for debug
             #endif
@@ -558,7 +579,7 @@ class Race {
                 //     setCommand(addressAllGates[i], app_ptr->startCmd, sizeof(&app_ptr->startCmd));
                 // }
                 // app_ptr->startOffset = millis();  //(*ptr).offsetLap;
-                startTimeOffset = millis();
+                startTime = millis();
                 raceState = RACE;
                 setCommand(21, startCmd, sizeof(startCmd[0]));
                 memcpy(message, "RUN RUN RUN", sizeof(message[0])*128);
@@ -578,19 +599,7 @@ class Race {
             // }
             // test if first player > max LAP
 
-            if (biggestLap == *numberTotalLaps - 1)
-            {
-                // todo: one time or for each player ?
-                memcpy(message, "Final Lap", sizeof(message[0])*128);
-            }
-            if (biggestLap == *numberTotalLaps)
-            {
-                finishRaceMillis = millis();
-                raceState = FINISH;
-                // todo: Only trig one time!
-                memcpy(message, "Hurry UP!", sizeof(message[0])*128);
-            }
-
+            checkFinal();
             break;
 
         case FINISH:
@@ -637,7 +646,7 @@ class Race {
     uint32_t getCurrentTime(){
         if (raceState == RACE || raceState == FINISH)
         {
-            return ( millis() - startTimeOffset );
+            return ( millis() - startTime );
         }
         else
         {
@@ -753,7 +762,8 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   DynamicJsonDocument doc(2048);
 
   JsonObject conf = doc.createNestedObject("conf");
-  conf["laps"] = uiConfig.laps;
+  conf["laps"] = uiConfig.lapsCondition;
+  conf["time"] = uiConfig.timeCondition;
   conf["players"] = uiConfig.players;
   conf["gates"] = uiConfig.gates;
   conf["light"] = uiConfig.light;
@@ -852,12 +862,16 @@ void JSONToConf(const char* input){ // struct UI_config* data,
       uiConfig.light = atoi(light_ptr); //doc["conf"]["light"];
   }
 
+  // todo: make a readable loop...
   // below is number
   // obj_p = obj["laps"];
   if (obj.containsKey("laps"))
   {
-      uiConfig.laps = doc["conf"]["laps"];
-              // Serial.println(uiConfig.laps);
+      uiConfig.lapsCondition = doc["conf"]["laps"];
+  }
+  if (obj.containsKey("time"))
+  {
+      uiConfig.timeCondition = doc["conf"]["time"];
   }
   if (obj.containsKey("players"))
   {
@@ -1098,8 +1112,33 @@ void setup(void) {
 
   memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
 
-
   Wire.begin();
+
+// //reminder for use both ESP32 core!
+// todo: define what on core0 and what on core1, priority task etc...
+// like led class is very low priority
+// race class, and get data from i2c is VERY high priority
+// web things is normal priority
+// finalize order/assign core etc....
+//   xTaskCreatePinnedToCore(
+//                     Task1code,   /* Task function. */
+//                     "Task1",     /* name of task. */
+//                     10000,       /* Stack size of task */
+//                     NULL,        /* parameter of the task */
+//                     1,           /* priority of the task */
+//                     &Task1,      /* Task handle to keep track of created task */
+//                     0);          /* pin task to core 0 */    
+
+// Void Task1code( void * parameter) {
+//   for(;;) {
+//     Code for task 1 - infinite loop
+//     (...)
+//   }
+// }
+
+
+
+
 //   for (uint8_t i = 0; i < NUMBER_GATES_MAX; i++)
 //   {
 //       gateData[i].address = addressAllGates[i];
