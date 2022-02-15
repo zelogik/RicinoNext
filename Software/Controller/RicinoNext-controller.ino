@@ -32,7 +32,7 @@ Todo: Add author(s), descriptions, etc here...
     #include <SPI.h> // useless ?
     #include <ESPAsync_WiFiManager.h>
     #include <ESPAsyncWebServer.h>
-#elif defined(ARDUINO_SAMD_ZERO) // todo: Doesn't output data as ESP01 is not defined
+#elif defined(ARDUINO_SAMD_ZERO) // todo: Doesn't output data as ESP01 is not defined, doesn't compile anymore (AsyncWebsocket)
     #include <MemoryFree.h>
     #define NUMBER_RACER_MAX 16
     #define NUMBER_GATES_MAX 7
@@ -90,8 +90,10 @@ Todo: Add author(s), descriptions, etc here...
 struct TIME_debug {
     uint32_t realTime = millis();
     uint32_t startTime;
+    uint32_t currentTime;
     uint32_t receiverTime;
     uint32_t irdaTime;
+    int32_t delta;
 } timeDebug;
 
 
@@ -184,8 +186,7 @@ struct UI_config {
 
   // is separating this nested struct useful ?
   struct Player
-  {
-      // uint8_t position; // todo: function to auto find by ID/name
+  {   // uint8_t position; // todo: function to auto find by ID/name ?
       uint32_t id; // dedup with idData[i].ID, something to refactoring ?
       char name[16]; // make a "random" username ala reddit ?
       char color[8]; // by char or int/hex value...
@@ -435,7 +436,7 @@ class Race {
         finishRaceMillis = 0;
         delayWarmupTimer = 0;
         oldRaceState = raceState;
-        startTime = 0;
+        // startTime = 0;
 
         // todo:
 
@@ -589,6 +590,7 @@ class Race {
                 // }
                 // app_ptr->startOffset = millis();  //(*ptr).offsetLap;
                 startTime = millis();
+                timeDebug.startTime = millis(); // debug!!!!!!!!!!!!!!
                 raceState = RACE;
                 setCommand(21, startCmd, sizeof(startCmd[0]));
                 memcpy(message, "RUN RUN RUN", sizeof(message[0])*128);
@@ -779,11 +781,6 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   conf["reset"] = uiConfig.reset;
   conf["style"] = uiConfig.style; // raceStyleChar[uiConfig.style];
 
-  conf["laps_m"] = uiConfig.laps_max;
-  conf["time_m"] = uiConfig.time_max;
-  conf["players_m"] = uiConfig.players_max;
-  conf["gates_m"] = uiConfig.gates_max;
-
   // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
 
@@ -800,12 +797,18 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
 
   if (client)
   {
+      conf["laps_m"] = uiConfig.laps_max;
+      conf["time_m"] = uiConfig.time_max;
+      conf["players_m"] = uiConfig.players_max;
+      conf["gates_m"] = uiConfig.gates_max;      
+
+      JsonObject race_obj = doc.createNestedObject("race");
+      race_obj["message"] = "Welcome on RicinoNext";
+
       #if defined(DEBUG)
       JsonObject debug = doc.createNestedObject("debug");
       debug["message"] = compile_date;
       #endif
-      JsonObject race_obj = doc.createNestedObject("race");
-      race_obj["message"] = "Welcome on RicinoNext";
   }
 
   #if defined(DEBUG)
@@ -923,7 +926,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 
 
 // ----------------------------------------------------------------------------
-//  Web Stuff: interrupt based function, receive JSON from client
+//  Web Stuff: interrupt based function, receive JSON from client and/or OTA
 // ----------------------------------------------------------------------------
 #if defined(HAVE_WIFI)
 void onEvent(AsyncWebSocket       *server,
@@ -954,9 +957,7 @@ void onEvent(AsyncWebSocket       *server,
                 {
                     // todo: Add an UI lock/unlock state?
                     JSONToConf((char*)data);
-
-                    confToJSON(nullptr);
-                    // ws.textAll(json);
+                    confToJSON(nullptr); // then broadcast
                 }
                 else
                 {
@@ -984,6 +985,7 @@ void onEvent(AsyncWebSocket       *server,
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: Only run one time, setup differents web address
+// clean OTA, even if that feature works well as it.
 // ----------------------------------------------------------------------------
 #if defined(HAVE_WIFI)
 void server_init()
@@ -1024,34 +1026,38 @@ void server_init()
             //     uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
             //     if (!Update.begin((cmd == U_FS)?fsSize:maxSketchSpace, cmd)){ // Start with max available size
             // #elif defined(ESP32)
-        int cmd = (filename == "filesystem") ? U_SPIFFS : U_FLASH;
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) { // Start with max available size
-            // #endif
-            //     Update.printError(Serial);
-            //     return request->send(400, "text/plain", "OTA could not begin");
-            // }
-        }
+            int cmd = (filename == "filesystem") ? U_SPIFFS : U_FLASH;
+            if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd))
+            { // Start with max available size
+                // #endif
+                //     Update.printError(Serial);
+                //     return request->send(400, "text/plain", "OTA could not begin");
+                // }
+            }
 
-        // Write chunked data to the free sketch space
-        if(len){
-            if (Update.write(data, len) != len) {
-                return request->send(400, "text/plain", "OTA could not begin");
+            // Write chunked data to the free sketch space
+            if(len){
+                if (Update.write(data, len) != len)
+                {
+                    return request->send(400, "text/plain", "OTA could not begin");
+                }
             }
-        }
-            
-        if (final) { // if the final flag is set then this is the last frame of data
-            if (!Update.end(true)) { //true to set the size to the current progress
-                Update.printError(Serial);
-                return request->send(400, "text/plain", "Could not end OTA");
+                
+            if (final) { // if the final flag is set then this is the last frame of data
+                if (!Update.end(true))
+                { //true to set the size to the current progress
+                    Update.printError(Serial);
+                    return request->send(400, "text/plain", "Could not end OTA");
+                }
+            }else{
+                return;
             }
-        }else{
-            return;
-        }
     });
 
   server.begin();
   yield();
   ws.onEvent(onEvent);
+  yield();
   server.addHandler(&ws);
 }
 #endif
@@ -1087,81 +1093,82 @@ void button_init()
 //  Setup call...
 // ----------------------------------------------------------------------------
 void setup(void) {
-  Serial.begin(9600);
+    Serial.begin(9600);
 
-  #if defined(HAVE_WIFI)
-  if(!SPIFFS.begin()){
-      Serial.println("An Error has occurred while mounting SPIFFS");
-      return;
-  }
-
-//   ESPAsync_wifiManager.resetSettings();   //reset saved settings
-  ESPAsync_WiFiManager ESPAsync_wifiManager(&server, nullptr , "RicinoNextAP"); // &dns
-  ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
-  ESPAsync_wifiManager.autoConnect("ricinoNextAP");
-
-  server_init();
-  if (!MDNS.begin("ricinoNext"))
-  {
-      Serial.println("Error setting up MDNS responder!");
-  }
-  #endif
-
-  #if defined(Button2_USE)
-      button_init();
-  #endif
-
-  #if defined(DEBUG)
-    if (WiFi.status() == WL_CONNECTED)
-    {
-        Serial.print(F("Connected. Local IP: "));
-        Serial.println(WiFi.localIP());
-    }
-    else
-    {
-        Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status()));
+    #if defined(HAVE_WIFI)
+    if(!SPIFFS.begin()){
+        Serial.println("An Error has occurred while mounting SPIFFS");
+        return;
     }
 
-    JSONToConf(JSONconfDebug);
-  #endif
+    //   ESPAsync_wifiManager.resetSettings();   //reset saved settings
+    ESPAsync_WiFiManager ESPAsync_wifiManager(&server, nullptr , "RicinoNextAP"); // &dns
+    ESPAsync_wifiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
+    ESPAsync_wifiManager.autoConnect("ricinoNextAP");
 
-  memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
+    server_init();
 
-  Wire.begin();
+    if (!MDNS.begin("ricinoNext"))
+    {
+        Serial.println("Error setting up MDNS responder!");
+    }
+    #endif
 
-// //reminder for use both ESP32 core!
-// todo: define what on core0 and what on core1, priority task etc...
-// like led class is very low priority
-// race class, and get data from i2c is VERY high priority
-// web things is normal priority
-// finalize order/assign core etc....
-//   xTaskCreatePinnedToCore(
-//                     Task1code,   /* Task function. */
-//                     "Task1",     /* name of task. */
-//                     10000,       /* Stack size of task */
-//                     NULL,        /* parameter of the task */
-//                     1,           /* priority of the task */
-//                     &Task1,      /* Task handle to keep track of created task */
-//                     0);          /* pin task to core 0 */    
+    #if defined(Button2_USE)
+        button_init();
+    #endif
 
-// Void Task1code( void * parameter) {
-//   for(;;) {
-//     Code for task 1 - infinite loop
-//     (...)
-//   }
-// }
+    #if defined(DEBUG)
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            Serial.print(F("Connected. Local IP: "));
+            Serial.println(WiFi.localIP());
+        }
+        else
+        {
+            Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status()));
+        }
+
+        JSONToConf(JSONconfDebug);
+    #endif
+
+    memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
+
+    Wire.begin();
+
+    // //reminder for use both ESP32 core!
+    // todo: define what on core0 and what on core1, priority task etc...
+    // like led class is very low priority
+    // race class, and get data from i2c is VERY high priority
+    // web things is normal priority
+    // finalize order/assign core etc....
+    //   xTaskCreatePinnedToCore(
+    //                     Task1code,   /* Task function. */
+    //                     "Task1",     /* name of task. */
+    //                     10000,       /* Stack size of task */
+    //                     NULL,        /* parameter of the task */
+    //                     1,           /* priority of the task */
+    //                     &Task1,      /* Task handle to keep track of created task */
+    //                     0);          /* pin task to core 0 */    
+
+    // Void Task1code( void * parameter) {
+    //   for(;;) {
+    //     Code for task 1 - infinite loop
+    //     (...)
+    //   }
+    // }
 
 
 
 
-//   for (uint8_t i = 0; i < NUMBER_GATES_MAX; i++)
-//   {
-//       gateData[i].address = addressAllGates[i];
-//   }
+    //   for (uint8_t i = 0; i < NUMBER_GATES_MAX; i++)
+    //   {
+    //       gateData[i].address = addressAllGates[i];
+    //   }
 
-  // todo:
-  // Add EEPROM or SPIFFS hardware conf (number gate, addons, screen)
-  // OR let setup at compile time... or FS.conf override value at compile time... humhum
+    // todo:
+    // Add EEPROM or SPIFFS hardware conf (number gate, addons, screen)
+    // OR let setup at compile time... or FS.conf override value at compile time... humhum
 }
 
 

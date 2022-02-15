@@ -96,18 +96,33 @@ function onMessage(evt)
     if ('conf' in obj) {
         config_global = obj;
 
+        if ( maxValueSet == false)
+        {
+            maxValueSet = true;
+            laps_maximum = obj.race.laps_m;
+            time_maximum = obj.race.time_m;
+
+            document.getElementById('laps').innerHTML = "" + laps_maximum;
+            document.getElementById("lapsSlider").max = "" + laps_maximum;
+
+            document.getElementById("gatesSlider").max = "" + obj.race.gates_m;
+            document.getElementById("playersSlider").max = "" + obj.race.players_m;
+        }
+
         if ('style' in obj.conf) {
             var val = obj.conf.style;
             document.getElementById('style').selectedIndex = val;
-            // var opts = sel.options;
-            // for (var opt, j = 0; opt = opts[j]; j++) {
-            //   if (opt.value == val) {
-            //     sel.selectedIndex = j;
-            //     break;
-            //   }
-            // }
-            //querySelector('#mySelect')
-            // document.querySelector("#style").value = "" + obj.conf.style;
+
+            if ( val == 0 ) // Laps Mode
+            {
+            // todo: if style == 0, set laps mode, if style == 1 set time mode
+            // document.getElementById('laps').innerHTML = "" + laps_maximum;
+            // document.getElementById("lapsSlider").max = "" + laps_maximum;
+            }
+            else if (val == 1)
+            {
+                
+            }
         }
 
         if ('laps' in obj.conf) {
@@ -511,6 +526,10 @@ class Stopwatch
     }
 
 }
+
+var maxValueSet = false;
+var laps_maximum;
+var time_maximum;
 
 var DEBUG_LIVE = true; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
