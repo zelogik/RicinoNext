@@ -167,6 +167,7 @@ struct UI_config {
   uint8_t light = false;
   bool reset = false; // trigger reset struct idData
   RaceStyle style = LAPS;
+  bool solo = false; // force UI to change page?
 
   // Give frontend max value accepted
   const uint16_t laps_max = 100;
@@ -177,7 +178,6 @@ struct UI_config {
   // todo: below var are not used, find a way to implement
   uint8_t light_brightness = 255;
   bool read_ID = false; // trigger an one shot ID reading
-  bool solo = false; // force UI to change page?
   // todo: Add enable sound/voice/etc... here
 
   // is separating this nested struct useful ?
@@ -198,24 +198,24 @@ UI_config uiConfig;
 struct ID_Data_sorted{
   public:
       // get info from i2c/gate
-      uint32_t ID;
-      uint32_t lapTime;
-      uint8_t currentGate, hit, strength;
+      uint32_t ID = 0;
+      uint32_t lapTime = 0;
+      uint8_t currentGate, hit, strength = 0;
       // todo: check the init condition after a start/stop
       // Calculated value:
-      uint16_t laps;
+      uint16_t laps = 0;
       //  uint32_t offsetLap;
       // Make all variable below private ?
-      uint32_t bestLapTime, meanLapTime, lastLapTime, lastTotalTime;
+      uint32_t bestLapTime, meanLapTime, lastLapTime, lastTotalTime = 0;
 
-      uint32_t lastTotalCheckPoint[NUMBER_GATES_MAX];
-      uint32_t lastCheckPoint[NUMBER_GATES_MAX];
-      uint32_t bestCheckPoint[NUMBER_GATES_MAX];
-      uint32_t meanCheckPoint[NUMBER_GATES_MAX];
-      uint32_t sumCheckPoint[NUMBER_GATES_MAX]; // 1193Hours for a buffer overflow?
+      uint32_t lastTotalCheckPoint[NUMBER_GATES_MAX] = {0};
+      uint32_t lastCheckPoint[NUMBER_GATES_MAX] ={0};
+      uint32_t bestCheckPoint[NUMBER_GATES_MAX] = {0};
+      uint32_t meanCheckPoint[NUMBER_GATES_MAX] = {0};
+      uint32_t sumCheckPoint[NUMBER_GATES_MAX] = {0}; // 1193Hours for a buffer overflow?
 
-      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES_MAX];
-      bool positionChange[NUMBER_PROTOCOL]; // serial, json, serial
+      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES_MAX] =  {0};
+      bool positionChange[NUMBER_PROTOCOL] = {0}; // serial, json, serial
 
       bool haveInitStart = false;
     //   uint8_t indexToRefresh; 
@@ -226,32 +226,6 @@ struct ID_Data_sorted{
       uint8_t lastPos;
       bool haveMissed;
       uint8_t lastGate;
-
-
-  void reset(){
-      ID, laps, lapTime, hit, strength = 0;
-      lastTotalTime, bestLapTime, meanLapTime, lastLapTime = 0;
-      currentGate = addressAllGates[0];
-      haveInitStart = false;
-
-      for (uint8_t i = 0; i < NUMBER_GATES_MAX; i++)
-      {
-          lastTotalCheckPoint[i] = 0;
-          lastCheckPoint[i] = 0;
-          bestCheckPoint[i] = 0;
-          meanCheckPoint[i] = 0;
-          sumCheckPoint[i] = 0;
-      }
-      memset(positionChange, 0, sizeof(positionChange)); // serial, tft, web,... add more
-      memset(haveUpdate, 0, sizeof(haveUpdate)); // false?
-
-    //   memset(lastTotalCheckPoint, 0, sizeof(lastTotalCheckPoint));
-    //   memset(lastCheckPoint, 0, sizeof(lastCheckPoint));
-    //   memset(bestCheckPoint, 0, sizeof(bestCheckPoint));
-    //   memset(meanCheckPoint, 0, sizeof(meanCheckPoint));
-    //   memset(sumCheckPoint, 0, sizeof(sumCheckPoint));
-  }
-
 
   void updateTime(uint32_t timeMs, uint8_t gate){
       currentGate = gate;
@@ -376,19 +350,13 @@ ID_Data_sorted idData[NUMBER_RACER_MAX + 1]; // number + 1, [0] is the tmp for r
 // ----------------------------------------------------------------------------
 //  Buffer Struct: Sort-Of simple buffer for i2c request from gates
 // ----------------------------------------------------------------------------
-struct ID_buffer{
-  uint32_t ID;
-  uint8_t gateNumber;
-  uint32_t totalLapsTime; // in millis ?
-  bool isNew; //
-  uint8_t hit;
-  uint8_t strength;
-
-  void reset()
-  {
-    ID, gateNumber, totalLapsTime, hit, strength = 0;
-    isNew = false;
-  }
+struct ID_buffer {
+  uint32_t ID = 0;
+  uint8_t gateNumber = 0;
+  uint32_t totalLapsTime = 0; // in millis ?
+  bool isNew = false; //
+  uint8_t hit = 0;
+  uint8_t strength = 0;
 };
 
 ID_buffer idBuffer[NUMBER_RACER_MAX];
@@ -449,16 +417,12 @@ class Race {
 
         uiConfig.reset = false;
         for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX + 1); i++ )
-        Serial.print("idData: ")
         {
-            Serial.print(i);
-            idData[i].reset();
+            idData[i] = {};
         }
-        Serial.print("   | IdBuffer: ")
         for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX); i++ )
         {
-            Serial.print(i);
-            idBuffer[i].reset();
+            idBuffer[i] = {};
         }        
     }
 
@@ -781,6 +745,7 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   conf["light"] = uiConfig.light;
   conf["reset"] = uiConfig.reset;
   conf["style"] = uiConfig.style; // raceStyleChar[uiConfig.style];
+  conf["style"] = uiConfig.solo;
 
   // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
@@ -902,6 +867,11 @@ void JSONToConf(const char* input){ // struct UI_config* data,
     if (obj.containsKey("style"))
     {
         uiConfig.style = doc["conf"]["style"];
+    }
+
+    if (obj.containsKey("solo"))
+    {
+        uiConfig.style = doc["conf"]["solo"];
     }
 
     // if (obj.containsKey("light_brightness"))
