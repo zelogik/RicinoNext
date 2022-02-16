@@ -153,6 +153,14 @@ function onMessage(evt)
             }
         }
 
+        if ('solo' in obj.conf) {
+            var laps_value = document.getElementById("solo").checked;
+
+            if ( obj.conf.solo != laps_value) {
+                document.getElementById("solo").checked = obj.conf.solo;
+            }
+        }
+
         if ('reset') {
             if (obj.conf.reset){
                 clearLines();
@@ -279,12 +287,24 @@ function raceToggle()
 
 function lightToggle()
 {
-    var x = document.getElementById("light");
+    var x = document.getElementById("light").checked;
     
-    if (x.innerHTML === "On") {
+    if (x == true) {
         var data = JSON.stringify({"conf": {"light": "0"}});
     } else {
         var data = JSON.stringify({"conf": {"light": "255"}});
+    }
+    doSend(data);
+}
+
+function SoloBox()
+{
+    var x = document.getElementById("solo").checked;
+
+    if (x) {
+        var data = JSON.stringify({"conf": {"solo": "1"}});
+    } else {
+        var data = JSON.stringify({"conf": {"solo": "0"}});
     }
     doSend(data);
 }

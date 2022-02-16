@@ -50,7 +50,11 @@
 				<input type="range" oninput="updateCondition(this)" id="conditionSlider" min="1" max="1" value="1" step="1" class="slider"> <!--onchange="updateLaps(this)" -->
 			</div>
 
-			<p></p>
+			<br>
+			<div>
+				<input type="checkbox" id="solo" name="solo" onclick="soloBox()" value="false">
+				<label for="solo">Solo Mode</label>
+			</div>
 			<div class="slidecontainer">
 				<p>Number Players: <span id="players">NaN</span></p>
 				<input type="range" oninput="updatePlayers(this)" id="playersSlider" min="1" max="1" value="1" step="1" class="slider">
