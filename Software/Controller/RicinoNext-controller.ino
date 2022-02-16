@@ -8,7 +8,6 @@ Todo: Add author(s), descriptions, etc here...
 // ----------------------------------------------------------------------------
 // Includes library, header
 // ----------------------------------------------------------------------------
-
 #if defined(ESP8266) // todo: check if compile
     #define HAVE_WIFI 1
     #define NUMBER_GATES_MAX 3
@@ -49,7 +48,7 @@ Todo: Add author(s), descriptions, etc here...
 
 #include <ArduinoJson.h>
 #define JSON_BUFFER 512
-#define JSON_BUFFER_CONF 2048 // 1024 for 8players
+#define JSON_BUFFER_CONF 2500 // 1500 for 8players: need to validate with json/jsonPretty
 
 #include <Wire.h>         // needed for the i2c gates/addons.
 #define PACKET_SIZE 13     // I2C packet size, slave will send 14 bytes to master? todo: so why 13...
@@ -84,7 +83,6 @@ Todo: Add author(s), descriptions, etc here...
     // strncat(debug_message, light_ptr, 128);
     // memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
     // #define ARRAY_LENGTH(x)  ( sizeof( x ) / sizeof( *x ) )
-
 #endif
 
 struct TIME_debug {
@@ -126,11 +124,10 @@ uint16_t ledPin = 13;
 
 
 // ----------------------------------------------------------------------------
-//  Default racer/gates/protocol
+//  Default racer/gates/protocol, addons address too...
 // ----------------------------------------------------------------------------
 const uint8_t addressAllGates[] = {21, 22, 23, 24, 25, 26, 27, 28}; // Order: 1 Gate-> ... -> Final Gate! | define address in UI ?
 #define NUMBER_GATES ( sizeof( addressAllGates ) / sizeof( *addressAllGates ) )
-
 #define NUMBER_PROTOCOL 4 // 0:serial, 1:web, 2:tft, 3:jsonSerial todo: add enum for easy debug?
 
 
@@ -142,7 +139,7 @@ void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uin
 
 
 // ----------------------------------------------------------------------------
-//  Type Race
+//  Type Race, todo, define more style or simply make a boolean solo
 // ----------------------------------------------------------------------------
 enum RaceStyle {
     LAPS,       // simple race, until LAP
@@ -158,7 +155,7 @@ const char* raceStyleChar[] = {"Laps", "Time", "Pass", "Solo Time", "Solo Laps"}
 // ----------------------------------------------------------------------------
 //  UI Config struct
 // That struct is directly changed from client UI.
-// Auto send to client when isChanged or at new connection
+// Auto send to client when new connection or when changed
 // ----------------------------------------------------------------------------
 struct UI_config {
   uint16_t lapsCondition = 10; // 1 - ? unlimited ?
@@ -183,7 +180,6 @@ struct UI_config {
   bool solo = false; // force UI to change page?
   // todo: Add enable sound/voice/etc... here
 
-
   // is separating this nested struct useful ?
   struct Player
   {   // uint8_t position; // todo: function to auto find by ID/name ?
@@ -197,8 +193,7 @@ UI_config uiConfig;
 
 
 // ----------------------------------------------------------------------------
-//  Main Data struct
-// One Struct to keep every player data + sorted at each loop.
+// Main Data struct: One Struct to rules them all. move sortIDloop() from race here.
 // ----------------------------------------------------------------------------
 struct ID_Data_sorted{
   public:
@@ -404,12 +399,12 @@ ID_buffer idBuffer[NUMBER_RACER_MAX];
 // ----------------------------------------------------------------------------
 enum race_state_t {
   RESET,         // Set parameters(Counter BIP etc...), before start counter, re[set] all struct/class
-  WAIT,          // only check gate status, waiting for START call.
-  START,         // TStart RACE put in warm-up phase
+  WAIT,          // Only check gate status, waiting for START call.
+  START,         // Start RACE put in warm-up phase
   WARMUP,        // Run the warm-up phase, (light, beep,etc) (no registering player for the moment)
-  RACE,          // enable all gate receiver and so, update Race state (send JSON, sendSerial) etc...
+  RACE,          // Enable all gate receiver and so, update Race state (send JSON, sendSerial) etc...
   FINISH,        // 1st player have win, terminate after 20s OR all players have finished.
-  STOP           // finished auto/manual goto WAIT
+  STOP           // Finished auto/manual goto WAIT
 };
 
 race_state_t raceState = RESET;
@@ -417,7 +412,7 @@ const char* raceStateChar[] = {"RESET", "WAIT", "START", "WARMUP", "RACE", "FINI
 
 
 // ----------------------------------------------------------------------------
-//  Race Class, it's sort-of a main loop.
+//  Race Class, it's sort-of THE main loop.
 // ----------------------------------------------------------------------------
 class Race {
   private:
@@ -504,12 +499,10 @@ class Race {
         }
     }
 
-
     void setMessage(char *test_char[128]) {
       memcpy(message, test_char, sizeof(message[0])*128);
       // Now set an 
     }
-
 
     // ----------------------------------------------------------------------------
     //  Function below need to be/get called at each triggered gate.
@@ -517,7 +510,7 @@ class Race {
     // The most important loop,need to be the fastest possible (idBuffer overflow? bad sorting? who know...)
     // This function checking new data in bufferingID()/idBuffer[i]
     // sorting struct/table and process idBuffer -> idData.
-    // don't know if it's add value to integrating directly in the race private class...
+    // move in the idData struc, could add readability
     // ----------------------------------------------------------------------------
     void sortIDLoop() {
       // check if new data available
@@ -654,10 +647,6 @@ class Race {
         }
     }
 
-    // void setTotalLaps(uint16_t laps) {
-    //     numberTotalLaps = laps;
-    // }
-
     void setBiggestLap(uint16_t lap){
         if (lap > biggestLap)
         {
@@ -722,15 +711,15 @@ GATE_Data gateData[NUMBER_GATES_MAX]; //NUMBER_GATES];
 
 // ----------------------------------------------------------------------------
 //  Led Class: simple view of ENUM race state
-// todo: use the enum raceState ?
+// todo: ala ricinoNext-receiver, check the raceState Enum status....
 // ----------------------------------------------------------------------------
 class Led{
 private:
     uint16_t _ledPin;
     uint32_t OnTime = 1000;     // milliseconds of on-time
     uint32_t OffTime = 1000;    // milliseconds of off-time
-    bool ledState = LOW;                 // ledState used to set the LED
-    uint32_t previousMillis;   // will store last time LED was updated
+    bool ledState = LOW;        // ledState used to set the LED
+    uint32_t previousMillis;    // will store last time LED was updated
  
     void setOutput(bool state_, uint32_t currentMillis_){
         ledState = state_;
@@ -770,20 +759,18 @@ Led ledState = Led(ledPin);
 
 
 // ----------------------------------------------------------------------------
-//  Web Stuff: Error function config JSON
-// is used somewhere? don't remember!
+//  Web Stuff: Error function config JSON, todo: is used somewhere? don't remember!
 // ----------------------------------------------------------------------------
 // void notFound(AsyncWebServerRequest* request) {
 //     request->send(404, "text/plain", "Not found");
 // }
 
-#if defined(HAVE_WIFI)
 // ----------------------------------------------------------------------------
 //  Web Stuff: struct --> json<char[size]>
 // todo: need a special function to calculate dynamic size
 // ----------------------------------------------------------------------------
+#if defined(HAVE_WIFI)
 void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connection){ // const struct UI_config* data,
-//   StaticJsonDocument<JSON_BUFFER_CONF> doc;
   DynamicJsonDocument doc(JSON_BUFFER_CONF);
 
   JsonObject conf = doc.createNestedObject("conf");
@@ -864,7 +851,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
         Serial.println(err.f_str());
     }
 
-    // todo: Code below need many optimizations!
+    // todo: Code below need many optimizations/factotization!, but working now...
     JsonObject obj = doc["conf"]; //.as<JsonObject>();
 
     const char *state_ptr = obj["state"];
@@ -936,6 +923,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
     }
 }
 
+
 // ----------------------------------------------------------------------------
 //  Web Stuff: interrupt based function, receive JSON from client and/or OTA
 // ----------------------------------------------------------------------------
@@ -996,7 +984,7 @@ void onEvent(AsyncWebSocket       *server,
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: Only run one time, setup differents web address
-// clean OTA, even if that feature works well as it.
+//  todo: clean OTA, even if that feature works well as it.
 // ----------------------------------------------------------------------------
 #if defined(HAVE_WIFI)
 void server_init()
@@ -1169,14 +1157,6 @@ void setup(void) {
     //   }
     // }
 
-
-
-
-    //   for (uint8_t i = 0; i < NUMBER_GATES_MAX; i++)
-    //   {
-    //       gateData[i].address = addressAllGates[i];
-    //   }
-
     // todo:
     // Add EEPROM or SPIFFS hardware conf (number gate, addons, screen)
     // OR let setup at compile time... or FS.conf override value at compile time... humhum
@@ -1195,7 +1175,7 @@ void loop() {
     ledState.loop();
     race.loop();
 
-    // add in a class ?
+    // add in a class ? Time to learn/test inherance.
     WriteJSONLive(millis(), 1); // 1 = web
     WriteJSONRace(millis());
 
@@ -1208,13 +1188,6 @@ void loop() {
     #endif
 
     requestGate();
-    // static uint32_t testGateTimer = millis();
-    // const uint16_t testGateDelay = 100;
-
-    // if (millis() - testGateTimer > testGateDelay) {
-    //     testGateComm(21);
-    //     testGateTimer = millis();
-    // }
 
     // ws.cleanupClients();
 }
@@ -1331,13 +1304,11 @@ void writeJSONDebug(){
 
 
 // ----------------------------------------------------------------------------
-// Send JSON if only idData have changed, update player stats/position
+// Send JSON only if idData have changed, update player stats/position
+// todo: maybe add a millis delay to don't DDOS client :-D
+// todo: optimization, send only new changed value! (so need more memory to store lastValue)
 // ----------------------------------------------------------------------------
 void WriteJSONLive(uint32_t ms, uint8_t protocol){
-
-  // Send "live" JSON section
-  // todo: maybe add a millis delay to don't DDOS client :-D
-  // todo: optimization, send only new value! (so need more memory to store lastValue)
   for (uint8_t i = 1; i < (uiConfig.players + 1) ; i++){
     if (idData[i].positionChange[protocol] == true || idData[i].needGateUpdate(protocol))
     {
@@ -1381,15 +1352,16 @@ void WriteJSONLive(uint32_t ms, uint8_t protocol){
   }
 }
 
+
 // ----------------------------------------------------------------------------
-// Send JSON Race state. ie: lap/state/time
+// Send JSON Race state at set frequency and/or change. ie: lap/state/time
 // ----------------------------------------------------------------------------
 void WriteJSONRace(uint32_t ms){
   static race_state_t oldRaceState = raceState;
   static uint32_t lastMillis = 0;
   uint32_t delayMillis;
   static bool isTrig = false;
-  // todo: check race_state_t instead
+
   delayMillis = (raceState >= START && raceState <= FINISH) ? 1000 : 5000;
 
   if (oldRaceState != raceState)
@@ -1444,8 +1416,9 @@ void WriteJSONRace(uint32_t ms){
   oldRaceState = raceState;
 }
 
+
 // ----------------------------------------------------------------------------
-// Debug Loop, simulate gates
+// Debug Loop, simulate gates, is a program itself...
 // make it changeable at compile time when i2c will be merged
 // ----------------------------------------------------------------------------
 #if defined(DEBUG_FAKE_ID)
@@ -1477,7 +1450,7 @@ void fakeIDtrigger(int ms){
     autoResetReady = millis();
 
     if (oldRaceStateDebug == START && raceState == WARMUP && isNew == false)
-    {
+    { // reset condition
         isNew = true;
         for (uint8_t i = 0; i < uiConfig.players; i++)
         {
@@ -1492,7 +1465,7 @@ void fakeIDtrigger(int ms){
     }
 
     if (ms - lastMessageTime > lastMessageDelay)
-    {
+    { // send message without DDOS
         lastMessageTime = ms;
 
         if (isNew)
@@ -1514,7 +1487,7 @@ void fakeIDtrigger(int ms){
                     // Serial.println(ms - startMillis);
 
                     // It's the main feature of that function!
-                    // Simulate a Gate message!
+                    // Simulate a Gate/receiver message! like an emitter have triggered a gate
                     #if defined(DEBUG_HARDWARE_LESS)
                     bufferingID(idList[i], gate, ms - startMillis, 200, 200);
                     #else //send to real i2c receiver!
@@ -1550,7 +1523,7 @@ void fakeIDtrigger(int ms){
 
 
 // ----------------------------------------------------------------------------
-// Check if Gate have need data to processing
+// Check if Gate have new data to processing
 // - Pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
 // - ID:   0x84 | ReceiverAddress | Checksum | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
 // - Gate: 0x83 | ReceiverAddress | Checksum | TIME 4bytes (reversed)
@@ -1608,7 +1581,7 @@ void requestGate() {
 }
 
 
-// DEBUG FUNCTION!
+// DEBUG FUNCTION!, could,should be removed...
 void printI2CDebug(const uint8_t *data, const uint8_t len)
 {
 
@@ -1803,8 +1776,9 @@ void timeToChar(char *buf, uint32_t tmpMillis) { // always int len = 10,
     snprintf(buf, 10, "%02d:%02d.%03d", minutes, seconds, ms);
 }
 
+
 // ----------------------------------------------------------------------------
-// todo: Add crc algo.
+// set Random Color to fill player data. IE: no used for the moment.
 // ----------------------------------------------------------------------------
 void getRandomColor(char *output, uint8_t len) {
     const char hexValue[17] = "0123456789ABCDEF";
@@ -1823,7 +1797,23 @@ void getRandomColor(char *output, uint8_t len) {
 
 
 // ----------------------------------------------------------------------------
-// CRC8 algo.
+// set Random Name to fill player data. IE: no used for the moment.
+// ----------------------------------------------------------------------------
+void getRandomName(char *output, uint8_t len) {
+
+}
+
+
+// ----------------------------------------------------------------------------
+// DEBUG use only! set Random ID to fill player data. IE: no used for the moment.
+// ----------------------------------------------------------------------------
+void getRandomIDDebug(char *output, uint8_t len) {
+
+}
+
+
+// ----------------------------------------------------------------------------
+// CRC8 algo, almost readable, same as the emitter one.
 // ----------------------------------------------------------------------------
 uint8_t CRC8(const uint8_t *data, uint8_t len) {
     uint8_t crc = 0x00;
@@ -1846,23 +1836,11 @@ uint8_t CRC8(const uint8_t *data, uint8_t len) {
 
 
 // ----------------------------------------------------------------------------
-// !!! First I2C integration code !!! DONT USE FUNCTION BELOW AS IT NOW !!!
-// ----------------------------------------------------------------------------
-// Global working algo:
-// Send events:
-// The I2C master send command (START, STOP) to Gate receiver
-// I2C master could send command like (speakTIME, RELAY_ON/OFF, LIGHT_PWM), to others receivers (to discharge the display/master cpu)
-
-// Request Events for GATE.
-// Send "ping" request packet every X time to view status.
-// receiver MUST respond as fast as possible (interrupt based)
-// With two (for the moment) possibility of receiver response.
-// - Simple pong: 0x82 | ReceiverAddress | Checksum | State: 1= CONNECTED, 3= RACE... | last delta between RobiTime and offsetTime  0.001s/bit | Serial Buffer percent 0-255 | Loop Time in 1/10 of ms.
-// - ID lap data: 0x83 | ReceiverAddress | Checksums | ID 4bytes (reversed) | TIME 4bytes (reversed) | signal Strenght | Signal Hit
-
+//  I2C command to send. todo: make a more enjoyable function integrating voice/sound/light
 //  byte startByte[] = { 0x03, 0xB9, 0x01};
 //  byte resetByte[] = { 0x03, 0xB0, 0x02};
-//  byte setDebug[] = {0x13, 0x37, 0x00}; ?
+//  byte sendFakeID[] = {0x13, ...}; 
+// ----------------------------------------------------------------------------
 void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uint8_t commandLength){
     Wire.beginTransmission(addressSendGate);
     Wire.write(command, commandLength);
@@ -1871,7 +1849,7 @@ void setCommand(const uint8_t addressSendGate, const uint8_t *command, const uin
 
 
 // ----------------------------------------------------------------------------
-//  Get info on gate(s) 0x83
+//  Get info from gate(s) (0x83)
 // ----------------------------------------------------------------------------
 void processGateData(const uint8_t *dataArray) {
 
@@ -1900,7 +1878,7 @@ void processGateData(const uint8_t *dataArray) {
 
 
 // ----------------------------------------------------------------------------
-//  get and fill idData with latest 0x84
+//  get ID data from gate(s) (0x84)  and fill idData
 // ----------------------------------------------------------------------------
 void processIDData(const uint8_t *dataArray) { // , const uint8_t gateNumber) {
 
@@ -1926,7 +1904,7 @@ void processIDData(const uint8_t *dataArray) { // , const uint8_t gateNumber) {
 
 
 // ----------------------------------------------------------------------------
-//  get and fill idData with latest 0x82
+//  get debug from gate(s) and fill gateData
 //  fusion with processGateData ?
 // ----------------------------------------------------------------------------
 void processReceiverData(const uint8_t *dataArray) { //, const uint8_t gateNumber) {
@@ -1950,7 +1928,6 @@ void processReceiverData(const uint8_t *dataArray) { //, const uint8_t gateNumbe
             break;
         }
     }
-    // todo: check msTmp & offset & ...
 }
 
 // ----------------------------------------------------------------------------
