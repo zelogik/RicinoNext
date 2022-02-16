@@ -33,7 +33,7 @@ Todo: Add author(s), descriptions, etc here...
     #include <ESPAsync_WiFiManager.h>
     #include <ESPAsyncWebServer.h>
 #elif defined(ARDUINO_SAMD_ZERO) // todo: Doesn't output data as ESP01 is not defined, doesn't compile anymore (AsyncWebsocket)
-    #include <MemoryFree.h>
+    // #include <MemoryFree.h>
     #define NUMBER_RACER_MAX 16
     #define NUMBER_GATES_MAX 7
     // set pinLed
@@ -45,7 +45,7 @@ Todo: Add author(s), descriptions, etc here...
 #endif
 
 #include <Arduino.h>
-#include <EEPROM.h>
+// #include <EEPROM.h>
 
 #include <ArduinoJson.h>
 #define JSON_BUFFER 512
@@ -61,7 +61,7 @@ Todo: Add author(s), descriptions, etc here...
 // ----------------------------------------------------------------------------
 #define DEBUG 1 //display, output anything debug define
 #define DEBUG_FAKE_ID 1 // when you haven't enougth emitter to test multi
-// #define DEBUG_HARDWARE_LESS // when you haven't receiver/hardware-Free debug
+#define DEBUG_HARDWARE_LESS // when you haven't receiver/hardware-Free debug
 
 #if defined(DEBUG_HARDWARE_LESS)
     #define DEBUG_FAKE_ID 1
@@ -454,11 +454,15 @@ class Race {
 
         uiConfig.reset = false;
         for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX + 1); i++ )
+        Serial.print("idData: ")
         {
+            Serial.print(i);
             idData[i].reset();
         }
+        Serial.print("   | IdBuffer: ")
         for (uint8_t i = 0 ; i < (NUMBER_RACER_MAX); i++ )
         {
+            Serial.print(i);
             idBuffer[i].reset();
         }        
     }
@@ -577,7 +581,6 @@ class Race {
     ~Race(){};
 
     void loop(){
-
         sortIDLoop();
         
         switch (raceState)
@@ -596,6 +599,7 @@ class Race {
             init();
             delayWarmupTimer = millis();
             raceState = WARMUP;
+            Serial.println("Warm-up!");
             // isReady = true;
             memcpy(message, "Warm-UP time", sizeof(message[0])*128);
             break;
@@ -773,7 +777,7 @@ Led ledState = Led(ledPin);
 //     request->send(404, "text/plain", "Not found");
 // }
 
-
+#if defined(HAVE_WIFI)
 // ----------------------------------------------------------------------------
 //  Web Stuff: struct --> json<char[size]>
 // todo: need a special function to calculate dynamic size
@@ -844,7 +848,7 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
         }
   }
 }
-
+#endif
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: json<char[size]> --> struct
@@ -931,7 +935,6 @@ void JSONToConf(const char* input){ // struct UI_config* data,
         }
     }
 }
-
 
 // ----------------------------------------------------------------------------
 //  Web Stuff: interrupt based function, receive JSON from client and/or OTA
@@ -1120,24 +1123,24 @@ void setup(void) {
     {
         Serial.println("Error setting up MDNS responder!");
     }
+
+        #if defined(DEBUG)
+            if (WiFi.status() == WL_CONNECTED)
+            {
+                Serial.print(F("Connected. Local IP: "));
+                Serial.println(WiFi.localIP());
+            }
+            else
+            {
+                Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status()));
+            }
+
+            JSONToConf(JSONconfDebug);
+        #endif
     #endif
 
     #if defined(Button2_USE)
         button_init();
-    #endif
-
-    #if defined(DEBUG)
-        if (WiFi.status() == WL_CONNECTED)
-        {
-            Serial.print(F("Connected. Local IP: "));
-            Serial.println(WiFi.localIP());
-        }
-        else
-        {
-            Serial.println(ESPAsync_wifiManager.getStatus(WiFi.status()));
-        }
-
-        JSONToConf(JSONconfDebug);
     #endif
 
     memcpy(debug_message, compile_date, sizeof(debug_message[0])*128);
@@ -1201,7 +1204,7 @@ void loop() {
 
     #if defined(DEBUG)
     writeJSONDebug();
-    // WriteSerialLive(millis(), 0); // 0 = serial
+    WriteSerialLive(millis(), 0); // 0 = serial
     #endif
 
     requestGate();
@@ -1751,25 +1754,28 @@ void ReadSerial(){
         switch (inByte) {
         case 'S': //tart init timer
             raceState = START;
+            Serial.println("Start");
             break;
 
         case 'T': //sTop End connection
             raceState = STOP;
+            Serial.println("Stop");
             break;
 
         case 'R': //eset Value
             raceState = RESET;
+            Serial.println("Reset");
             break;
        
         case 'F': //ill Test Message
             //char JSONconf[JSON_BUFFER_CONF];
             JSONToConf(JSONconfDebug);
-
-            // confToJSON(confJSON, false);
-            confToJSON(nullptr);
             #if defined(HAVE_WIFI)
+
+            confToJSON(nullptr);
             // ws.textAll(confJSON);
             #endif
+            Serial.println("Fill");
             break;
 
         case 'E': //mpty Test Message
