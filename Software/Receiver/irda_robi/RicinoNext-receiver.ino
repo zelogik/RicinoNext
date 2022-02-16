@@ -54,9 +54,18 @@ struct MSG_Buffer {
     uint8_t array[PACKET_SIZE] = {};
     uint32_t offsetTime; // change to int32_t ?
     uint8_t i2cAddress = I2C_ADDRESS;
-    uint32_t deltaOffsetGate = 0; // it's offsetTime vs RobiBridge, change to int32_t ?
+    uint32_t deltaOffsetGate; // it's offsetTime vs RobiBridge, change to int32_t ?
     uint8_t loopTime;
     uint8_t bufferUsed;
+
+    void reset() {
+        isPending = false,
+        offsetTime, deltaOffsetGate, loopTime, bufferUsed = 0;
+        for (uint8_t i = 0 ; i < PACKET_SIZE; i++)
+        {
+            array[i] = 0;
+        }
+    }
 };
 
 MSG_Buffer msgBuffer;
@@ -203,6 +212,7 @@ void raceLoop() {
             }
             break;
         case START:
+            msgBuffer.reset();
             gateCommand(true);
             offsetTime = millis();
             receiverState = RACE;
@@ -214,6 +224,8 @@ void raceLoop() {
 
         case STOP:
             receiverState = CONNECTED;
+            msgBuffer.reset();
+            // init everything!
             break;
 
         default:
@@ -315,6 +327,8 @@ void processingGate(){
                     }
                 }
                 tmpBuff[i] = Serial.read();
+                // todo: check 4 last bytes: 14 D0 01 02
+                // if not... look for the next 0b or 0d byte (new message)
             }
             // serial2DebugOutput(idInfo, sizeof(idInfo));
         }

@@ -37,37 +37,35 @@
 
 			<br>
 			<div class="slidecontainer">
-				Laps :
-				<input type="range" oninput="updateLaps(this)" id="lapsSlider" min="1" max="100" value="1" step="1" class="slider"> <!--onchange="updateLaps(this)" -->
+				<div class="selectContainer">
+					<p id="conditionText">Laps</p>
+					<select id="style" onchange="raceStyleChange()">
+						<option value="0">Laps</option>
+						<option value="1">Time</option>
+						<!-- <option value="2">Pass</option>
+						<option value="3">Solo Laps</option>
+						<option value="4">Solo Time</option> -->
+					</select>
+				</div>
+				<input type="range" oninput="updateCondition(this)" id="conditionSlider" min="1" max="1" value="1" step="1" class="slider"> <!--onchange="updateLaps(this)" -->
 			</div>
 
 			<p></p>
 			<div class="slidecontainer">
 				<p>Number Players: <span id="players">NaN</span></p>
-				<input type="range" oninput="updatePlayers(this)" id="playersSlider" min="1" max="16" value="1" step="1" class="slider">
+				<input type="range" oninput="updatePlayers(this)" id="playersSlider" min="1" max="1" value="1" step="1" class="slider">
 			</div>
 
 			<p></p>
 			<div class="slidecontainer">
 				<p>Number Gates: <span id="gates">NaN</span></p>
-				<input type="range" oninput="updateGates(this)" id="gatesSlider" min="1" max="8" value="1" step="1" class="slider">
+				<input type="range" oninput="updateGates(this)" id="gatesSlider" min="1" max="1" value="1" step="1" class="slider">
 			</div>
 
 			<!-- <button id="snackBbutton" type="button" class="btn btn-success" onclick="snackBar()">
 				Show Snackbar?
 			</button> -->
 
-			<br>
-			<div class="selectContainer">
-				Race Style
-				<select id="style" onchange="raceStyleChange()">
-					<option value="0">Laps</option>
-					<option value="1">Time</option>
-					<!-- <option value="2">Pass</option>
-					<option value="3">Solo Laps</option>
-					<option value="4">Solo Time</option> -->
-				</select>
-			</div>
 			<!-- todo: add checkbox for solo mode... -->
 			<br>
 			<div class="debug">
