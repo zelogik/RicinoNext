@@ -75,24 +75,7 @@ function onMessage(evt)
         console.log("Received: " + evt.data);
     }
 
-    // To Roland: is below used anymore for you ? look like a old code from me :-D, we can remove it
-    //var size = Object.keys(obj).length
-    // no sanety check for player update... but cleaner!?!
-    if ('data' in obj) {
-        tmp_data =  obj.data;
-        for (const [key, value] of Object.entries(tmp_data)) {
-            if (/_class$/.test(`${key}`)){
-                var color_class = ['white', 'rgb(66, 133, 244)', 'rgb(234, 67, 53)', 'rgb(251, 188, 5)', 'rgb(52, 168, 83)'];
-                // todo: doesn't work right now
-                //document.getElementsByClassName(`${key}`)[0].style.backgroundColor = color_class[`${value}`];
-            } else if (/_current$/.test(`${key}`)){
-                stopwatches[`${key}`].start(`${key}`, `${value}`);
-            } else {
-                document.getElementById(`${key}`).innerHTML = "" + `${value}`;
-            }
-        }
-    }
-
+    // Conf JSON is receiver at every conf change or at connection(including max)
     if ('conf' in obj) {
         config_global = obj;
 
@@ -127,6 +110,10 @@ function onMessage(evt)
             }
         }
 
+        // todo: Make laps, players, gates, time loopable
+        // todo: Fix the laps/time change...
+        // for (const [key, value] of Object.entries(tmp_data))
+        // document.getElementById(`${key}`).innerHTML = "" + `${value}`;
         if ('laps' in obj.conf) {
             var laps_value = document.getElementById("laps").value;
 
@@ -174,7 +161,8 @@ function onMessage(evt)
     }
 
 
-    if ('race' in obj) { // Race is read only!
+    // Race JSON is receiver every X sec depend of the state, and at state Change
+    if ('race' in obj) { // Race JSON is read only!
         var raceButton = document.getElementById("race");
         var sliderLock = document.getElementById("conditionSlider");
 
@@ -198,7 +186,6 @@ function onMessage(evt)
             // console.log("ERROR: " + tmpWidth);
             document.getElementById('percentLap').style.width = tmpWidth + "%";
             document.getElementById('percentLap').innerHTML = obj.race.lap;
-            // document.getElementById('percentLap').value = obj.conf.laps;
             document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
         }
 
@@ -213,10 +200,10 @@ function onMessage(evt)
         }
     }
 
-
+    // live JSON is receiver at every player change, only one player at a time
     if ('live' in obj) { // Live is read only
 
-        var x = document.getElementById("race");
+        var x = document.getElementById("race"); // not used anymore ?
         var id1 = obj.live.rank;
 
         createLine(id1);
@@ -238,6 +225,7 @@ function onMessage(evt)
     }
 
 
+    // send only debug "messages/things", not really useful for frontend
     if ('debug' in obj) {
         if ('time' in obj.debug) {
             document.getElementById('websockLoopTime').innerHTML = "" + obj.debug.time;
@@ -276,6 +264,7 @@ function doSend(message)
 }
 
 // UI functions callback
+// todo: make raceToggle/lightToggle one single function.
 function raceToggle()
 {
     var x = document.getElementById("race");
@@ -310,15 +299,14 @@ function raceStyleChange() {
     var x = document.getElementById("style").value // .toUpperCase();
     var data = JSON.stringify({"conf": {"style": x}});
     doSend(data);
-    // document.getElementById("demo").innerHTML = "You selected: " + x;
   }
 
-// todo: factorize three below slider functions
+// todo: factorize three below sliders functions
 function updateCondition(element)
 {
     var sliderValue = document.getElementById("conditionSlider").value;
     var data = JSON.stringify({"conf": {"laps": sliderValue}});
-    // todo: send only new value every x sec, avoid flooding
+    // todo: send only new value every x sec, avoid flooding/DDOS
     doSend(data);
 }
 
@@ -425,6 +413,7 @@ function removeLine(line_id)
 function clearLines()
 {
     // todo: except if sliderValue have changed...
+    // take {conf:players_m} ?  
     for (var i = 1; i <= config_global.conf.players; i++)
     {
         removeLine(i);
@@ -529,13 +518,14 @@ class Stopwatch
 
 }
 
-var maxValueSet = false;
-var laps_maximum;
-var time_maximum;
 
 var DEBUG_LIVE = true; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
 stopwatch = new Stopwatch("stopwatch");
 let config_global = "";
+let config_global_connection = "";
+let maxValueSet = false; // at connection frontend get max player/gate/time/laps value
+var laps_maximum;
+var time_maximum;
 
 window.addEventListener("load", init, false);
