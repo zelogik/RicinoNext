@@ -1418,8 +1418,9 @@ void WriteJSONRace(uint32_t ms){
 
 
 // ----------------------------------------------------------------------------
-// Debug Loop, simulate gates, is a program itself...
+// Debug Loop, simulate gates, is a program itself... not the best one...
 // make it changeable at compile time when i2c will be merged
+// todo: add solo mode.
 // ----------------------------------------------------------------------------
 #if defined(DEBUG_FAKE_ID)
 void fakeIDtrigger(int ms){
@@ -1929,28 +1930,3 @@ void processReceiverData(const uint8_t *dataArray) { //, const uint8_t gateNumbe
         }
     }
 }
-
-// ----------------------------------------------------------------------------
-// Future template to test speed improvement the len is always 10... "00:00.000"
-// ----------------------------------------------------------------------------
-// uint32_t fastUlongToTimeString(uint64_t secs, char *s)
-// {
-//   // divide by 3600 to calculate hours
-//  uint64_t hours = (secs * 0x91A3) >> 27;
-//  uint64_t xrem = secs - (hours * 3600);
-
-//  // divide by 60 to calculate minutes
-//  uint64_t mins = (xrem * 0x889) >> 17;
-//  xrem = xrem - (mins * 60);
-
-//  s[0] = (char)((hours / 10) + '0');
-//  s[1] = (char)((hours % 10) + '0');
-//  s[2] = ':';
-//  s[3] = (char)((mins / 10) + '0');
-//  s[4] = (char)((mins % 10) + '0');
-//  s[5] = ':';
-//  s[6] = (char)((xrem / 10) + '0');
-//  s[7] = (char)((xrem % 10) + '0');
-
-//  return 0;
-// }
