@@ -96,13 +96,13 @@ function onMessage(evt)
             var oldVal = document.getElementById('conditionText').innerHTML;
    
  
-            if ( val == 0 ) // Laps Mode
+            if ( val == false ) // Laps Mode
             {
                 document.getElementById('conditionText').innerHTML = "Laps";
                 document.getElementById("conditionSlider").max = laps_maximum;
                 document.getElementById('style').selectedIndex = val;
             }
-            else if ( val == 1)
+            else if ( val == true)
             {
                 document.getElementById('conditionText').innerHTML = "Time";
                 document.getElementById("conditionSlider").max = time_maximum;
@@ -154,9 +154,9 @@ function onMessage(evt)
         }
 
         if ('solo' in obj.conf) {
-            var laps_value = document.getElementById("solo").checked;
+            var solo_value = document.getElementById("solo").checked;
 
-            if ( obj.conf.solo != laps_value) {
+            if ( obj.conf.solo != solo_value) {
                 document.getElementById("solo").checked = obj.conf.solo;
             }
         }
@@ -297,7 +297,7 @@ function lightToggle()
     doSend(data);
 }
 
-function SoloBox()
+function soloBox()
 {
     var x = document.getElementById("solo").checked;
 
