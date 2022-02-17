@@ -85,7 +85,7 @@ function onMessage(evt)
             laps_maximum = obj.conf.laps_m;
             time_maximum = obj.conf.time_m;
 
-            document.getElementById('laps').innerHTML = "" + laps_maximum;
+            document.getElementById('conditionTotal').innerHTML = "" + laps_maximum;
             document.getElementById("conditionSlider").max = laps_maximum;
             document.getElementById("gatesSlider").max = obj.conf.gates_m;
             document.getElementById("playersSlider").max = obj.conf.players_m;
@@ -93,18 +93,17 @@ function onMessage(evt)
 
         if ('style' in obj.conf) {
             var val = obj.conf.style;
-            var oldVal = document.getElementById('conditionText').innerHTML;
-   
- 
+            // var oldVal = document.getElementById('conditionText').innerHTML;
+    
             if ( val == false ) // Laps Mode
             {
-                document.getElementById('conditionText').innerHTML = "Laps";
+                document.getElementById('conditionText').innerHTML = "Laps / Total: ";
                 document.getElementById("conditionSlider").max = laps_maximum;
                 document.getElementById('style').selectedIndex = val;
             }
-            else if ( val == true)
+            else if ( val == true )
             {
-                document.getElementById('conditionText').innerHTML = "Time";
+                document.getElementById('conditionText').innerHTML = "Time / Total: ";
                 document.getElementById("conditionSlider").max = time_maximum;
                 document.getElementById('style').selectedIndex = val;
             }
@@ -115,9 +114,9 @@ function onMessage(evt)
         // for (const [key, value] of Object.entries(tmp_data))
         // document.getElementById(`${key}`).innerHTML = "" + `${value}`;
         if ('laps' in obj.conf) {
-            var laps_value = document.getElementById("laps").value;
+            var laps_value = document.getElementById("conditionTotal").value;
 
-            document.getElementById("laps").innerHTML = "" + obj.conf.laps;
+            document.getElementById("conditionTotal").innerHTML = "" + obj.conf.laps;
             if ( obj.conf.laps != laps_value) {
                 document.getElementById("conditionSlider").value = "" + obj.conf.laps;
             }
@@ -189,12 +188,22 @@ function onMessage(evt)
             raceButton.style.color = "red";
         }
 
-        if ('lap' in obj.race) {
-            var tmpWidth = obj.race.lap / document.getElementById("conditionSlider").value* 100;
-            // console.log("ERROR: " + tmpWidth);
+        if ('lap' in obj.race || 'time' in obj.race) {
+            if (config_global.conf.style == 0)
+            {
+                var conditionLapTime = obj.race.laps;
+            }
+            else
+            {
+                var conditionLapTime = obj.race.time;
+            }
+
+            var tmpWidth = conditionLapTime / document.getElementById("conditionSlider").value * 100;
             document.getElementById('percentLap').style.width = tmpWidth + "%";
-            document.getElementById('percentLap').innerHTML = obj.race.lap;
-            document.getElementById('lapCounter').innerHTML = "" + obj.race.lap;
+            document.getElementById('percentLap').innerHTML = conditionLapTime;
+            document.getElementById('conditionCounter').innerHTML = "" + conditionLapTime;
+            // console.log("ERROR: " + tmpWidth);
+
         }
 
         if ('message' in obj.race) {
