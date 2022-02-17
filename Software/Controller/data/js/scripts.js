@@ -101,7 +101,7 @@ function onMessage(evt)
                 document.getElementById("conditionSlider").max = laps_maximum;
                 document.getElementById('style').selectedIndex = val;
             }
-            else if ( val == true )
+            else if ( val == true ) // time Mode
             {
                 document.getElementById('conditionText').innerHTML = "Time / Total: ";
                 document.getElementById("conditionSlider").max = time_maximum;
@@ -191,7 +191,7 @@ function onMessage(evt)
         if ('lap' in obj.race || 'time' in obj.race) {
             if (config_global.conf.style == 0)
             {
-                var conditionLapTime = obj.race.laps;
+                var conditionLapTime = obj.race.lap;
             }
             else
             {

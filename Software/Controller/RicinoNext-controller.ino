@@ -60,7 +60,7 @@ Todo: Add author(s), descriptions, etc here...
 // ----------------------------------------------------------------------------
 #define DEBUG 1 //display, output anything debug define
 #define DEBUG_FAKE_ID 1 // when you haven't enougth emitter to test multi
-#define DEBUG_HARDWARE_LESS // when you haven't receiver/hardware-Free debug
+// #define DEBUG_HARDWARE_LESS // when you haven't receiver/hardware-Free debug
 
 #if defined(DEBUG_HARDWARE_LESS)
     #define DEBUG_FAKE_ID 1
@@ -1206,6 +1206,7 @@ void bufferingID(uint32_t ID, uint8_t gate, uint32_t totalTime, uint8_t hit, uin
     if (idBuffer[0].ID == 0) // registering only the first ID triggered
     {
         idBuffer[0].ID = ID;
+        idData[1].ID = idBuffer[0].ID;
     }
 
     if (idBuffer[0].ID == ID)
