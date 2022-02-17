@@ -819,6 +819,12 @@ void JSONToConf(const char* input){ // struct UI_config* data,
     const char *light_ptr = obj["light"];
     const char *reset_ptr = obj["reset"];
     const char *solo_ptr = obj["solo"];
+    const char *laps_ptr = obj["laps"];
+
+// for (JsonPair p : obj) {
+// p.key() // is a JsonString
+// p.value() // is a JsonVariant
+// }
 
     // below is sort-of trigger button
     // todo: make a JsonObject loop.
@@ -830,9 +836,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 
     if ( reset_ptr != nullptr)
     {
-    //   const bool stt = (char)atoi(reset_ptr);
         raceState = RESET; // trigger backend reset
-    //   const bool stt = (char)atoi(reset_ptr);
         uiConfig.reset = true; // broadcast trigger!
     }
 
@@ -841,13 +845,20 @@ void JSONToConf(const char* input){ // struct UI_config* data,
         uiConfig.light = atoi(light_ptr); //doc["conf"]["light"];
     }
 
+    if (laps_ptr != nullptr)
+    {
+        uiConfig.lapsCondition = (uint16_t)(atoi(laps_ptr) > uiConfig.laps_max) ? uiConfig.laps_max : atoi(laps_ptr);
+    }
+
+    if ( solo_ptr != nullptr)
+    {
+        uiConfig.solo = (bool)(atoi(solo_ptr)) ? 1 : 0;
+    }
+
     // todo: make a readable loop...
     // below is number
     // obj_p = obj["laps"];
-    if (obj.containsKey("laps"))
-    {
-        uiConfig.lapsCondition = (doc["conf"]["laps"] > uiConfig.laps_max) ? uiConfig.laps_max : doc["conf"]["laps"];
-    }
+
     if (obj.containsKey("time"))
     {
         uiConfig.timeCondition = (doc["conf"]["time"] > uiConfig.time_max) ? uiConfig.time_max : doc["conf"]["time"];
@@ -865,18 +876,6 @@ void JSONToConf(const char* input){ // struct UI_config* data,
     {
         uiConfig.style = doc["conf"]["style"];
     }
-
-
-    if ( solo_ptr != nullptr)
-    {
-        const char stt = atoi(solo_ptr);
-        uiConfig.solo = (bool)(stt) ? 1 : 0;
-    }
-
-    // if (obj.containsKey("solo"))
-    // {
-    //     uiConfig.solo = (bool)doc["conf"]["solo"];
-    // }
 
     // if (obj.containsKey("light_brightness"))
     // {
