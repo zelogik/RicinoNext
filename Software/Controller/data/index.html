@@ -22,7 +22,7 @@
 	<div class="row">
 		<div class="col-md-2" id="menu">
 			<p>Current Time: <span id="websockTimer">NaN</span></p>
-			<p>Lap / Total: <span id="lapCounter">NaN</span> / <span id="laps">NaN</span></p>
+			<p id="conditionText">Laps / Total: <span id="conditionCounter">NaN</span> / <span id="conditionTotal">NaN</span></p>
 
 			<br>
 			<button id="race" type="button" class="btn btn-success" onclick="raceToggle()">Start</button>
@@ -38,7 +38,6 @@
 			<br>
 			<div class="slidecontainer">
 				<div class="selectContainer">
-					<p id="conditionText">Laps</p>
 					<select id="style" onchange="raceStyleChange()">
 						<option value="0">Laps</option>
 						<option value="1">Time</option>

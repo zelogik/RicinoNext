@@ -820,7 +820,11 @@ void JSONToConf(const char* input){ // struct UI_config* data,
     const char *reset_ptr = obj["reset"];
     const char *solo_ptr = obj["solo"];
     const char *laps_ptr = obj["laps"];
+    const char *time_ptr = obj["time"];
 
+    const char *style_ptr = obj["style"];
+    const char *players_ptr = obj["players"];
+    const char *gates_ptr = obj["gates"];
 // for (JsonPair p : obj) {
 // p.key() // is a JsonString
 // p.value() // is a JsonVariant
@@ -828,49 +832,41 @@ void JSONToConf(const char* input){ // struct UI_config* data,
 
     // below is sort-of trigger button
     // todo: make a JsonObject loop.
-    if ( state_ptr != nullptr)
-    {
-        const bool stt = (char)atoi(state_ptr);
-        raceState = (stt) ? START : STOP;
+    if ( state_ptr != nullptr) {
+        raceState = (bool)(atoi(state_ptr)) ? START : STOP;
     }
 
-    if ( reset_ptr != nullptr)
-    {
+    if ( reset_ptr != nullptr) {
         raceState = RESET; // trigger backend reset
         uiConfig.reset = true; // broadcast trigger!
     }
 
-    if (light_ptr != nullptr)
-    {
-        uiConfig.light = atoi(light_ptr); //doc["conf"]["light"];
+    if (light_ptr != nullptr) {
+        uiConfig.light = (uint8_t)atoi(light_ptr); //doc["conf"]["light"];
     }
 
-    if (laps_ptr != nullptr)
-    {
+    if (laps_ptr != nullptr) {
         uiConfig.lapsCondition = (uint16_t)(atoi(laps_ptr) > uiConfig.laps_max) ? uiConfig.laps_max : atoi(laps_ptr);
     }
 
-    if ( solo_ptr != nullptr)
-    {
+    if (time_ptr != nullptr) {
+        uiConfig.timeCondition = (uint32_t)(atoi(time_ptr) > uiConfig.time_max) ? uiConfig.time_max : atoi(time_ptr);
+    }
+
+    if ( solo_ptr != nullptr) {
         uiConfig.solo = (bool)(atoi(solo_ptr)) ? 1 : 0;
     }
 
+    if (gates_ptr != nullptr) {
+        uiConfig.gates = (uint8_t)(atoi(gates_ptr) > uiConfig.gates_max) ?  uiConfig.gates_max : atoi(gates_ptr);
+    }
+
+    if (players_ptr != nullptr) {
+        uiConfig.players = (uint8_t)(atoi(players_ptr) > uiConfig.players_max) ?  uiConfig.players_max : atoi(players_ptr);
+    }
     // todo: make a readable loop...
     // below is number
     // obj_p = obj["laps"];
-
-    if (obj.containsKey("time"))
-    {
-        uiConfig.timeCondition = (doc["conf"]["time"] > uiConfig.time_max) ? uiConfig.time_max : doc["conf"]["time"];
-    }
-    if (obj.containsKey("players"))
-    {
-        uiConfig.players = (doc["conf"]["players"] > uiConfig.players_max) ? uiConfig.players_max : doc["conf"]["players"];
-    }
-    if (obj.containsKey("gates"))
-    {
-        uiConfig.gates = (doc["conf"]["gates"] > uiConfig.gates_max) ? uiConfig.gates_max : doc["conf"]["gates"];
-    }
 
     if (obj.containsKey("style"))
     {
