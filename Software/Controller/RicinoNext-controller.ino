@@ -208,14 +208,14 @@ struct ID_Data_sorted{
       // Make all variable below private ?
       uint32_t bestLapTime, meanLapTime, lastLapTime, lastTotalTime = 0;
 
-      uint32_t lastTotalCheckPoint[NUMBER_GATES_MAX] = {0};
-      uint32_t lastCheckPoint[NUMBER_GATES_MAX] ={0};
-      uint32_t bestCheckPoint[NUMBER_GATES_MAX] = {0};
-      uint32_t meanCheckPoint[NUMBER_GATES_MAX] = {0};
-      uint32_t sumCheckPoint[NUMBER_GATES_MAX] = {0}; // 1193Hours for a buffer overflow?
+      uint32_t lastTotalCheckPoint[NUMBER_GATES_MAX] = {};
+      uint32_t lastCheckPoint[NUMBER_GATES_MAX] = {};
+      uint32_t bestCheckPoint[NUMBER_GATES_MAX] = {};
+      uint32_t meanCheckPoint[NUMBER_GATES_MAX] = {};
+      uint32_t sumCheckPoint[NUMBER_GATES_MAX] = {}; // 1193Hours for a buffer overflow?
 
-      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES_MAX] =  {0};
-      bool positionChange[NUMBER_PROTOCOL] = {0}; // serial, json, serial
+      bool haveUpdate[NUMBER_PROTOCOL][NUMBER_GATES_MAX] = {};
+      bool positionChange[NUMBER_PROTOCOL] = {}; // serial, json, serial
 
       bool haveInitStart = false;
     //   uint8_t indexToRefresh; 
@@ -498,11 +498,7 @@ class Race {
                         {
                             idData[currentSortPosition].updateTime(currentSortTime, currentSortGate);
                         }
-                        // update biggestLap.
-                        Serial.print("current:  ");
-                        Serial.print(currentSortPosition);
-                        Serial.print("  | laps: ");
-                        Serial.println(idData[currentSortPosition].laps);
+
                         setBiggestLap(idData[currentSortPosition].laps);
 
                         break; // Processing only one idBuffer at a time!
@@ -745,7 +741,7 @@ void confToJSON(AsyncWebSocketClient * client) {  //char* output, bool connectio
   conf["light"] = uiConfig.light;
   conf["reset"] = uiConfig.reset;
   conf["style"] = uiConfig.style; // raceStyleChar[uiConfig.style];
-  conf["style"] = uiConfig.solo;
+  conf["solo"] = (bool)uiConfig.solo;
 
   // conf["light_brightness"] = uiConfig.light_brightness;
   conf["state"] = (raceState > 1 && raceState < 5) ? 1 : 0;
@@ -822,6 +818,7 @@ void JSONToConf(const char* input){ // struct UI_config* data,
     const char *state_ptr = obj["state"];
     const char *light_ptr = obj["light"];
     const char *reset_ptr = obj["reset"];
+    const char *solo_ptr = obj["solo"];
 
     // below is sort-of trigger button
     // todo: make a JsonObject loop.
@@ -869,10 +866,17 @@ void JSONToConf(const char* input){ // struct UI_config* data,
         uiConfig.style = doc["conf"]["style"];
     }
 
-    if (obj.containsKey("solo"))
+
+    if ( solo_ptr != nullptr)
     {
-        uiConfig.style = doc["conf"]["solo"];
+        const char stt = atoi(solo_ptr);
+        uiConfig.solo = (bool)(stt) ? 1 : 0;
     }
+
+    // if (obj.containsKey("solo"))
+    // {
+    //     uiConfig.solo = (bool)doc["conf"]["solo"];
+    // }
 
     // if (obj.containsKey("light_brightness"))
     // {
