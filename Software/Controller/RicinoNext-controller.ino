@@ -1172,34 +1172,53 @@ void loop() {
 // ----------------------------------------------------------------------------
 void bufferingID(uint32_t ID, uint8_t gate, uint32_t totalTime, uint8_t hit, uint32_t strength) {
 
-  for (uint8_t i = 0; i < uiConfig.players; i++)
+  if ( ! uiConfig.solo)
   {
-    if (idBuffer[i].ID == ID)
+    for (uint8_t i = 0; i < uiConfig.players; i++)
     {
-        idBuffer[i].totalLapsTime = totalTime;
-        idBuffer[i].gateNumber = gate;
-        idBuffer[i].hit = hit;
-        idBuffer[i].strength = strength;
-        idBuffer[i].isNew = true;
-        break; // Only one ID by message, end the loop faster
-    }
-    else if (idBuffer[i].ID == 0)
-    {
-        idBuffer[i].ID = ID;
-        idBuffer[i].totalLapsTime = totalTime;
-        idBuffer[i].gateNumber = gate;
-        idBuffer[i].hit = hit;
-        idBuffer[i].strength = strength;
-        idBuffer[i].isNew = true;
-        for (uint8_t j = 1; j < uiConfig.players + 1; j++)
+        if (idBuffer[i].ID == ID)
         {
-            if ( idData[j].ID == 0)
-            {
-                idData[j].ID = idBuffer[i].ID;
-                break; // Only registering the first Null .ID found
-            }
+            idBuffer[i].totalLapsTime = totalTime;
+            idBuffer[i].gateNumber = gate;
+            idBuffer[i].hit = hit;
+            idBuffer[i].strength = strength;
+            idBuffer[i].isNew = true;
+            break; // Only one ID by message, end the loop faster
         }
-        break; // Only one ID by message, end the loop faster
+        else if (idBuffer[i].ID == 0)
+        {
+            idBuffer[i].ID = ID;
+            idBuffer[i].totalLapsTime = totalTime;
+            idBuffer[i].gateNumber = gate;
+            idBuffer[i].hit = hit;
+            idBuffer[i].strength = strength;
+            idBuffer[i].isNew = true;
+            for (uint8_t j = 1; j < uiConfig.players + 1; j++)
+            {
+                if ( idData[j].ID == 0)
+                {
+                    idData[j].ID = idBuffer[i].ID;
+                    break; // Only registering the first Null .ID found
+                }
+            }
+            break; // Only one ID by message, end the loop faster
+        }
+    }
+  }
+  else // solo mode use only idBuffer[0], not the "proper" way but should work
+  {
+    if (idBuffer[0].ID == 0) // registering only the first ID triggered
+    {
+        idBuffer[0].ID = ID;
+    }
+
+    if (idBuffer[0].ID == ID)
+    {
+        idBuffer[0].totalLapsTime = totalTime;
+        idBuffer[0].gateNumber = gate;
+        idBuffer[0].hit = hit;
+        idBuffer[0].strength = strength;
+        idBuffer[0].isNew = true;
     }
   }
 }
