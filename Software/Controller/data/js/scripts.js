@@ -217,27 +217,36 @@ function onMessage(evt)
         }
     }
 
-    // live JSON is receiver at every player change, only one player at a time
-    if ('live' in obj) { // Live is read only
 
-        var x = document.getElementById("race"); // not used anymore ?
-        var id1 = obj.live.rank;
+    // live JSON is received at every player change, only one player at a time
+    if ('live' in obj) { // Live is read only | config_global.conf
 
-        createLine(id1);
+        if ( config_global.conf.solo == false)
+        {
+            var x = document.getElementById("race"); // not used anymore ?
+            var id_rank = obj.live.rank;
 
-        modifyValue( id1, "id", obj.live.id);
+            createLine(id_rank);
+        }
+        else
+        {
+            generateLine(temp_solo_line);
+            var id_rank = temp_solo_line--;
+        }
+
+        modifyValue( id_rank, "id", obj.live.id);
         //modifyValue( id1, "name", obj.live.name);
-        modifyValue( id1, "lap", obj.live.lap);
-        modifyValue( id1, "best", formatTime(obj.live.best, 0));
-        modifyValue( id1, "last", formatTime(obj.live.last, 0));
-        modifyValue( id1, "mean", formatTime(obj.live.mean, 0));
-        modifyValue( id1, "total", formatTime(obj.live.total, 0));
-        stopwatches[ id1 + "_current"].start(id1 + "_current", obj.live.total);
-        updatePlayer( id1, obj.live.id );
+        modifyValue( id_rank, "lap", obj.live.lap);
+        modifyValue( id_rank, "best", formatTime(obj.live.best, 0));
+        modifyValue( id_rank, "last", formatTime(obj.live.last, 0));
+        modifyValue( id_rank, "mean", formatTime(obj.live.mean, 0));
+        modifyValue( id_rank, "total", formatTime(obj.live.total, 0));
+        stopwatches[ id_rank + "_current"].start(id_rank + "_current", obj.live.total);
+        updatePlayer( id_rank, obj.live.id );
 
         if (obj.live.lap == config_global.conf.laps) {
             console.log(obj.live.lap);
-            stopwatches[id1 + "_current"].stop();
+            stopwatches[id_rank + "_current"].stop();
         }
     }
 
@@ -547,6 +556,7 @@ class Stopwatch
 
 }
 
+let temp_solo_line = 999;
 
 var DEBUG_LIVE = true; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
