@@ -230,8 +230,13 @@ function onMessage(evt)
         }
         else
         {
-            generateLine(temp_solo_line);
-            var id_rank = temp_solo_line--;
+            try
+            {
+              stopwatches[(temp_solo_line-1) + "_current"].stop();
+            }
+            catch(err) {}
+            generateLine(temp_solo_line, true);
+            var id_rank = temp_solo_line++;
         }
 
         modifyValue( id_rank, "id", obj.live.id);
@@ -403,12 +408,12 @@ function createLine(line_id)
         var line_elem = document.getElementById(i + '_class');
         if (!line_elem)
         {
-            generateLine(i);
+            generateLine(i, false);
         }
     }
 }
 
-function generateLine(line_id)
+function generateLine(line_id, insert_before)
 {
     var new_line = document.createElement("div");
     if (line_id % 2 === 0)
@@ -431,7 +436,13 @@ function generateLine(line_id)
 	new_line.appendChild(generateDiv('col-md-2', line_id + '_total', '-'));
 	new_line.appendChild(generateDiv('col-md-0', line_id + '_current', '0'));
 
-    document.getElementById("stats").appendChild(new_line);
+    if (insert_before)
+    {
+      document.getElementById("stats").insertBefore(new_line, document.getElementById("stats").children[1]);
+    } else
+    {
+      document.getElementById("stats").appendChild(new_line);
+    }
     
     stopwatches[line_id + "_current"] = new Stopwatch("stopwatch");
     //stopwatches[line_id + "_current"].start(line_id + '_current', 0);
@@ -556,7 +567,7 @@ class Stopwatch
 
 }
 
-let temp_solo_line = 999;
+let temp_solo_line = 0;
 
 var DEBUG_LIVE = true; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
