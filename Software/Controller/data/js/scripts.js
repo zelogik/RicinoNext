@@ -239,8 +239,8 @@ function onMessage(evt)
                 catch(err) {}
                 last_solo_line = obj.live.lap;
                 generateLine(last_solo_line, true);
-                var id_rank = last_solo_line;
             }
+            var id_rank = last_solo_line;
         }
 
         modifyValue( id_rank, "id", obj.live.id);
