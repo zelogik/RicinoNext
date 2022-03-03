@@ -201,7 +201,7 @@ function onMessage(evt)
             var tmpWidth = conditionLapTime / document.getElementById("conditionSlider").value * 100;
             document.getElementById('percentLap').style.width = tmpWidth + "%";
             document.getElementById('percentLap').innerHTML = conditionLapTime;
-            document.getElementById('conditionCounter').innerHTML = "" + conditionLapTime;
+            //document.getElementById('conditionCounter').innerHTML = "" + conditionLapTime; //I don't think this is working/needed
             // console.log("ERROR: " + tmpWidth);
 
         }
