@@ -230,13 +230,17 @@ function onMessage(evt)
         }
         else
         {
-            try
+            if (obj.live.lap != last_solo_line)
             {
-              stopwatches[(temp_solo_line-1) + "_current"].stop();
+                try
+                {
+                    stopwatches[(last_solo_line) + "_current"].stop();
+                }
+                catch(err) {}
+                last_solo_line = obj.live.lap;
+                generateLine(last_solo_line, true);
+                var id_rank = last_solo_line;
             }
-            catch(err) {}
-            generateLine(temp_solo_line, true);
-            var id_rank = temp_solo_line++;
         }
 
         modifyValue( id_rank, "id", obj.live.id);
@@ -567,7 +571,7 @@ class Stopwatch
 
 }
 
-let temp_solo_line = 0;
+let last_solo_line = -1;
 
 var DEBUG_LIVE = true; //Set this to true if you want to log the live json events as well (spams a lot)
 let stopwatches = {};
