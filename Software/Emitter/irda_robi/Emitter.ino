@@ -19,6 +19,9 @@
   #define DDR_AB DDRB
   #define PIN_AB PINB
   #define PORT_AB PORTB
+  #if defined (__AVR_ATtinyX5__)
+    #define ATTINYCORE 1
+  #endif
 #elif defined(__AVR_ATtinyX4__) || defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
   #define LEDIR PB2    // Physical Pin 6 (PB1) on ATtiny85 // PB2
   #define LEDPIN PA7   // Physical Pin 5 // PA7 // PB0
@@ -26,6 +29,9 @@
   #define DDR_AB DDRA
   #define PIN_AB PINA
   #define PORT_AB PORTA
+  #if defined (__AVR_ATtinyX4__)
+    #define ATTINYCORE 1
+  #endif  
 #endif
 
 #define PERIOD_WAIT_START 6
@@ -69,7 +75,11 @@ void loop()
     static bool lastFakeReadState = true;
 
     // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
-    _delay_us(10); // Should "break" the heartBeatLoop timing...
+    #if  defined(ATTINYCORE)
+        delayMicroseconds(10); //add attinyCore compatibility
+    #else
+        __delay_us(10);
+    #endif
 
     if (irLoop > irDelay)
     {
@@ -120,21 +130,30 @@ void codeLoop()
     {                  // [0] to [2] + checksum
         idMask = 0x80; // 128 or 0b10000000
         pulse(true);   // start byte
-        // delayMicroseconds(PERIOD_WAIT_START); //add attinyCore compatibility
-        _delay_us(PERIOD_WAIT_START);
+        #if  defined(ATTINYCORE)
+            delayMicroseconds(PERIOD_WAIT_START); //add attinyCore compatibility
+        #else
+            _delay_us(PERIOD_WAIT_START);
+        #endif
 
         for (int j = 0; j < 8; j++)
         {
             pulse((arrayID[i] & idMask) ? 0 : 1); // inverse bit pulse
             idMask >>= 1;
-            // delayMicroseconds(PERIOD_WAIT_START);
-            _delay_us(PERIOD_WAIT_BIT);
+            #if  defined(ATTINYCORE)
+                delayMicroseconds(PERIOD_WAIT_BIT); //add attinyCore compatibility
+            #else
+                _delay_us(PERIOD_WAIT_BIT);
+            #endif
         }
 
         pulse(arrayID[5] & parityMask); // parity bit for each Byte
         parityMask >>= 1;
-        // delayMicroseconds(PERIOD_WAIT_START);
+        #if  defined(ATTINYCORE)
+          delayMicroseconds(PERIOD_WAIT_START);
+        #else
         _delay_us(PERIOD_WAIT_NEXT_BYTE); // approx IRDA time between 2 bytes...
+        #endif
        // Serial.print("  ");
     }
     // Serial.println();
