@@ -3,15 +3,12 @@
 //#define __AVR_ATtinyX5__ // It seems like if you try to compile for ATtinyX5, the define is missing, so you'll have to set it manually
 #include <EEPROM.h>
 
-//#define NOP __asm__ __volatile__ ("nop\n\t")
-
 //example of timing...
 // we could use an array of uint16_t for a almost perfect timing but the attiny will see his RAM burning
 // 0, 10, 20, 30, 40, 50, 60, 70, 80, 90,   105, 115, 125, 135, 145, 155, 165, 175, 185, 195,   210, 220, 230, 240, 250, 260, 270, 280, 290, 300,   315, 325, 335, 345, 355, 365, 375, 385, 395, 405
+// so we use NOP operation, 0.25us at 8mhz on avr architecture.
+// #define NOP __asm__ __volatile__ ("nop\n\t") // finally less readable than nop\n\t
 
-// attiny85
-// LEDIR PB1 ?
-// LEDPIN PB0 ?
 
 #define F_CPU 8000000UL // (really important?), arduino stack should set it
 
@@ -34,7 +31,7 @@
 #define PERIOD_WAIT_START 6
 #define PERIOD_WAIT_BIT 5 // for a complete loop of approx 10us
 #define PERIOD_WAIT_NEXT_BYTE 10
-#define ARRAY_ID_LEN 6
+#define ARRAY_ID_LEN 6 // 6 in case of 32bits compatibility
 
 // define tx_id or let to 0 for a "true" random ID.
 uint32_t txID = 0;
@@ -56,29 +53,32 @@ void setup()
     setUniqueID();
     // delay(10); // why not, 68bits more
     // pinMode(LEDPIN, OUTPUT); // 100bits more...
-    DDR_AB |= _BV(LEDPIN); // Blinking LED
-
-    DDRB |= _BV(LEDIR); // IR LED set to Output
+    DDR_AB |= _BV(LEDPIN); // Blinking LED set to OUTPUT
+    DDRB |= _BV(LEDIR); // IR LED set to OUTPUT
 }
 
 void loop()
 {
     const uint8_t intervals[] = {2, 1, 3, 100}; // lookalike heartbeat pulsation
+    const uint16_t speed = 2000; //need to try and set :-D
     static uint8_t state = 0;
-    static uint16_t counterLoop = 0;
-    static uint16_t delaySend = 1000; // random time between pulse
-    static uint32_t timerSend = micros();
+    static uint16_t heartBeatLoop = 0;
+    static uint16_t irLoop = 0;
+    static uint16_t irDelay = random(80, 500);
 
     // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
-    if ((micros() - timerSend) > (delaySend))
+    _delay_us(10); // Should "break" the heartBeatLoop timing...
+
+    if (irLoop > irDelay)
     {
-        timerSend = micros();
-        delaySend = random(800, 5000);
+        irDelay = random(80, 500);
         codeLoop();
+        irLoop = 0;
     }
+    irLoop++;
 
     // like an heartbeat pulsation! but small one!
-    if (counterLoop > intervals[state] * 1800)
+    if (heartBeatLoop > intervals[state] * speed)
     {
         if (state % 2 ? 1 : 0)
         {
@@ -89,14 +89,15 @@ void loop()
             PORT_AB &= ~(1 << LEDPIN);
         }
         // digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
+        
         state++;
-        if (state >= sizeof(intervals))
+        if (state == sizeof(intervals))
         {
             state = 0;
         }
-        counterLoop = 0;
+        heartBeatLoop = 0;
     }
-    counterLoop++;
+    heartBeatLoop++;
 }
 
 // Block the main loop for around 500us ... time to send the IRDA code.
@@ -142,6 +143,9 @@ void setUniqueID()
 
     if (arrayID[5] == 0xFF || resetID) // checksum is not set OR reset
     {
+
+        uint8_t checkID = EEPROM.read(3); // check CRC
+
         if (txID == 0)
         { // make a pseudo random txID
             randomSeed(analogRead(A1));
@@ -166,9 +170,12 @@ void setUniqueID()
         arrayID[5] = getParity(arrayID, 4); // write all parity bits to Byte
 
         // Write/Save to EEPROM
-        for (uint8_t i = 0; i < ARRAY_ID_LEN; i++)
+        if (checkID != arrayID[3]) // don't overwrite EEPROM if CRC8 already the same...
         {
-            EEPROM.write(i, arrayID[i]);
+            for (uint8_t i = 0; i < ARRAY_ID_LEN; i++)
+            {
+                EEPROM.write(i, arrayID[i]);
+            }
         }
     }
 }
