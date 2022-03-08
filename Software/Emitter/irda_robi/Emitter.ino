@@ -12,14 +12,14 @@
 
 #define F_CPU 8000000UL // (really important?), arduino stack should set it
 
-#if defined(__AVR_ATtinyX5__)
+#if defined(__AVR_ATtinyX5__) || defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__) 
   #define LEDIR PB1
   #define LEDPIN PB0
   #define RESETPIN PB2 // reset pin only at start! need test...
   #define DDR_AB DDRB
   #define PIN_AB PINB
   #define PORT_AB PORTB
-#else if defined(__AVR_ATtinyX4__)
+#elif defined(__AVR_ATtinyX4__) || defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
   #define LEDIR PB2    // Physical Pin 6 (PB1) on ATtiny85 // PB2
   #define LEDPIN PA7   // Physical Pin 5 // PA7 // PB0
   #define RESETPIN PA6 // reset pin only at start! need test...
@@ -59,12 +59,14 @@ void setup()
 
 void loop()
 {
-    const uint8_t intervals[] = {2, 1, 3, 100}; // lookalike heartbeat pulsation
-    const uint16_t speed = 2000; //need to try and set :-D
+    const uint8_t intervals[] = {15, 50, 20, 255}; // lookalike heartbeat pulsation
+    const uint16_t rate = 100;
     static uint8_t state = 0;
     static uint16_t heartBeatLoop = 0;
     static uint16_t irLoop = 0;
     static uint16_t irDelay = random(80, 500);
+    static bool fakeReadState = false;
+    static bool lastFakeReadState = true;
 
     // IR pulse must been send with random delay (detect many differents IR pulse at receiver side)
     _delay_us(10); // Should "break" the heartBeatLoop timing...
@@ -78,19 +80,26 @@ void loop()
     irLoop++;
 
     // like an heartbeat pulsation! but small one!
-    if (heartBeatLoop > intervals[state] * speed)
+    if (heartBeatLoop > intervals[state] * rate)
     {
         if (state % 2 ? 1 : 0)
         {
             PORT_AB |= (1 << LEDPIN);
+            fakeReadState = true;
         }
         else
         {
             PORT_AB &= ~(1 << LEDPIN);
+            fakeReadState = false;
         }
+
         // digitalWrite(LEDPIN, state % 2 ? HIGH : LOW); //use PORTB... as digitalWrite use more than 120bits
+        if ( fakeReadState != lastFakeReadState)
+        {
+          state++;
+          lastFakeReadState = fakeReadState;
+        }
         
-        state++;
         if (state == sizeof(intervals))
         {
             state = 0;
