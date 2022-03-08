@@ -78,7 +78,7 @@ void loop()
     #if  defined(ATTINYCORE)
         delayMicroseconds(10); //add attinyCore compatibility
     #else
-        __delay_us(10);
+        _delay_us(10);
     #endif
 
     if (irLoop > irDelay)
