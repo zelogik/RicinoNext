@@ -54,7 +54,7 @@ def run():
                                python=sys.version.split()[0], simulate=True, wifi=False, ota=False))
 
     async def esp_only(req, w):
-        web.reply_json(w, {"error": "disponible uniquement sur ESP32"}, "403 Forbidden")
+        web.reply_json(w, {"error": "only available on the ESP32"}, "403 Forbidden")
 
     async def bus_info(req, w):
         web.reply_json(w, {"bus": "simulated"})
