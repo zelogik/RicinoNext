@@ -87,6 +87,27 @@ pour un vrai 328P.
 
 ## 3. Câbler
 
+### Vue d'ensemble
+
+```
+ ALIM 5 V
+  +5V ──┬────────────────────────────── +V   (paire 2) ──────────────────┬─────────────► porte suivante
+        │                                                                │
+  GND ──┼──┬─────────────────────────── GND  (paire 3) ──────────────────┼──┬──────────► porte suivante
+        │  │                                                             │  │
+ ┌──────┴──┴──── CONTRÔLEUR ─────────────┐                        ┌──────┴──┴──── PORTE 21 ───────────────┐
+ │  ESP32 DevKit         HW-519          │                        │  HW-519               carte de porte  │
+ │  5V/VIN ◄── +5V                       │                        │  VCC ◄──────────────── J1-2  VCC      │
+ │  3V3 ──────────────►  VCC             │                        │  GND ───────────────── J1-1  GND      │
+ │  GND ──────────────── GND             │                        │  TXD ◄──────────────── J1-5  TX (PB1) │
+ │  GPIO26 (TX) ──────►  TXD             │                        │  RXD ────────────────► J1-6  RX (PB0) │
+ │  GPIO25 (RX) ◄─────── RXD             │                        │                                       │
+ │                       A+ ═════════════╪══ A+ (paire 1,  ═══════╪ A+ ═══════════════════════════════════╪══► A+ porte suivante
+ │                       B- ═════════════╪══ B-  torsadée)  ══════╪ B- ═══════════════════════════════════╪══► B- porte suivante
+ └───────────────────────────────────────┘                        └───────────────────────────────────────┘
+   TX de la carte → TXD du module · RX → RXD · toutes les masses reliées · pas de 120 Ω sur un câble court
+```
+
 ### Contrôleur
 
 ```
