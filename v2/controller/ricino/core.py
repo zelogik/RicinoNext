@@ -470,13 +470,13 @@ class Race:
             self.init()
             self.delay_warmup_timer = millis()
             raceState = WARMUP
-            self.set_message("Départ dans %d s" % ui_config.warmup)
+            self.set_message("Start in %d s" % ui_config.warmup)
         elif raceState == WARMUP:
             if millis() - self.delay_warmup_timer >= ui_config.warmup * 1000:
                 self.start_time = millis()
                 raceState = RACE
                 command_all(START_CMD)
-                self.set_message("GO !")
+                self.set_message("GO!")
         elif raceState == RACE:
             self.check_final()
         elif raceState == FINISH:
@@ -601,7 +601,7 @@ def conf_to_json(client=None):
     if client is not None:
         conf.update(laps_m=c.laps_max, time_m=c.time_max // 60000,
                     players_m=c.players_max, gates_m=c.gates_max)
-        doc["race"] = {"message": "Welcome on RicinoNext"}
+        doc["race"] = {"message": "Welcome to RicinoNext"}
         doc["debug"] = {"message": "RicinoNext " + VERSION}
         hist = {}
         for d in id_data[1: c.players + 1]:
@@ -757,7 +757,7 @@ def clean_cars(cars):
         if ID <= 0 or ID in seen or ID > 0xFFFFFFFF:
             continue
         seen.append(ID)
-        out.append(dict(id=ID, name=str(p.get("name", "")).strip()[:20] or "Voiture %d" % (len(out) + 1)))
+        out.append(dict(id=ID, name=str(p.get("name", "")).strip()[:20] or "Car %d" % (len(out) + 1)))
         if len(out) >= CARS_MAX:
             break
     return out
@@ -771,7 +771,7 @@ def seed_garage():
     cars = []
     for p in c.names[: c.players]:
         if p["id"]:
-            cars.append(dict(id=p["id"], name="Voiture %d" % (len(cars) + 1)))
+            cars.append(dict(id=p["id"], name="Car %d" % (len(cars) + 1)))
     c.cars = clean_cars(cars)
 
 

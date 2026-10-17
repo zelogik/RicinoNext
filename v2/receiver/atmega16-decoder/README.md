@@ -1,19 +1,19 @@
-# Décodeur IR des portes (ATmega16) : firmware d'origine
+# Gate IR decoder (ATmega16): original firmware
 
-Copie du dump de l'ATmega16 d'une porte qui fonctionnait (ancien dépôt,
-`Software/Receiver/irda_robi/atmega16_dump/`). C'est le décodeur IR (protocole Robitronic)
-qui envoie les passages à l'ATmega328PB sur son UART (38400 bauds).
+Copy of the ATmega16 dump of a working gate (old repository,
+`Software/Receiver/irda_robi/atmega16_dump/`). This is the IR decoder (Robitronic protocol)
+that sends the passes to the ATmega328PB over its UART (38400 baud).
 
-| Fichier | Contenu |
+| File | Content |
 |---|---|
-| `flash.hex` | firmware (dont une partie dans la zone bootloader, 0x3F00) |
-| `eeprom.hex` | configuration (quelques octets) |
-| `avrdude-info` | relevé d'origine, avec les fusibles |
+| `flash.hex` | firmware (partly in the bootloader area, 0x3F00) |
+| `eeprom.hex` | configuration (a few bytes) |
+| `avrdude-info` | original readout, with the fuses |
 
-Fusibles d'origine : **lfuse 0x1F** (résonateur externe 16 MHz, BOD 4 V), **hfuse 0xC8**
-(démarrage sur la zone bootloader : **indispensable**, le code y est). L'ATmega16 n'a pas d'efuse.
+Original fuses: **lfuse 0x1F** (external 16 MHz resonator, BOD 4 V), **hfuse 0xC8**
+(boot from the bootloader area: **required**, the code lives there). The ATmega16 has no efuse.
 
-Programmateur sur **P2** (ISP de l'ATmega16), pas P1. Signature attendue : `1E 94 03`.
+Programmer on **P2** (ISP of the ATmega16), not P1. Expected signature: `1E 94 03`.
 
 ```
 AD=$(ls -d ~/.platformio/packages/tool-avrdude* | head -1)

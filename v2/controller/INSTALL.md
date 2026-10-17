@@ -1,137 +1,137 @@
-# Installation sur le matériel : checklist
+# Installing on the hardware: checklist
 
-Le code n'a encore jamais tourné sur une vraie carte : les étapes **⚠ à vérifier** sont
-celles où un réglage est le plus probable.
+Steps marked **⚠ check** are the ones most likely to need an adjustment on your setup.
+The names below are those of the English interface (the EN / FR button in the header switches the language).
 
-## 1. Matériel
+## 1. Hardware
 
-- [ ] **ESP32** avec 4 Mo de flash (ex. ESP32 DevKit v1 / WROOM-32). La variante OTA de MicroPython demande 4 Mo.
-- [ ] Câble USB **de données** (pas seulement de charge).
-- [ ] Récepteurs RicinoNext (ATmega16 + ATmega328), décodeur ATmega16 fonctionnel.
-- [ ] Programmateur **USBtinyISP** (ou USBasp, ou un Arduino en « ArduinoISP ») sur le connecteur **P1** (ISP de l'ATmega328, pas P2),
-      relié **fil à fil par nom de signal** (l'ordre de P1 diffère du connecteur ISP standard, voir le README du récepteur).
-- [ ] **Fusibles de chaque ATmega328PB** (une fois par puce, OBLIGATOIRE : d'usine elles tournent à 1 MHz) :
-      `cd receiver && uvx platformio run -t fuses`, puis vérifier lfuse = `0xf7`.
-- [ ] **Firmware récepteur** sur chaque gate : `cd receiver && uvx platformio run -t upload` (voir [../receiver/README.md](../receiver/README.md)).
-- [ ] **Adresse de chaque gate par cavaliers SJ3-SJ5** (plus besoin de recompiler) :
-  - [ ] aucun cavalier = 21 = **ligne d'arrivée** (gate 1)
-  - [ ] SJ3 = 22 = gate 2, SJ4 = 23 = gate 3 (temps intermédiaires, dans l'ordre de passage)
-  - [ ] ⚠ vérifier que les cavaliers vont à la masse (sinon l'adresse reste 21)
-- [ ] Tester chaque gate seule sur la table : LED en clignotement lent dès que le contrôleur l'interroge.
+- [ ] **ESP32** with 4 MB of flash (e.g. ESP32 DevKit v1 / WROOM-32). The OTA variant of MicroPython needs 4 MB.
+- [ ] A **data** USB cable (not a charge-only one).
+- [ ] RicinoNext receivers (ATmega16 + ATmega328PB), working ATmega16 decoder.
+- [ ] **USBtinyISP** programmer (or USBasp, or an Arduino running "ArduinoISP") on header **P1** (ISP of the ATmega328PB, not P2),
+      wired **signal by signal by name** (the order of P1 differs from the standard ISP header, see the receiver README).
+- [ ] **Fuses of each ATmega328PB** (once per chip, MANDATORY: from the factory they run at 1 MHz):
+      `cd receiver && uvx platformio run -t fuses`, then check that lfuse = `0xf7`.
+- [ ] **Receiver firmware** on each gate: `cd receiver && uvx platformio run -t upload` (see [../receiver/README.md](../receiver/README.md)).
+- [ ] **Address of each gate with solder jumpers SJ3-SJ5** (no need to recompile):
+  - [ ] no jumper = 21 = **finish line** (gate 1)
+  - [ ] SJ3 = 22 = gate 2, SJ4 = 23 = gate 3 (split times, in the order they are passed)
+  - [ ] ⚠ check that the jumpers go to ground (otherwise the address stays 21)
+- [ ] Test each gate alone on the bench: the LED blinks slowly (1 Hz) as soon as the controller polls it.
 
-## 2a. Câblage RS485 (recommandé pour une vraie piste) ⚠ à vérifier
+## 2a. RS485 wiring (recommended for a real track)
 
-Modules **HW-519** (MAX485 à direction automatique : VCC / TXD / RXD / GND côté carte, A+ / B- / GND côté bus).
+**HW-519** modules (auto-direction MAX485: VCC / TXD / RXD / GND on the board side, A+ / B- / GND on the bus side).
 
-- [ ] Côté ESP32 : module alimenté en **3,3 V** (VCC du module sur le 3V3 de l'ESP32, GND sur GND).
-      Vérifier au multimètre que la broche RXD du module ne dépasse pas 3,3 V.
-- [ ] ESP32 **GPIO 26 (TX) → TXD** du module, **GPIO 25 (RX) → RXD**. Si aucune gate ne répond,
-      **inverser TXD/RXD** : selon les fabricants, l'étiquette est vue de la carte ou du module, et l'inversion n'abîme rien.
-- [ ] Bus : **A+ avec A+**, **B- avec B-** sur tous les modules, en paire torsadée (ex. une paire d'un câble RJ45),
-      plus la **masse commune**. Les gates se branchent **en guirlande** (pas en étoile).
-- [ ] **Terminaison** : sur un câble court (quelques mètres), **aucune résistance de 120 Ω** avec ces modules à direction
-      automatique (elle écrase la polarisation des bits à 1 : octets déformés en `00`). Retirer celles des modules
-      si elles sont soudées. Câble long : 120 Ω aux deux bouts **et** polarisation forte à une extrémité
-      (≈ 470 Ω de A vers +5 V, 470 Ω de B vers la masse).
-- [ ] Étiquettes HW-519 **en droit** : TX de la carte → **TXD** du module, RX → **RXD** (vérifié sur les deux côtés).
-- [ ] Côté gate, tout sur le connecteur **J1** : HW-519 alimenté en **5 V** (J1 1-2), RXD/TXD sur **J1 6 (PB0) / J1 5 (PB1)**, firmware récepteur `rs485`.
-- [ ] Page système > Matériel > Liaison : **RS485**, TX 26, RX 25, **57600**, Enregistrer.
+- [ ] ESP32 side: module powered with **3.3 V** (module VCC on the ESP32 3V3, GND on GND).
+      Check with a multimeter that the module's RXD pin does not go above 3.3 V.
+- [ ] ESP32 **GPIO 26 (TX) → TXD** of the module, **GPIO 25 (RX) → RXD**. If no gate answers,
+      **swap TXD/RXD**: depending on the maker, the label is seen from the board or from the module, and swapping is harmless.
+- [ ] Bus: **A+ to A+**, **B- to B-** on all modules, on a twisted pair (e.g. one pair of an RJ45 cable),
+      plus a **common ground**. Gates are **daisy-chained** (not wired as a star).
+- [ ] **Termination**: on a short cable (a few meters), **no 120 Ω resistor** with these auto-direction
+      modules (it crushes the bias of the "1" bits: bytes corrupted into `00`). Remove the ones soldered
+      on the modules. Long cable: 120 Ω at both ends **and** a strong bias at one end
+      (≈ 470 Ω from A to +5 V, 470 Ω from B to ground).
+- [ ] HW-519 labels **straight**: board TX → module **TXD**, RX → **RXD** (checked on both sides).
+- [ ] Gate side, everything on connector **J1**: HW-519 powered with **5 V** (J1 1-2), RXD/TXD on **J1 6 (PB0) / J1 5 (PB1)**, receiver firmware `rs485`.
+- [ ] System page > Hardware > Link: **RS485**, TX 26, RX 25, **57600**, **Save and restart**.
 
-## 2b. Câblage I2C (gates proches, câble court) ⚠ à vérifier
+## 2b. I2C wiring (gates close together, short cable) ⚠ check
 
-- [ ] SDA → **GPIO 21**, SCL → **GPIO 22** (modifiable ensuite dans la page système), **masse commune**.
-- [ ] **Niveaux logiques** : l'ESP32 est en **3,3 V** et ne tolère pas 5 V. Si les ATmega328 sont en 5 V,
-      mettre un **convertisseur de niveaux bidirectionnel I2C** (module BSS138). Des pull-ups tirés à 5 V
-      directement sur l'ESP32 l'abîment, et des pull-ups à 3,3 V peuvent être trop bas pour un ATmega en 5 V.
-- [ ] **Pull-ups** de 4,7 kΩ sur SDA et SCL, côté 3,3 V et côté 5 V (souvent déjà présents sur le module).
-- [ ] Longueur de câble : I2C n'aime pas les longues distances. Au-delà de 1 à 2 m, baisser la fréquence
-      (50 kHz) ou passer sur un bus adapté plus tard.
+- [ ] SDA → **GPIO 21**, SCL → **GPIO 22** (can be changed later on the system page), **common ground**.
+- [ ] **Logic levels**: the ESP32 runs at **3.3 V** and does not tolerate 5 V. If the ATmega328PBs run at 5 V,
+      add a **bidirectional I2C level shifter** (BSS138 module). Pull-ups to 5 V directly on the ESP32
+      damage it, and pull-ups to 3.3 V may be too low for a 5 V ATmega.
+- [ ] **4.7 kΩ pull-ups** on SDA and SCL, on the 3.3 V side and on the 5 V side (often already on the module).
+- [ ] Cable length: I2C dislikes long distances. Beyond 1 to 2 m, lower the frequency
+      (50 kHz) or use RS485.
 
-## 2c. Feux de départ (ruban WS2812, optionnel)
+## 2c. Start lights (WS2812 strip, optional)
 
-- [ ] Données du ruban sur **GPIO 27** (modifiable), via une résistance de 330 Ω en série.
-- [ ] Ruban alimenté en **5 V à part** (8 LED ≈ 0,5 A au maximum), **masses reliées** à l'ESP32.
-- [ ] ⚠ Les WS2812 en 5 V lisent en général bien le 3,3 V de l'ESP32 sur un fil court. Si les couleurs sont
-      erratiques : raccourcir le fil, ou ajouter un adaptateur de niveau (74AHCT125) sur la ligne de données.
-- [ ] Page système > Matériel : cocher **Feux de départ**, GPIO, nombre de LED, luminosité, puis Enregistrer.
+- [ ] Strip data on **GPIO 27** (can be changed), through a 330 Ω series resistor.
+- [ ] Strip powered with **its own 5 V** (8 LEDs ≈ 0.5 A at most), **grounds connected** to the ESP32.
+- [ ] ⚠ 5 V WS2812s usually read the ESP32's 3.3 V fine on a short wire. If the colors are
+      erratic: shorten the wire, or add a level shifter (74AHCT125) on the data line.
+- [ ] System page > Hardware: tick **Start lights**, GPIO, number of LEDs, brightness, then **Save and restart**.
 
-## 2d. Bouton ou interrupteur Start/Stop (optionnel)
+## 2d. Start/Stop button or switch (optional)
 
-- [ ] Contact entre **GPIO 33** (modifiable) et la **masse**. Aucune résistance : le pull-up interne est utilisé.
-      Ne pas prendre les GPIO 34 à 39 (pas de pull-up interne).
-- [ ] Pour essayer sans rien câbler : GPIO **0** = bouton **BOOT** de la carte de développement.
-- [ ] Page système > Matériel : cocher **Bouton Start/Stop**, choisir le GPIO et le type :
-  - **Bouton poussoir** : appui = départ, **appui long 1 s = arrêt** (un coup involontaire n'arrête pas la course) ;
-  - **Interrupteur** : ON = départ, OFF = arrêt (un interrupteur déjà sur ON au démarrage ne lance rien).
-- [ ] Câble long jusqu'au bouton : fil torsadé avec la masse, et éventuellement un condensateur de 100 nF entre le GPIO et la masse.
+- [ ] Contact between **GPIO 33** (can be changed) and **ground**. No resistor: the internal pull-up is used.
+      Do not use GPIO 34 to 39 (no internal pull-up).
+- [ ] To try without wiring anything: GPIO **0** = **BOOT** button of the development board.
+- [ ] System page > Hardware: tick **Physical Start/Stop button**, pick the GPIO and the type:
+  - **Push button**: press = start, **1 s long press = stop** (an accidental press does not stop the race);
+  - **Switch**: ON = start, OFF = stop (a switch already ON at boot starts nothing).
+- [ ] Long cable to the button: wire twisted with ground, and possibly a 100 nF capacitor between the GPIO and ground.
 
-## 3. Outils sur le PC
+## 3. Tools on the PC
 
-- [ ] esptool et mpremote **depuis PyPI**, via `uvx` (rien à installer) : `uvx esptool version`, `uvx mpremote version`.
-      ⚠ Ne pas utiliser le paquet Debian `esptool` (4.7.0+dfsg) : il lui manque le flasheur de l'ESP32 classique
-      (`stub_flasher_32.json` introuvable).
-- [ ] Accès au port série : `sudo usermod -aG dialout $USER`, puis se reconnecter.
-- [ ] Repérer le port : brancher l'ESP32, puis `ls /dev/ttyUSB* /dev/ttyACM*`.
+- [ ] esptool and mpremote **from PyPI**, through `uvx` (nothing to install): `uvx esptool version`, `uvx mpremote version`.
+      ⚠ Do not use the Debian `esptool` package (4.7.0+dfsg): it lacks the classic ESP32 flasher stub
+      (`stub_flasher_32.json` not found).
+- [ ] Serial port access: `sudo usermod -aG dialout $USER`, then log in again.
+- [ ] Find the port: plug in the ESP32, then `ls /dev/ttyUSB* /dev/ttyACM*`.
 
-## 4. Flasher MicroPython (une seule fois, par USB)
+## 4. Flash MicroPython (once, over USB)
 
-- [ ] Sur https://micropython.org/download/ESP32_GENERIC/ prendre la **variante OTA** (« Support for OTA »),
-      dernière version stable. Télécharger :
-  - [ ] le `.bin` complet, pour l'USB ;
-  - [ ] le `.app-bin`, pour les futures mises à jour OTA.
-- [ ] Identifier la carte (lecture seule) : `uvx esptool --port /dev/ttyUSB0 flash-id` → ESP32, 4 Mo minimum.
+- [ ] On https://micropython.org/download/ESP32_GENERIC/ take the **OTA variant** ("Support for OTA"),
+      latest stable release. Download:
+  - [ ] the full `.bin`, for USB;
+  - [ ] the `.app-bin`, for future OTA updates.
+- [ ] Identify the board (read only): `uvx esptool --port /dev/ttyUSB0 flash-id` → ESP32, 4 MB minimum.
 - [ ] `uvx esptool --chip esp32 --port /dev/ttyUSB0 erase-flash`
 - [ ] `uvx esptool --chip esp32 --port /dev/ttyUSB0 write-flash 0x1000 ESP32_GENERIC-OTA-xxxx.bin`
-- [ ] Vérifier : `uvx mpremote connect /dev/ttyUSB0 exec "import sys; print(sys.implementation)"`
+- [ ] Check: `uvx mpremote connect /dev/ttyUSB0 exec "import sys; print(sys.implementation)"`
 
-## 5. Installer RicinoNext
+## 5. Install RicinoNext
 
-- [ ] `cd controller && tools/deploy.sh /dev/ttyUSB0`
-- [ ] Suivre le démarrage : `uvx mpremote connect /dev/ttyUSB0 repl`, puis Ctrl-D (redémarrage logiciel).
-      Attendu : `Wi-Fi: access point RicinoNext-XXXX`, `I2C gates found: [...]`, `RicinoNext 1.0.0 ready`.
-- [ ] ⚠ Si une erreur Python s'affiche (incompatibilité MicroPython) : noter la trace et me l'envoyer.
-      Le mode secours démarre alors tout seul (point d'accès `RicinoNext-recovery`, page d'envoi de fichier).
+- [ ] `cd controller && tools/deploy.sh /dev/ttyUSB0` (compiles the modules to `.mpy`, see the last section).
+- [ ] Follow the boot: `uvx mpremote connect /dev/ttyUSB0 repl`, then Ctrl-D (soft reset).
+      Expected: `Wi-Fi: access point RicinoNext-XXXX`, the gates found, `RicinoNext 1.0.0 ready`.
+- [ ] If a Python error shows up: note the traceback (it is also saved in `/error.log`).
+      Recovery mode then starts by itself (access point `RicinoNext-recovery`, file upload page).
 
 ## 6. Configuration
 
-- [ ] Sur le téléphone, rejoindre le Wi-Fi **RicinoNext-XXXX**. La page système s'ouvre seule,
-      sinon aller sur http://192.168.4.1/system.html.
-- [ ] Wi-Fi : **Scanner**, choisir le réseau, saisir le mot de passe, choisir le **nom d'hôte**, puis Enregistrer.
-- [ ] Rejoindre ce réseau, ouvrir `http://<nom>.local/`.
-      Si `.local` ne marche pas (certains Android), utiliser l'IP affichée dans le REPL ou dans la box.
-- [ ] Définir un **mot de passe d'administration** (Matériel), et un mot de passe pour le point d'accès de secours.
+- [ ] On the phone, join the **RicinoNext-XXXX** Wi-Fi. The system page opens by itself,
+      otherwise go to http://192.168.4.1/system.html.
+- [ ] Wi-Fi: **Scan**, pick the network, enter the password, choose the **hostname**, then **Save and restart**.
+- [ ] Join that network, open `http://<name>.local/`.
+      If `.local` does not work (some Android phones), use the IP shown in the REPL or by the router.
+- [ ] Set an **administration password** (Hardware), and a password for the fallback access point.
 
-## 7. Tests sur la carte
+## 7. Tests on the board
 
-- [ ] **Mode démo** (Matériel > Mode démo) : lancer une course simulée, vérifier l'affichage et la fluidité.
-      Regarder la **mémoire libre** dans Appareil : au moins 30 Ko pendant une course.
-- [ ] Désactiver le mode démo, puis vérifier **Gates détectées** : 21 (et 22, 23).
-  - [ ] ⚠ Gate manquante ou détection intermittente : vérifier niveaux et pull-ups, baisser la fréquence
-        à 50 kHz, puis essayer **I2C logiciel (SoftI2C)**.
-- [ ] Réglages > Pilotes > 📡 : passer chaque voiture sur la ligne, attribuer les tags, **Enregistrer**.
-- [ ] Redémarrer l'ESP32 : les pilotes et réglages sont toujours là (`/race.json`).
-- [ ] Course réelle de 3 tours : comparer quelques temps au tour avec un chronomètre.
-- [ ] ⚠ Avec plusieurs gates : vérifier que les temps des secteurs (S1, S2, S3) sont cohérents.
-      Les horloges des récepteurs démarrent à quelques ms d'écart (commande `0x8A` envoyée gate par gate).
-- [ ] Recharger la page en pleine course : l'historique des tours est récupéré.
-- [ ] Vidéoprojecteur : `http://<nom>.local/#display`, cliquer une fois pour activer les bips.
-- [ ] Feux : lancer une course, vérifier orange → 5 feux rouges → vert au GO → damier à l'arrivée.
-- [ ] Bouton : appui = départ (les pages passent en vue course), appui long = arrêt.
+- [ ] **Demo mode** (Hardware > Demo mode): run a simulated race, check the display and its smoothness.
+      Look at the **free memory** in Settings > Debug: at least 30 KB during a race.
+- [ ] Turn demo mode off, then check **Gates detected**: 21 (and 22, 23).
+  - [ ] ⚠ Missing gate or intermittent detection: see [../README.md](../README.md) §8 (Troubleshooting) and
+        System > Link diagnostics.
+- [ ] **Garage** > 📡: pass each car over the line, name it (saved automatically).
+- [ ] Settings > Drivers: give each driver a car.
+- [ ] Restart the ESP32: drivers, garage and settings are still there (`/race.json`).
+- [ ] Real 3-lap race: compare a few lap times with a stopwatch.
+- [ ] ⚠ With several gates: check that the sector times (S1, S2, S3) are consistent.
+- [ ] Reload the page during a race: the lap history comes back.
+- [ ] Projector: `http://<name>.local/#display`, click once to enable the beeps.
+- [ ] Lights: start a race, check orange → 5 red lights → green at GO → checkered at the finish.
+- [ ] Button: press = start (pages switch to the race view), long press = stop.
 
-## 8. Tester l'OTA (avant d'en avoir besoin)
+## 8. Test OTA (before you need it)
 
-- [ ] Système > Mise à jour : renvoyer `data/index.html` (compressé automatiquement), puis recharger la page.
-- [ ] Renvoyer un `.py` (ex. `ricino/core.py`), puis redémarrer.
-- [ ] Firmware : envoyer le `.app-bin` de la même version, et vérifier que la **partition active** a changé (ota_0 ↔ ota_1).
-- [ ] Optionnel : envoyer un `.py` volontairement cassé, vérifier que le **mode secours** permet de le corriger.
+- [ ] System > Update: send `data/index.html` again (compressed automatically), then reload the page.
+- [ ] Send a module again as `.mpy` (e.g. `core.mpy` to `/ricino/`), then restart.
+- [ ] Firmware: send the `.app-bin` of the same version, and check that the **active partition** changed (ota_0 ↔ ota_1).
+- [ ] Optional: send a deliberately broken module, check that **recovery mode** lets you fix it.
 
-## Modules précompilés (.mpy) : obligatoire
+## Precompiled modules (.mpy): mandatory
 
-Le code est envoyé sur la carte **précompilé en `.mpy`** (`tools/deploy.sh` le fait avec `uvx mpy-cross`).
-Compiler les `.py` sur la carte prend tant de mémoire que le Wi-Fi ne trouve plus la sienne au démarrage
-(« OSError: WiFi Out of Memory », la carte ne répond plus). `mpy-cross` doit avoir la **même version que le
-MicroPython de la carte** (1.29 ici : `uvx --from "mpy-cross==1.29.*" mpy-cross -o core.mpy ricino/core.py`).
+The code is sent to the board **precompiled to `.mpy`** (`tools/deploy.sh` does it with `uvx mpy-cross`).
+Compiling the `.py` files on the board takes so much memory that the Wi-Fi no longer finds its own at boot
+("OSError: WiFi Out of Memory", the board stops answering). `mpy-cross` must have the **same version as the
+board's MicroPython** (1.29 here: `uvx --from "mpy-cross==1.29.*" mpy-cross -o core.mpy ricino/core.py`).
 
-- [ ] Mise à jour OTA d'un module : envoyer le **`.mpy`** (la page système retire alors l'ancien `.py`).
-- [ ] Si la carte ne répond plus après une mise à jour : `uvx mpremote connect /dev/ttyUSB0 repl` montre l'erreur ;
-      `tools/deploy.sh /dev/ttyUSB0` réinstalle tout par USB.
+- [ ] OTA update of a module: send the **`.mpy`** (the system page then removes the old `.py`).
+- [ ] If the board stops answering after an update: `uvx mpremote connect /dev/ttyUSB0 repl` shows the error;
+      `tools/deploy.sh /dev/ttyUSB0` reinstalls everything over USB.

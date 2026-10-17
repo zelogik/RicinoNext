@@ -1,13 +1,21 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f3f4f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <title>RicinoNext</title>
-<script>/* apply the saved theme before first paint (no flash) */
-try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+<script>/* before first paint: the saved theme (no flash), and the language: ?lang=, else the saved choice, else the browser's */
+try { const th = localStorage.getItem("theme"); if (th === "light" || th === "dark") document.documentElement.dataset.theme = th; } catch (e) {}
+var LANG = (function () {
+  let l = new URLSearchParams(location.search).get("lang");
+  try { l = l || localStorage.getItem("lang"); } catch (e) {}
+  l = l || (navigator.languages || [navigator.language]).find(x => /^(en|fr)\b/i.test(x)) || "en";
+  return /^fr/i.test(l) ? "fr" : "en";
+})();
+document.documentElement.lang = LANG;
+setTimeout(() => document.documentElement.classList.add("i18n"), 2000);   // hidden until translated, never longer
 </script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0 0h2v2H0zM4 0h2v2H4zM2 2h2v2H2zM6 2h2v2H6zM0 4h2v2H0zM4 4h2v2H4zM2 6h2v2H2zM6 6h2v2H6z'/%3E%3C/svg%3E">
 <style>
@@ -18,11 +26,13 @@ try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark"
   --accent:light-dark(#1769e0,#4c9aff);--best:light-dark(#8e24c9,#c26bff)}
 :root[data-theme=light]{color-scheme:light}
 :root[data-theme=dark]{color-scheme:dark}
+html[lang=fr]:not(.i18n) body{visibility:hidden}   /* the page is written in English: no flash before the French text */
 ::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
 ::view-transition-new(root){animation:reveal .45s ease-out}
 @keyframes reveal{from{clip-path:circle(0 at var(--tx,100%) var(--ty,0))}to{clip-path:circle(150vmax at var(--tx,100%) var(--ty,0))}}
 @media (prefers-reduced-motion:reduce){::view-transition-new(root){animation:none}}
 #theme svg{width:20px;height:20px;display:block}
+#lang{font-size:12px;font-weight:700;line-height:1;padding:4px 5px;border:1.5px solid;border-radius:6px}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif}
 button,select,input{font:inherit;color:inherit}
@@ -235,14 +245,16 @@ body.disp #clock{font-size:max(44px,6vw)}
 body.disp #status{font-size:max(20px,2.6vw)}
 /* race view (automatic while a race runs): big clock, Stop, the board; nothing else */
 #go2{display:none}
-body.racing .hl,body.racing #theme,body.racing #p-race .actions{display:none}
+body.racing .hl,body.racing #theme,body.racing #lang,body.racing #p-race .actions{display:none}
 body.racing header{grid-template-columns:auto 1fr auto auto}
 body.racing .hr{display:contents}
 body.racing #clock{justify-self:center;font-size:clamp(30px,8vw,120px)}
 body.racing #go2{display:inline-block;background:var(--bad);color:#fff;font-size:clamp(16px,1.6vw,22px);padding:.6em 1.4em}
 body.disp #go2{display:none}
-@media (max-width:760px){header{grid-template-columns:minmax(0,1fr) auto;padding:8px 10px}.hl{min-width:0}nav a{padding:5px 8px;font-size:14px}
-  .hr{grid-row:1;grid-column:2}#status{grid-column:1/-1;justify-self:center}
+@media (max-width:760px){header{grid-template-columns:minmax(0,1fr) auto;padding:8px 10px}nav a{padding:5px 8px;font-size:14px}
+  /* phone: title + clock, then the tabs on their own row, then the status */
+  .hl{display:contents}h1{grid-row:1;grid-column:1}nav{grid-row:2;grid-column:1/-1;flex-wrap:wrap;justify-content:center}
+  .hr{grid-row:1;grid-column:2}#status{grid-row:3;grid-column:1/-1;justify-self:center}
   main{padding:10px}.m{display:none}#clock{font-size:22px}#summary{margin-left:0;width:100%}
   body.racing header{grid-template-columns:1fr auto auto}
   body.racing #clock{grid-row:1;grid-column:1/-1;font-size:14vw}
@@ -254,13 +266,14 @@ body.disp #go2{display:none}
 <header>
   <div class="hl">
     <h1>RicinoNext</h1>
-    <nav><a href="#" id="t-race">Course</a><a href="#results" id="t-res" hidden>Résultats</a><a href="#records" id="t-rec">🏆 Records</a><a href="#garage" id="t-gar">Garage</a><a href="#settings" id="t-set">Réglages</a><a href="/system.html" id="t-sys" hidden>Système</a></nav>
+    <nav><a href="#" id="t-race" data-t>Race</a><a href="#results" id="t-res" hidden data-t>Results</a><a href="#records" id="t-rec">🏆 Records</a><a href="#garage" id="t-gar">Garage</a><a href="#settings" id="t-set" data-t>Settings</a><a href="/system.html" id="t-sys" hidden data-t>System</a></nav>
   </div>
-  <div id="status" class="off" role="status"><span class="ic"></span><span id="stText">Hors ligne</span></div>
+  <div id="status" class="off" role="status"><span class="ic"></span><span id="stText" data-t>Offline</span></div>
   <div class="hr">
     <span id="clock">00:00.000</span>
+    <button id="lang" class="icon hide"></button>
     <button id="theme" class="icon hide"></button>
-    <button id="disp" class="icon hide" title="Mode affichage (F)">&#x26F6;</button>
+    <button id="disp" class="icon hide" title="Display mode (F)" data-t="title">&#x26F6;</button>
     <button class="btn" id="go2">Stop</button>
   </div>
 </header>
@@ -271,120 +284,120 @@ body.disp #go2{display:none}
     <button class="btn" id="go">Start</button>
     <button class="btn" id="reset">Reset</button>
     <button class="btn" id="light">Light</button>
-    <button class="btn" id="resBtn" hidden>📊 Derniers résultats</button>
+    <button class="btn" id="resBtn" hidden data-t>📊 Last results</button>
     <span id="summary"></span>
   </div>
   <div id="soloBar" hidden><b></b><span></span><small></small></div>
   <div id="wrap">
   <table id="board">
-    <thead><tr><th>#</th><th class="l">Pilote</th><th>Tours</th><th>Dernier</th><th>Écart</th><th>En cours</th><th class="m">Meilleur<br>Moy. · Total</th></tr></thead>
+    <thead><tr><th>#</th><th class="l" data-t>Driver</th><th data-t>Laps</th><th data-t>Last</th><th data-t>Gap</th><th data-t>Current</th><th class="m" data-t>Best<br>Avg. · Total</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
   </div>
 </main>
 
 <main id="p-res" hidden>
-  <p class="hint" id="resEmpty">Aucune course enregistrée pour l'instant : lance une course, les résultats s'afficheront ici à l'arrivée.</p>
+  <p class="hint" id="resEmpty" data-t>No race recorded yet: start a race, the results will show here at the finish.</p>
   <div class="cards" id="resBody">
-    <section class="card wide"><h2 id="resTitle">Résultats</h2><div class="pods" id="podium"></div></section>
+    <section class="card wide"><h2 id="resTitle" data-t>Results</h2><div class="pods" id="podium"></div></section>
     <section class="card wide">
-      <h2>Temps au tour</h2>
+      <h2 data-t>Lap times</h2>
       <div id="legend"></div>
       <div class="chartbox"><div id="chart"></div><div id="tip" hidden></div></div>
     </section>
-    <section class="card wide"><h2>Détail des tours</h2><div class="tablewrap"><table id="laps"></table></div></section>
+    <section class="card wide"><h2 data-t>Lap details</h2><div class="tablewrap"><table id="laps"></table></div></section>
   </div>
 </main>
 
 <main id="p-rec" hidden>
   <section class="card" id="recCard"><h2>🏆 Records · Top 10</h2><div class="recs" id="recs"></div>
-    <p class="hint" id="recEmpty">Aucun record pour l'instant : ils s'enregistrent à la fin de chaque course.</p></section>
+    <p class="hint" id="recEmpty" data-t>No records yet: they are saved at the end of each race.</p></section>
 </main>
 
 <main id="p-gar" hidden>
   <section class="card">
     <h2>Garage</h2>
-    <p class="hint">Chaque voiture a son code IR (émetteur). Les pilotes choisissent leur voiture dans Réglages &gt; Pilotes.
-      📡 : passer la voiture devant la ligne d'arrivée pour lire son code (hors course).</p>
+    <p class="hint" data-t>Each car has its own IR code (emitter). Drivers pick their car in Settings &gt; Drivers.
+      📡: pass the car in front of the finish line to read its code (outside a race).</p>
     <div class="tablewrap">
     <table id="cars">
-      <thead><tr><th></th><th class="l">Voiture</th><th class="l">Code IR</th><th></th><th class="l">Pilote</th><th>Record</th><th></th></tr></thead>
+      <thead><tr><th></th><th class="l" data-t>Car</th><th class="l" data-t>IR code</th><th></th><th class="l" data-t>Driver</th><th>Record</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     </div>
     <div class="save">
-      <button class="btn" id="carAdd">+ Ajouter</button><button class="btn" id="carRead">📡 Lire une nouvelle voiture</button>
-      <span class="hint" id="carMsg" style="margin-left:auto"></span><button class="btn" id="carUndo" hidden>Annuler</button><button class="btn" id="carSave" disabled>Enregistrer</button>
+      <button class="btn" id="carAdd" data-t>+ Add</button><button class="btn" id="carRead" data-t>📡 Read a new car</button>
+      <span class="hint" id="carMsg" style="margin-left:auto"></span><button class="btn" id="carUndo" hidden data-t>Cancel</button><button class="btn" id="carSave" disabled data-t>Save</button>
     </div>
   </section>
 </main>
 
 <main id="p-set" hidden>
-  <div id="lock" hidden>Course en cours : les réglages sont verrouillés.</div>
+  <div id="lock" hidden data-t>Race running: the settings are locked.</div>
   <fieldset id="setForm">
   <div class="cards">
     <section class="card">
-      <h2>Course</h2>
+      <h2 data-t>Race</h2>
       <div class="field">
         <label>Mode</label>
-        <div class="seg" id="style"><button data-v="0">Tours</button><button data-v="1">Temps</button><button data-v="2">Libre</button></div>
+        <div class="seg" id="style"><button data-v="0" data-t>Laps</button><button data-v="1" data-t>Time</button><button data-v="2" data-t>Free</button></div>
         <p class="hint" id="styleHint"></p>
       </div>
       <div class="field" id="condField">
-        <label><span id="condL">Tours</span><b id="condV"></b></label>
+        <label><span id="condL"></span><b id="condV"></b></label>
         <input type="range" id="cond" min="1" max="1" value="1">
       </div>
       <div class="field">
-        <label>Départ</label>
-        <div class="seg" id="startMode"><button data-v="0">Normal</button><button data-v="1">Lancé</button></div>
+        <label data-t>Start</label>
+        <div class="seg" id="startMode"><button data-v="0" data-t>Standing</button><button data-v="1" data-t>Flying</button></div>
         <p class="hint" id="startHint"></p>
       </div>
       <div class="field">
-        <label>Décompte de départ<b id="wuV"></b></label>
+        <label><span data-t>Start countdown</span><b id="wuV"></b></label>
         <input type="range" id="wu" min="5" max="30" value="10">
       </div>
       <div class="field">
-        <label>Décompte à l'écran (sur cet appareil)</label>
-        <div class="seg" id="cdStyle"><button data-v="digits">Chiffres</button><button data-v="f1">Feux F1</button></div>
+        <label data-t>On-screen countdown (this device)</label>
+        <div class="seg" id="cdStyle"><button data-v="digits" data-t>Digits</button><button data-v="f1" data-t>F1 lights</button></div>
       </div>
       <div class="field">
-        <label class="switch"><input type="checkbox" id="beep"> <span>Bips : départ et passages sur la ligne (sur cet appareil)</span></label>
+        <label class="switch"><input type="checkbox" id="beep"> <span data-t>Beeps: start and passes on the line (this device)</span></label>
       </div>
       <div class="field">
-        <label class="switch"><input type="checkbox" id="solo"> <span>Mode solo<br><span class="hint">Seule la première voiture détectée est chronométrée, une ligne par tour.</span></span></label>
+        <label class="switch"><input type="checkbox" id="solo"> <span><span data-t>Solo mode</span><br><span class="hint" data-t>Only the first car detected is timed, one row per lap.</span></span></label>
       </div>
     </section>
     <section class="card">
-      <h2>Matériel</h2>
+      <h2 data-t>Hardware</h2>
       <div class="field">
-        <label>Pilotes<b id="plV"></b></label>
+        <label><span data-t>Drivers</span><b id="plV"></b></label>
         <input type="range" id="pl" min="1" max="1" value="1">
       </div>
       <div class="field">
         <label>Gates<b id="gaV"></b></label>
         <input type="range" id="ga" min="1" max="1" value="1">
-        <p class="hint">La gate 1 est la ligne d'arrivée, les autres servent aux temps intermédiaires.</p>
+        <p class="hint" data-t>Gate 1 is the finish line, the others give split times.</p>
       </div>
       <div class="field">
-        <label>Délai entre deux détections<b id="dbV"></b></label>
+        <label><span data-t>Delay between two detections</span><b id="dbV"></b></label>
         <input type="range" id="db" min="1" max="10" value="3">
-        <p class="hint">Un passage ne compte qu'après ce délai sans aucune détection de la même voiture sur la même porte.</p>
+        <p class="hint" data-t>A pass only counts after this delay without any detection of the same car at the same gate.</p>
       </div>
       <div class="field">
-        <label>Porte manquée tolérée<b id="tolV"></b></label>
+        <label><span data-t>Missed gate tolerated</span><b id="tolV"></b></label>
         <input type="range" id="tol" min="0" max="30" value="10">
         <p class="hint" id="tolHint"></p>
       </div>
     </section>
     <section class="card">
-      <h2>Pilotes</h2>
+      <h2 data-t>Drivers</h2>
       <div class="tablewrap">
       <table id="drivers">
-        <thead><tr><th></th><th>Couleur</th><th class="l">Nom</th><th class="l">Voiture</th></tr></thead>
+        <thead><tr><th></th><th data-t>Color</th><th class="l" data-t>Name</th><th class="l" data-t>Car</th></tr></thead>
         <tbody></tbody>
       </table>
       </div>
-      <div class="save"><span class="hint" id="saveMsg"></span><button class="btn" id="undoBtn" hidden>Annuler</button><button class="btn" id="saveBtn" disabled>Enregistrer</button></div>
+      <div class="save"><span class="hint" id="saveMsg"></span><button class="btn" id="undoBtn" hidden data-t>Cancel</button><button class="btn" id="saveBtn" disabled data-t>Save</button></div>
     </section>
   </div>
   </fieldset>
@@ -392,19 +405,221 @@ body.disp #go2{display:none}
 </main>
 
 <dialog id="reader">
-  <h2 id="rdTitle">Lecture du tag</h2>
+  <h2 id="rdTitle"></h2>
   <p class="hint" id="rdState"></p>
   <ul id="rdList" hidden></ul>
-  <div class="save"><button class="btn" id="rdRetry" hidden>Relancer</button><button class="btn" id="rdCancel">Fermer</button></div>
+  <div class="save"><button class="btn" id="rdRetry" hidden data-t>Retry</button><button class="btn" id="rdCancel" data-t>Close</button></div>
 </dialog>
 <div id="count" hidden><div id="countN"></div><div id="lights"><i></i><i></i><i></i><i></i><i></i></div><div id="countL"></div></div>
 <div id="toast"></div>
 <script>
+/* French version of the interface: English text, as written in the page and the code -> French.
+   Placeholders {name} are filled by t(); "data-t" elements are looked up by their content (markup included). */
+const FR = {
+  // page
+  "Race": "Course",
+  "Results": "Résultats",
+  "Settings": "Réglages",
+  "System": "Système",
+  "Offline": "Hors ligne",
+  "Display mode (F)": "Mode affichage (F)",
+  "📊 Last results": "📊 Derniers résultats",
+  "Driver": "Pilote",
+  "Laps": "Tours",
+  "Last": "Dernier",
+  "Gap": "Écart",
+  "Current": "En cours",
+  "Best<br>Avg. · Total": "Meilleur<br>Moy. · Total",
+  "No race recorded yet: start a race, the results will show here at the finish.":
+    "Aucune course enregistrée pour l'instant : lance une course, les résultats s'afficheront ici à l'arrivée.",
+  "Lap times": "Temps au tour",
+  "Lap details": "Détail des tours",
+  "No records yet: they are saved at the end of each race.": "Aucun record pour l'instant : ils s'enregistrent à la fin de chaque course.",
+  "Each car has its own IR code (emitter). Drivers pick their car in Settings &gt; Drivers. 📡: pass the car in front of the finish line to read its code (outside a race).":
+    "Chaque voiture a son code IR (émetteur). Les pilotes choisissent leur voiture dans Réglages &gt; Pilotes. 📡 : passer la voiture devant la ligne d'arrivée pour lire son code (hors course).",
+  "Car": "Voiture",
+  "IR code": "Code IR",
+  "+ Add": "+ Ajouter",
+  "📡 Read a new car": "📡 Lire une nouvelle voiture",
+  "Cancel": "Annuler",
+  "Save": "Enregistrer",
+  "Race running: the settings are locked.": "Course en cours : les réglages sont verrouillés.",
+  "Time": "Temps",
+  "Free": "Libre",
+  "Start": "Départ",
+  "Standing": "Normal",
+  "Flying": "Lancé",
+  "Start countdown": "Décompte de départ",
+  "On-screen countdown (this device)": "Décompte à l'écran (sur cet appareil)",
+  "Digits": "Chiffres",
+  "F1 lights": "Feux F1",
+  "Beeps: start and passes on the line (this device)": "Bips : départ et passages sur la ligne (sur cet appareil)",
+  "Solo mode": "Mode solo",
+  "Only the first car detected is timed, one row per lap.": "Seule la première voiture détectée est chronométrée, une ligne par tour.",
+  "Hardware": "Matériel",
+  "Drivers": "Pilotes",
+  "Gate 1 is the finish line, the others give split times.": "La gate 1 est la ligne d'arrivée, les autres servent aux temps intermédiaires.",
+  "Delay between two detections": "Délai entre deux détections",
+  "A pass only counts after this delay without any detection of the same car at the same gate.":
+    "Un passage ne compte qu'après ce délai sans aucune détection de la même voiture sur la même porte.",
+  "Missed gate tolerated": "Porte manquée tolérée",
+  "Color": "Couleur",
+  "Name": "Nom",
+  "Retry": "Relancer",
+  "Close": "Fermer",
+  // messages of the controller
+  "Welcome to RicinoNext": "Bienvenue sur RicinoNext",
+  "Start in {n} s": "Départ dans {n} s",
+  "GO!": "GO !",
+  "Final Lap": "Dernier tour",
+  "Hurry UP!": "Dépêchez-vous !",
+  "{n} seconds remaining": "Plus que {n} secondes",
+  "Time! Last lap": "Temps écoulé ! Dernier tour",
+  "Finished": "Terminé",
+  // race
+  "Controller disconnected": "Contrôleur déconnecté",
+  "🚫 Lap not counted: {name} skipped gate {gate}": "🚫 Tour non compté : {name} a sauté la porte {gate}",
+  "⚠ {name}: gate {gate} not detected (tolerated)": "⚠ {name} : porte {gate} non détectée (tolérée)",
+  "🎉 {n} laps!": "🎉 {n} tours !",
+  "Ready": "Prêt",
+  "Starting…": "Départ…",
+  "Racing": "En course",
+  "Finishing": "Arrivée",
+  "Driver {n}": "Pilote {n}",
+  "{a} / {b} laps": "{a} / {b} tours",
+  "{n} lap": "{n} tour",
+  "{n} laps": "{n} tours",
+  "{n} driver": "{n} pilote",
+  "{n} drivers": "{n} pilotes",
+  "avg. {x}": "moy. {x}",
+  "Lap {n}": "Tour {n}",
+  "Faster than the previous lap": "Plus rapide que le tour précédent",
+  "Slower than the previous lap": "Plus lent que le tour précédent",
+  "⚠ missed gates tolerated: {a} · 🚫 laps not counted: {b}": "⚠ portes manquées tolérées : {a} · 🚫 tours non comptés : {b}",
+  "Timer starts at the first pass on the line": "Chrono au premier passage sur la ligne",
+  "(last sectors)": "(derniers secteurs)",
+  // settings
+  "The race ends when the leader has done all the laps; the others finish their lap.":
+    "La course s'arrête quand le premier a fait tous les tours ; les autres finissent leur tour.",
+  "The race ends when the time is up; everyone finishes the lap in progress.": "La course s'arrête à la fin du temps ; chacun termine son tour en cours.",
+  "Endless practice: stop it by hand with Stop.": "Entraînement sans fin : arrêt manuel avec Stop.",
+  "Duration (min)": "Durée (min)",
+  "Number of laps": "Nombre de tours",
+  "Each timer starts at the driver's first pass on the line after the GO.": "Chaque chrono démarre au premier passage du pilote sur la ligne après le GO.",
+  "All timers start at the GO; the first pass on the line does not count a lap.":
+    "Tous les chronos démarrent au GO ; le premier passage sur la ligne ne compte pas de tour.",
+  "1 in {n} passes": "1 sur {n} passages",
+  "never": "jamais",
+  "A skipped gate is accepted if the driver made no gate error in their last {n} passes; otherwise the current lap is not counted.":
+    "Une porte sautée est acceptée si le pilote n'a fait aucune erreur de porte sur ses {n} derniers passages ; sinon le tour en cours n'est pas compté.",
+  "Any skipped gate cancels the current lap (gates must be passed in order).":
+    "Toute porte sautée annule le tour en cours (les portes doivent être passées dans l'ordre).",
+  "Unsaved changes": "Modifications non enregistrées",
+  "Each driver needs their own car": "Chaque pilote doit avoir sa propre voiture",
+  "— choose —": "— choisir —",
+  "#{id} (not in the garage)": "#{id} (hors garage)",
+  "Drivers saved": "Pilotes enregistrés",
+  "Stop and clear the current race?": "Arrêter et effacer la course en cours ?",
+  "Unsaved changes will be lost. Change the language anyway?": "Les modifications non enregistrées seront perdues. Changer de langue quand même ?",
+  // debug
+  "{n} MB": "{n} Mo",
+  "{n} KB": "{n} Ko",
+  "{n} bytes": "{n} octets",
+  "{x} free": "libre {x}",
+  "largest block {x}": "bloc max {x}",
+  "CPU load": "Charge CPU",
+  "System RAM (Wi-Fi…)": "RAM système (Wi-Fi…)",
+  "Flash (files)": "Flash (fichiers)",
+  "Stack": "Pile",
+  "Simulator memory": "Mémoire du simulateur",
+  "Worst loop (5 s)": "Pire boucle (5 s)",
+  "Uptime": "Démarré depuis",
+  "gates: {x}": "gates : {x}",
+  "stats: {x}": "stats : {x}",
+  // tag reader, garage
+  "Reading stopped: no pass for 30 s.": "Lecture arrêtée : aucun passage depuis 30 s.",
+  "Pass the car in front of the finish line, then pick its tag.": "Passe la voiture devant la ligne d'arrivée, puis choisis son tag.",
+  "{n} pass": "{n} passage",
+  "{n} passes": "{n} passages",
+  "new": "nouveau",
+  "Signal {s}/255 · click to assign it": "Signal {s}/255 · cliquer pour l'attribuer",
+  "Car name": "Nom de la voiture",
+  "Read this car's code": "Lire le code de cette voiture",
+  "Remove from the garage": "Retirer du garage",
+  "Car {n}": "Voiture {n}",
+  "car {n}": "voiture {n}",
+  "car": "voiture",
+  "this car": "cette voiture",
+  "car “{name}”": "voiture « {name} »",
+  "Missing or duplicate code": "Code manquant ou en double",
+  "{n} / {max} cars": "{n} / {max} voitures",
+  "Remove {name} from the garage?": "Retirer {name} du garage ?",
+  "Read the code · {name}": "Lire le code · {name}",
+  "Code {id} already belongs to {owner}. Swap the two codes?": "Le code {id} est déjà celui de {owner}. Échanger les deux codes ?",
+  "Code {id} saved for “{name}”": "Code {id} enregistré pour « {name} »",
+  "New car: pass it in front of the line": "Nouvelle voiture : passe-la devant la ligne",
+  "Code {id} is already in the garage ({owner})": "Le code {id} est déjà dans le garage ({owner})",
+  "Garage full ({n} cars)": "Garage plein ({n} voitures)",
+  "Car added (code {id}): you can rename it": "Voiture ajoutée (code {id}) : tu peux la renommer",
+  "remember to Save": "pense à Enregistrer",
+  "Garage saved": "Garage enregistré",
+  // records, results
+  "Best lap": "Meilleur tour",
+  "Best average (3 laps min.)": "Meilleure moyenne (3 tours min.)",
+  "Best total time": "Meilleur temps total",
+  "Delete this time": "Supprimer ce chrono",
+  "Delete {name}'s time ({time}) from all records?": "Supprimer le chrono de {name} ({time}) de tous les records ?",
+  "best lap": "meilleur tour",
+  "best average": "meilleure moyenne",
+  "total time": "temps total",
+  "🏆 Record! {name} · {what} #{rank} · {time}": "🏆 Record ! {name} · {what} #{rank} · {time}",
+  "Race in progress": "Course en cours",
+  "Last race": "Dernière course",
+  "laps · total time · best lap": "tours · temps total · meilleur tour",
+  "Lap times per driver": "Temps au tour par pilote",
+  "lap": "tour",
+  "Lap": "Tour",
+  "Best": "Meilleur",
+  "Average": "Moyenne",
+  "Theme: auto (system)": "Thème : auto (système)",
+  "Theme: light": "Thème : clair",
+  "Theme: dark": "Thème : sombre"
+};
+</script>
+<script>
 "use strict";
 const $ = id => document.getElementById(id);
+
+// ---- language: the page and the code are written in English, FR (above) gives the French ------------------
+function t(s, p) {                       // t("Lap {n}", {n: 3}) -> "Lap 3" / "Tour 3"
+  const r = LANG === "fr" && typeof FR[s] === "string" ? FR[s] : s;
+  return p ? r.replace(/\{(\w+)\}/g, (m, k) => p[k] !== undefined ? p[k] : m) : r;
+}
+// plural: tn(3, "{n} lap", "{n} laps") -> "3 laps" (French: 0 and 1 are singular)
+const tn = (n, one, many, p) => t((LANG === "fr" ? n > 1 : n !== 1) ? many : one, Object.assign({n}, p));
+// texts sent by the controller (English): known as is, with their first number as {n}, or "known prefix: detail"
+function tMsg(m) {
+  if (LANG === "en" || typeof m !== "string" || typeof FR[m] === "string") return t(m);
+  const n = (m.match(/\d+/) || [])[0], k = n && m.replace(n, "{n}"), i = m.indexOf(": ");
+  if (k && typeof FR[k] === "string") return t(k, {n});
+  return i > 0 && typeof FR[m.slice(0, i)] === "string" ? FR[m.slice(0, i)] + " : " + m.slice(i + 2) : m;
+}
+// static text: elements marked data-t ("" = content, markup included; or attribute names, e.g. "title")
+function translatePage() {
+  if (LANG === "fr") for (const e of document.querySelectorAll("[data-t]")) for (const a of (e.dataset.t || "html").split(" ")) {
+    const k = (a === "html" ? e.innerHTML : e.getAttribute(a) || "").trim().replace(/\s+/g, " ");
+    if (typeof FR[k] !== "string") console.warn("i18n: no French for", JSON.stringify(k));
+    else if (a === "html") e.innerHTML = FR[k];
+    else e.setAttribute(a, FR[k]);
+  }
+  document.documentElement.classList.add("i18n");
+}
+translatePage();
+const LOCALE = LANG === "fr" ? "fr-FR" : /^en/i.test(navigator.language) ? navigator.language : "en-GB";   // dates
+
 const st = {conf:null, race:"WAIT", rows:[], clock:{base:0, at:0}, ws:null, max:{}, lap:0, namesDirty:false,
             online:false, hist:{}, result:null, seen:{}, beeped:{}, records:[], newUids:new Set()};   // seen: id -> last lap flashed   // hist: id -> [lap1 ms, lap2 ms, ...]
-const STYLES = ["Tours", "Temps", "Libre"];
+const STYLES = [t("Laps"), t("Time"), t("Free")];
 
 // 72345 ms -> "01:12.345"; short=true and < 1 min -> "12.345" (lap times)
 function fmt(ms, short) {
@@ -432,7 +647,7 @@ function send(conf) {
   const c = {};
   for (const [k, v] of Object.entries(conf)) c[k] = typeof v === "object" ? v : String(v);
   if (st.ws && st.ws.readyState === 1) { st.ws.send(JSON.stringify({conf: c})); return true; }
-  toast("Contrôleur déconnecté");
+  toast(t("Controller disconnected"));
   return false;
 }
 const timers = {};
@@ -452,9 +667,8 @@ function onMsg(o) {
   if ((o.conf || o.records || o.race) && !$("p-gar").hidden) renderGarage(st.carsDirty);
   if (o.records && !$("p-rec").hidden) renderRecords();
   if (o.event) {
-    const name = who(o.event.id, 0).name;
-    toast(o.event.type === "cut" ? "🚫 Tour non compté : " + name + " a sauté la porte " + o.event.gate
-                                 : "⚠ " + name + " : porte " + o.event.gate + " non détectée (tolérée)");
+    const p = {name: who(o.event.id, 0).name, gate: o.event.gate};
+    toast(o.event.type === "cut" ? t("🚫 Lap not counted: {name} skipped gate {gate}", p) : t("⚠ {name}: gate {gate} not detected (tolerated)", p));
   }
   if (o.new && o.new.length) announceRecords(o.new);
   if (o.history) for (const id in o.history) {                 // sent at connection: laps done before a reload
@@ -471,13 +685,13 @@ function onConf(c) {
   if (c.reset || first) st.rows = [];
   if (c.reset) st.hist = {};
   if ($("reader").open && prevRead && !c.read) {             // stopped by the controller (30 s without a pass)
-    $("rdState").className = ""; $("rdState").textContent = "Lecture arrêtée : aucun passage depuis 30 s.";
+    $("rdState").className = ""; $("rdState").textContent = t("Reading stopped: no pass for 30 s.");
     $("rdRetry").hidden = false;
   }
   renderSettings();
 }
 function onRace(r) {
-  if (r.message) toast(r.message);
+  if (r.message) toast(tMsg(r.message));
   if (!r.state) return;                   // welcome message carries no state
   const prev = st.race;
   st.race = r.state;
@@ -504,7 +718,7 @@ function onLive(l) {
   if (st.conf.solo) {
     if (l.lap < 1) return;                                     // sector times before the first lap
     st.rows[l.lap - 1] = l;
-    if (l.lap % 50 === 0 && l.lap > (st.beeped[l.id] || 0)) toast("🎉 " + l.lap + " tours !");
+    if (l.lap % 50 === 0 && l.lap > (st.beeped[l.id] || 0)) toast(t("🎉 {n} laps!", {n: l.lap}));
   }
   else {
     // an overtake comes as two messages (new rank of each driver): swap at once, so a driver
@@ -523,24 +737,24 @@ function onLive(l) {
   }
 }
 
-// ---- debug panel (Réglages): resources of the controller, every 5 s ---------------------------------
-const kb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " Mo" : Math.round(n / 1024) + " Ko";
+// ---- debug panel (Settings): resources of the controller, every 5 s ---------------------------------
+const kb = n => n >= 1048576 ? t("{n} MB", {n: (n / 1048576).toFixed(1)}) : t("{n} KB", {n: Math.round(n / 1024)});
 function renderDebug(d) {
   const items = [];
   // [label, text, used fraction (0..1) or null]
-  if (d.cpu !== undefined) items.push(["Charge CPU", d.cpu + " %" + (d.mhz ? " · " + d.mhz + " MHz" : ""), d.cpu / 100]);
-  if (d.ram_free !== undefined) { const t = d.ram_free + d.ram_used;
-    items.push(["RAM MicroPython", kb(d.ram_used) + " / " + kb(t) + " · libre " + kb(d.ram_free), d.ram_used / t]); }
+  if (d.cpu !== undefined) items.push([t("CPU load"), d.cpu + " %" + (d.mhz ? " · " + d.mhz + " MHz" : ""), d.cpu / 100]);
+  if (d.ram_free !== undefined) { const tot = d.ram_free + d.ram_used;
+    items.push(["RAM MicroPython", kb(d.ram_used) + " / " + kb(tot) + " · " + t("{x} free", {x: kb(d.ram_free)}), d.ram_used / tot]); }
   if (d.idf_free !== undefined)
-    items.push(["RAM système (Wi-Fi…)", "libre " + kb(d.idf_free) + " / " + kb(d.idf_total) + " · min " + kb(d.idf_min) +
-                " · bloc max " + kb(d.idf_largest), 1 - d.idf_free / d.idf_total]);
-  if (d.flash_total) items.push(["Flash (fichiers)", kb(d.flash_total - d.flash_free) + " / " + kb(d.flash_total) + " · libre " + kb(d.flash_free),
+    items.push([t("System RAM (Wi-Fi…)"), t("{x} free", {x: kb(d.idf_free)}) + " / " + kb(d.idf_total) + " · min " + kb(d.idf_min) +
+                " · " + t("largest block {x}", {x: kb(d.idf_largest)}), 1 - d.idf_free / d.idf_total]);
+  if (d.flash_total) items.push([t("Flash (files)"), kb(d.flash_total - d.flash_free) + " / " + kb(d.flash_total) + " · " + t("{x} free", {x: kb(d.flash_free)}),
                                  1 - d.flash_free / d.flash_total]);
-  if (d.stack !== undefined) items.push(["Pile", d.stack + " octets", null]);
-  if (d.rss !== undefined) items.push(["Mémoire du simulateur", kb(d.rss), null]);
-  if (d.time !== undefined) items.push(["Pire boucle (5 s)", (d.time / 1000).toFixed(1) + " ms", Math.min(1, d.time / 20000)]);
-  if (d.uptime !== undefined) items.push(["Démarré depuis", d.uptime >= 3600 ? Math.floor(d.uptime / 3600) + " h " + Math.floor(d.uptime / 60) % 60 + " min"
-                                                         : Math.floor(d.uptime / 60) + " min " + d.uptime % 60 + " s", null]);
+  if (d.stack !== undefined) items.push([t("Stack"), t("{n} bytes", {n: d.stack}), null]);
+  if (d.rss !== undefined) items.push([t("Simulator memory"), kb(d.rss), null]);
+  if (d.time !== undefined) items.push([t("Worst loop (5 s)"), (d.time / 1000).toFixed(1) + " ms", Math.min(1, d.time / 20000)]);
+  if (d.uptime !== undefined) items.push([t("Uptime"), d.uptime >= 3600 ? Math.floor(d.uptime / 3600) + " h " + Math.floor(d.uptime / 60) % 60 + " min"
+                                                     : Math.floor(d.uptime / 60) + " min " + d.uptime % 60 + " s", null]);
   const grid = $("dbgGrid"); grid.textContent = "";
   for (const [label, text, frac] of items) {
     const div = document.createElement("div");
@@ -554,27 +768,27 @@ function renderDebug(d) {
     grid.append(div);
   }
   const rest = [];
-  if (d.gates) rest.push("gates : " + d.gates);
+  if (d.gates) rest.push(t("gates: {x}", {x: d.gates}));
   if (d.message) rest.push(d.message);
-  if (d.stats_error) rest.push("stats : " + d.stats_error);
+  if (d.stats_error) rest.push(t("stats: {x}", {x: d.stats_error}));
   $("dbg").textContent = rest.join("  ·  ") || "";
 }
 
 // ---- status (top center) --------------------------------------------------------
-const STATUS = {RESET: ["ready", "Prêt"], WAIT: ["ready", "Prêt"], START: ["go pulse", "Départ…"], WARMUP: ["go pulse", "Départ…"],
-                RACE: ["race pulse", "En course"], FINISH: ["fin", "Arrivée"], STOP: ["done", "Terminé"]};
+const STATUS = {RESET: ["ready", t("Ready")], WAIT: ["ready", t("Ready")], START: ["go pulse", t("Starting…")], WARMUP: ["go pulse", t("Starting…")],
+                RACE: ["race pulse", t("Racing")], FINISH: ["fin", t("Finishing")], STOP: ["done", t("Finished")]};
 function renderStatus() {
-  const [cls, txt] = !st.online ? ["off", "Hors ligne"] : STATUS[st.race] || ["ready", st.race];
+  const [cls, txt] = !st.online ? ["off", t("Offline")] : STATUS[st.race] || ["ready", st.race];
   $("status").className = cls; $("stText").textContent = txt;
 }
 
 // ---- race page ------------------------------------------------------------------
 function who(id, i) {
   const n = st.conf && st.conf.names.find(p => p.id === id);
-  return n ? n : {name: id ? "#" + id : "Pilote " + (i + 1), color: "#888"};   // unknown tag: its ID
+  return n ? n : {name: id ? "#" + id : t("Driver {n}", {n: i + 1}), color: "#888"};   // unknown tag: its ID
 }
 function condText(c) {
-  return c.style == 1 ? Math.round(c.time / 60000) + " min" : c.style == 2 ? "libre" : (st.lap || 0) + " / " + c.laps + " tours";
+  return c.style == 1 ? Math.round(c.time / 60000) + " min" : c.style == 2 ? "" : t("{a} / {b} laps", {a: st.lap || 0, b: c.laps});
 }
 const ROW = '<td></td><td class="l"><span class="sw"></span><span></span></td><td class="c-lap"></td><td class="c-last"></td>' +
   '<td class="c-gap"></td><td class="c-cur"><span></span><s></s><i></i></td><td class="c-stats m"><b></b><br><span></span></td>';
@@ -587,8 +801,8 @@ function renderSoloBar(solo) {
   const p = who(last.id, 0);
   bar.style.setProperty("--c", p.color);
   bar.children[0].textContent = p.name;
-  bar.children[1].textContent = last.lap + (last.lap > 1 ? " tours" : " tour");
-  bar.children[2].textContent = "★ " + fmt(last.best, 1) + "  ·  moy. " + fmt(last.mean, 1) + "  ·  " + fmt(last.total);
+  bar.children[1].textContent = tn(last.lap, "{n} lap", "{n} laps");
+  bar.children[2].textContent = "★ " + fmt(last.best, 1) + "  ·  " + t("avg. {x}", {x: fmt(last.mean, 1)}) + "  ·  " + fmt(last.total);
 }
 function render() {
   if (!st.conf) return;
@@ -627,46 +841,46 @@ function render() {
   const longest = Math.max(8, ...rows.map((r, i) => (r ? who(r.id, i).name : "").length));
   $("wrap").style.setProperty("--w", (matchMedia("(max-width:760px)").matches ? 23 : 25) + longest * .55);
   rows.forEach((r, i) => {
-    const tr = trs[i], t = tr.cells;
+    const tr = trs[i], cl = tr.cells;
     tr.classList.toggle("empty", !r);
     const p = r ? who(r.id, i) : {name: "-", color: "transparent"};
     tr.style.setProperty("--c", p.color);
-    t[0].textContent = solo ? "" : i + 1;
-    t[1].firstChild.style.background = p.color;
-    t[1].lastChild.textContent = solo ? (r ? "Tour " + r.lap : "") : p.name;   // solo: the driver is in the banner
+    cl[0].textContent = solo ? "" : i + 1;
+    cl[1].firstChild.style.background = p.color;
+    cl[1].lastChild.textContent = solo ? (r ? t("Lap {n}", {n: r.lap}) : "") : p.name;   // solo: the driver is in the banner
     // laps: "3" + small "/5" in laps mode
-    t[2].textContent = r ? r.lap : "-";
-    if (r && c.style == 0 && !solo) t[2].append(Object.assign(document.createElement("small"), {textContent: "/" + c.laps}));
+    cl[2].textContent = r ? r.lap : "-";
+    if (r && c.style == 0 && !solo) cl[2].append(Object.assign(document.createElement("small"), {textContent: "/" + c.laps}));
     // last lap, F1 colors: purple = best of the race, green = personal best
-    t[3].textContent = r ? fmt(r.last, 1) : "-";
+    cl[3].textContent = r ? fmt(r.last, 1) : "-";
     // trend vs the previous lap: ▲ faster (green), ▼ slower (red)
     const prevLap = r && r.lap >= 2 && st.hist[r.id] ? st.hist[r.id][r.lap - 2] : 0;
     if (prevLap > 0 && r.last > 0 && r.last !== prevLap) {
       const faster = r.last < prevLap, sm = document.createElement("small");
       sm.className = faster ? "up" : "down";
       sm.textContent = (faster ? "▲" : "▼") + fmt(Math.abs(r.last - prevLap), 1);
-      sm.title = (faster ? "Plus rapide" : "Plus lent") + " que le tour précédent";
-      t[3].append(sm);
+      sm.title = faster ? t("Faster than the previous lap") : t("Slower than the previous lap");
+      cl[3].append(sm);
     }
-    t[3].classList.toggle("ob", !!r && r.last > 0 && r.last === bestAll);
-    t[3].classList.toggle("pb", !!r && r.lap > 1 && r.last > 0 && r.last === r.best && r.last !== bestAll);  // lap 1 is always a PB
+    cl[3].classList.toggle("ob", !!r && r.last > 0 && r.last === bestAll);
+    cl[3].classList.toggle("pb", !!r && r.lap > 1 && r.last > 0 && r.last === r.best && r.last !== bestAll);  // lap 1 is always a PB
     if (r && !solo && r.lap > (st.seen[r.id] || 0)) {        // flash on a new lap
       st.seen[r.id] = r.lap;
-      t[3].classList.remove("flash"); void t[3].offsetWidth; t[3].classList.add("flash");
+      cl[3].classList.remove("flash"); void cl[3].offsetWidth; cl[3].classList.add("flash");
     }
     // gap to the leader (solo: to the best lap)
     let gap = "";
     if (r && solo) gap = r.last === bestAll ? "★" : "+" + fmt(r.last - bestAll, 1);
     else if (r && leader && r !== leader) {                   // physical gap: crossing times, not own times
       const dl = leader.lap - r.lap;
-      gap = dl > 0 ? "+" + dl + (dl > 1 ? " tours" : " tour") : "+" + fmt(cross(r) - cross(leader), 1);
+      gap = dl > 0 ? "+" + tn(dl, "{n} lap", "{n} laps") : "+" + fmt(cross(r) - cross(leader), 1);
     }
-    t[4].textContent = gap || (r ? "–" : "");
+    cl[4].textContent = gap || (r ? "–" : "");
     // best, then mean · total
-    t[6].firstChild.textContent = r && r.best ? "★ " + fmt(r.best, 1) : "-";
-    t[6].firstChild.className = r && r.best === bestAll ? "ob" : "";
-    t[6].lastChild.textContent = r ? fmt(r.mean, 1) + " · " + fmt(r.total) + (r.miss ? " · ⚠" + r.miss : "") + (r.cut ? " · 🚫" + r.cut : "") : "";
-    t[6].title = r && (r.miss || r.cut) ? "⚠ portes manquées tolérées : " + (r.miss || 0) + " · 🚫 tours non comptés : " + (r.cut || 0) : "";
+    cl[6].firstChild.textContent = r && r.best ? "★ " + fmt(r.best, 1) : "-";
+    cl[6].firstChild.className = r && r.best === bestAll ? "ob" : "";
+    cl[6].lastChild.textContent = r ? fmt(r.mean, 1) + " · " + fmt(r.total) + (r.miss ? " · ⚠" + r.miss : "") + (r.cut ? " · 🚫" + r.cut : "") : "";
+    cl[6].title = r && (r.miss || r.cut) ? t("⚠ missed gates tolerated: {a} · 🚫 laps not counted: {b}", {a: r.miss || 0, b: r.cut || 0}) : "";
   });
   // FLIP: each moved row starts where it was seen and slides to its new place; the one going up passes over.
   // Cells are animated, not the <tr> (transforms on table rows paint ghosts in Chrome).
@@ -689,7 +903,7 @@ function render() {
       }
     }
   }
-  $("summary").textContent = STYLES[c.style] + " · " + condText(c) + " · " + c.players + " pilote" + (c.players > 1 ? "s" : "") + (solo ? " · solo" : "");
+  $("summary").textContent = [STYLES[c.style], condText(c), tn(c.players, "{n} driver", "{n} drivers"), solo ? "solo" : ""].filter(Boolean).join(" · ");
   const pct = c.style == 1 ? now() / c.time : c.style == 2 ? 0 : (st.lap || 0) / c.laps;
   $("bar").firstChild.style.width = Math.min(100, pct * 100) + "%";
   const go = $("go"), stop = busy();
@@ -732,11 +946,11 @@ function countdown() {
       void box.offsetWidth;                                   // restart the pop animation
       box.className = lit ? "f1" : (n <= 3 ? "hot " : "") + "tickA";
     }
-    $("countL").textContent = "Départ";
+    $("countL").textContent = t("Start");
     box.hidden = !n;
   } else if (st.goUntil > nowT) {
     $("countN").textContent = "GO";
-    $("countL").textContent = st.conf && st.conf.start ? "Chrono au premier passage sur la ligne" : "";
+    $("countL").textContent = st.conf && st.conf.start ? t("Timer starts at the first pass on the line") : "";
     box.className = "go"; box.hidden = false; lastCount = null;
   } else {
     box.hidden = true; lastCount = null;
@@ -746,8 +960,8 @@ function countdown() {
 // clock + "current lap" column, 10 Hz, no network involved
 function tick() {
   countdown();
-  const t = now();
-  $("clock").textContent = t > 0 ? fmt(t) : "00:00.000";
+  const tm = now();
+  $("clock").textContent = tm > 0 ? fmt(tm) : "00:00.000";
   const c = st.conf; if (!c) return;
   const tbody = $("rows");
   const list = c.solo ? st.rows.slice().reverse() : st.rows;
@@ -755,7 +969,7 @@ function tick() {
     const r = list[i];
     const done = r && c.style == 0 && r.lap >= c.laps;
     const live = running() && r && !done && (!c.solo || i === 0);
-    const cell = tbody.rows[i].cells[5], cur = Math.max(1, t - (r ? cross(r) : 0));  // local clock may lag a few ms
+    const cell = tbody.rows[i].cells[5], cur = Math.max(1, tm - (r ? cross(r) : 0));  // local clock may lag a few ms
     cell.firstChild.textContent = done ? "🏁" : live ? fmt(cur, 1) : "-";
     // sectors: one segment per gate; done sectors full, current one fills vs best lap / n (orange once slower than the best lap)
     const n = c.gates || 1, bar = cell.lastChild;
@@ -769,9 +983,9 @@ function tick() {
       bar.children[s].className = live && s === k && r.best && cur > r.best ? "over" : "";
     }
     cell.children[1].textContent = live && n > 1 ? "S" + (k + 1) : "";
-    cell.title = r && r.gate && n > 1 ? r.gate.map((v, s) => "S" + (s + 1) + " " + fmt(v, 1)).join(" · ") + " (derniers secteurs)" : "";
+    cell.title = r && r.gate && n > 1 ? r.gate.map((v, s) => "S" + (s + 1) + " " + fmt(v, 1)).join(" · ") + " " + t("(last sectors)") : "";
   }
-  if (c.style == 1) $("bar").firstChild.style.width = Math.min(100, t / c.time * 100) + "%";
+  if (c.style == 1) $("bar").firstChild.style.width = Math.min(100, tm / c.time * 100) + "%";
 }
 setInterval(tick, 100);
 
@@ -781,20 +995,20 @@ function renderSettings() {
   const locked = busy();
   $("setForm").disabled = locked; $("lock").hidden = !locked;
   for (const b of $("style").children) b.className = b.dataset.v == c.style ? "on" : "";
-  $("styleHint").textContent = ["La course s'arrête quand le premier a fait tous les tours ; les autres finissent leur tour.",
-    "La course s'arrête à la fin du temps ; chacun termine son tour en cours.",
-    "Entraînement sans fin : arrêt manuel avec Stop."][c.style] || "";
+  $("styleHint").textContent = [t("The race ends when the leader has done all the laps; the others finish their lap."),
+    t("The race ends when the time is up; everyone finishes the lap in progress."),
+    t("Endless practice: stop it by hand with Stop.")][c.style] || "";
   const time = c.style == 1;               // time mode: slider in minutes, server wants ms
   $("condField").hidden = c.style == 2;
-  $("condL").textContent = time ? "Durée (min)" : "Nombre de tours";
+  $("condL").textContent = time ? t("Duration (min)") : t("Number of laps");
   $("cond").max = time ? st.max.time : st.max.laps;
   const v = time ? Math.round(c.time / 60000) : c.laps;
   if (document.activeElement !== $("cond")) { $("cond").value = v; $("condV").textContent = v; }
   $("solo").checked = !!c.solo;
   for (const b of $("startMode").children) b.className = b.dataset.v == (c.start ? 1 : 0) ? "on" : "";
   $("startHint").textContent = c.start
-    ? "Chaque chrono démarre au premier passage du pilote sur la ligne après le GO."
-    : "Tous les chronos démarrent au GO ; le premier passage sur la ligne ne compte pas de tour.";
+    ? t("Each timer starts at the driver's first pass on the line after the GO.")
+    : t("All timers start at the GO; the first pass on the line does not count a lap.");
   if (document.activeElement !== $("wu") && c.warmup) { $("wu").value = c.warmup; $("wuV").textContent = c.warmup + " s"; }
   $("pl").max = st.max.players; $("ga").max = st.max.gates;
   if (document.activeElement !== $("pl")) { $("pl").value = c.players; $("plV").textContent = c.players; }
@@ -809,12 +1023,12 @@ function renderDrivers(keep) {
   if (!keep) tb.textContent = "";
   while (tb.rows.length > st.conf.players) tb.deleteRow(-1);
   for (let i = tb.rows.length; i < st.conf.players; i++) {
-    const p = names[i] || {id: 0, name: "Pilote " + (i + 1), color: "#888888"};
+    const p = names[i] || {id: 0, name: t("Driver {n}", {n: i + 1}), color: "#888888"};
     const tr = tb.insertRow();
-    tr.innerHTML = '<td></td><td><input type="color"></td><td class="l"><input maxlength="15" placeholder="Nom"></td><td class="l"><select></select></td>';
+    tr.innerHTML = '<td></td><td><input type="color"></td><td class="l"><input maxlength="15"></td><td class="l"><select></select></td>';
     const [col, name] = tr.querySelectorAll("input");
     tr.cells[0].textContent = i + 1;
-    col.value = hex(p.color); name.value = p.name;
+    col.value = hex(p.color); name.value = p.name; name.placeholder = t("Name");
     fillCarSelect(tr.querySelector("select"), p.id);
   }
   if (!keep) st.namesDirty = false;
@@ -828,24 +1042,24 @@ function readDrivers() {
     const n = Number(sel.value);
     const bad = !n || seen[n];                               // every driver needs his own car
     sel.classList.toggle("err", !!bad); ok = ok && !bad; seen[n] = 1;
-    out.push({id: n, name: name.value.trim() || "Pilote " + (out.length + 1), color: col.value});
+    out.push({id: n, name: name.value.trim() || t("Driver {n}", {n: out.length + 1}), color: col.value});
   }
   return ok ? out : null;
 }
 function updateSave() {
   $("saveBtn").disabled = !st.namesDirty || !readDrivers();
   $("undoBtn").hidden = !st.namesDirty;
-  $("saveMsg").textContent = st.namesDirty ? (readDrivers() ? "Modifications non enregistrées" : "Chaque pilote doit avoir sa propre voiture") : "";
+  $("saveMsg").textContent = st.namesDirty ? (readDrivers() ? t("Unsaved changes") : t("Each driver needs their own car")) : "";
 }
 $("drivers").addEventListener("input", () => { st.namesDirty = true; updateSave(); });
 $("drivers").addEventListener("change", () => { st.namesDirty = true; updateSave(); });
 // a driver's car: one of the garage, or his current code if it is not in the garage (yet)
 function fillCarSelect(sel, id) {
   sel.textContent = "";
-  sel.append(new Option("— choisir —", 0));
+  sel.append(new Option(t("— choose —"), 0));
   const cars = (st.conf && st.conf.cars) || [];
   for (const c of cars) sel.append(new Option(c.name + " (" + c.id + ")", c.id));
-  if (id && !cars.some(c => c.id === id)) sel.append(new Option("#" + id + " (hors garage)", id));
+  if (id && !cars.some(c => c.id === id)) sel.append(new Option(t("#{id} (not in the garage)", {id}), id));
   sel.value = id || 0;
 }
 
@@ -854,7 +1068,7 @@ function fillCarSelect(sel, id) {
 const rd = {open: false, tags: new Map(), owner: null, pick: null};
 function listening() {
   $("rdState").className = "listen";
-  $("rdState").textContent = "Passe la voiture devant la ligne d'arrivée, puis choisis son tag.";
+  $("rdState").textContent = t("Pass the car in front of the finish line, then pick its tag.");
   $("rdRetry").hidden = true;
 }
 function openReader(title, owner, pick) {
@@ -868,11 +1082,11 @@ function closeReader() { if ($("reader").open) $("reader").close(); }
 $("reader").addEventListener("close", () => { rd.open = false; if (st.conf && st.conf.read) send({read: 0}); });
 $("rdCancel").onclick = closeReader;
 $("rdRetry").onclick = () => { listening(); send({read: 1}); };
-function onTag(t) {
+function onTag(tg) {
   if (!rd.open) return;
-  const e = rd.tags.get(t.id) || {id: t.id, n: 0, best: 0};
-  e.n++; e.best = Math.max(e.best, t.strength || 0);
-  rd.tags.delete(t.id); rd.tags.set(t.id, e);               // Map order: most recent last
+  const e = rd.tags.get(tg.id) || {id: tg.id, n: 0, best: 0};
+  e.n++; e.best = Math.max(e.best, tg.strength || 0);
+  rd.tags.delete(tg.id); rd.tags.set(tg.id, e);             // Map order: most recent last
   renderTags();
 }
 function renderTags() {
@@ -883,9 +1097,9 @@ function renderTags() {
     b.type = "button"; b.className = "tag" + (k === 0 ? " new" : "");
     b.innerHTML = "<b></b><span></span><i><s></s></i>";
     b.children[0].textContent = e.id;
-    b.children[1].textContent = e.n + (e.n > 1 ? " passages" : " passage") + " · " + (owner || "nouveau");
+    b.children[1].textContent = tn(e.n, "{n} pass", "{n} passes") + " · " + (owner || t("new"));
     b.children[2].firstChild.style.width = Math.round(e.best / 255 * 100) + "%";
-    b.title = "Signal " + e.best + "/255 · cliquer pour l'attribuer";
+    b.title = t("Signal {s}/255 · click to assign it", {s: e.best});
     b.onclick = () => { if (rd.pick(e.id) !== false) closeReader(); };
     li.append(b); ul.append(li);
   });
@@ -896,11 +1110,14 @@ const carRows = () => [...$("cars").tBodies[0].rows];
 const carCode = tr => tr.querySelectorAll("input")[1];
 function carRow(car) {
   const tr = $("cars").tBodies[0].insertRow();
-  tr.innerHTML = '<td></td><td class="l"><input maxlength="20" placeholder="Nom de la voiture"></td><td class="l"><input inputmode="numeric" placeholder="code"></td>' +
-    '<td><button class="btn rd" type="button" title="Lire le code de cette voiture">📡</button></td><td class="who"></td><td class="rec"></td>' +
-    '<td><button class="btn del" type="button" title="Retirer du garage">✕</button></td>';
+  tr.innerHTML = '<td></td><td class="l"><input maxlength="20"></td><td class="l"><input inputmode="numeric" placeholder="code"></td>' +
+    '<td><button class="btn rd" type="button">📡</button></td><td class="who"></td><td class="rec"></td>' +
+    '<td><button class="btn del" type="button">✕</button></td>';
   const [name, code] = tr.querySelectorAll("input");
   name.value = car.name || ""; code.value = car.id || "";
+  name.placeholder = t("Car name");
+  tr.querySelector(".rd").title = t("Read this car's code");
+  tr.querySelector(".del").title = t("Remove from the garage");
   return tr;
 }
 function renderGarage(keep) {
@@ -930,7 +1147,7 @@ function readCars() {
     const n = Number(code.value);
     const bad = !/^\d{1,10}$/.test(code.value.trim()) || !n || n > 4294967295 || seen[n];
     code.classList.toggle("err", !!bad); ok = ok && !bad; seen[n] = 1;
-    out.push({id: n, name: name.value.trim() || "Voiture " + (out.length + 1)});
+    out.push({id: n, name: name.value.trim() || t("Car {n}", {n: out.length + 1})});
   }
   return ok ? out : null;
 }
@@ -938,54 +1155,55 @@ function carSaveState() {
   const ok = readCars();
   $("carSave").disabled = !st.carsDirty || !ok;
   $("carUndo").hidden = !st.carsDirty;
-  $("carMsg").textContent = st.carsDirty ? (ok ? "Modifications non enregistrées" : "Code manquant ou en double") : carRows().length + " / " + CARS_MAX + " voitures";
+  $("carMsg").textContent = st.carsDirty ? (ok ? t("Unsaved changes") : t("Missing or duplicate code"))
+                                         : t("{n} / {max} cars", {n: carRows().length, max: CARS_MAX});
   $("carAdd").disabled = carRows().length >= CARS_MAX;
 }
 function carsChanged() { st.carsDirty = true; garageInfo(); }
 $("cars").addEventListener("input", carsChanged);
 const carOwner = (id, except) => { const tr = carRows().find(r => r !== except && Number(carCode(r).value) === id);
-  return tr ? "voiture « " + (tr.querySelector("input").value || "?") + " »" : null; };
+  return tr ? t("car “{name}”", {name: tr.querySelector("input").value || "?"}) : null; };
 $("cars").addEventListener("click", e => {
   const tr = e.target.closest("tr");
   if (e.target.closest(".del")) {
-    const name = tr.querySelector("input").value || "cette voiture";
-    if (confirm("Retirer " + name + " du garage ?")) { tr.remove(); carsChanged(); }
+    const name = tr.querySelector("input").value || t("this car");
+    if (confirm(t("Remove {name} from the garage?", {name}))) { tr.remove(); carsChanged(); }
   } else if (e.target.closest(".rd") && !busy()) {
     const row = carRows().indexOf(tr), wasDirty = st.carsDirty;
-    openReader("Lire le code · " + (tr.querySelector("input").value || "voiture"), id => carOwner(id), id => {
+    openReader(t("Read the code · {name}", {name: tr.querySelector("input").value || t("car")}), id => carOwner(id), id => {
       const me = carRows()[row];                              // the row as displayed now
       if (!me) return;
       const other = carRows().find(r => r !== me && Number(carCode(r).value) === id);
-      if (other && !confirm("Le code " + id + " est déjà celui de " + carOwner(id, me) + ". Échanger les deux codes ?")) return false;
+      if (other && !confirm(t("Code {id} already belongs to {owner}. Swap the two codes?", {id, owner: carOwner(id, me)}))) return false;
       if (other) carCode(other).value = carCode(me).value;
       carCode(me).value = id; carsChanged();
-      saveGarageIfClean(wasDirty, "Code " + id + " enregistré pour « " + (me.querySelector("input").value || "voiture " + (row + 1)) + " »");
+      saveGarageIfClean(wasDirty, t("Code {id} saved for “{name}”", {id, name: me.querySelector("input").value || t("car {n}", {n: row + 1})}));
     });
   }
 });
 $("carAdd").onclick = () => { carRow({}).querySelector("input").focus(); carsChanged(); };
 $("carRead").onclick = () => {
   const wasDirty = st.carsDirty;
-  openReader("Nouvelle voiture : passe-la devant la ligne", id => carOwner(id), id => {
-    if (carOwner(id)) { toast("Le code " + id + " est déjà dans le garage (" + carOwner(id) + ")"); return false; }
-    if (carRows().length >= CARS_MAX) { toast("Garage plein (" + CARS_MAX + " voitures)"); return false; }
-    const tr = carRow({id, name: "Voiture " + (carRows().length + 1)});
+  openReader(t("New car: pass it in front of the line"), id => carOwner(id), id => {
+    if (carOwner(id)) { toast(t("Code {id} is already in the garage ({owner})", {id, owner: carOwner(id)})); return false; }
+    if (carRows().length >= CARS_MAX) { toast(t("Garage full ({n} cars)", {n: CARS_MAX})); return false; }
+    const tr = carRow({id, name: t("Car {n}", {n: carRows().length + 1})});
     carsChanged();
-    saveGarageIfClean(wasDirty, "Voiture ajoutée (code " + id + ") : tu peux la renommer");
+    saveGarageIfClean(wasDirty, t("Car added (code {id}): you can rename it", {id}));
     tr.querySelector("input").select();
   });
 };
-// a code just read is saved at once, unless other garage edits are pending (then: Enregistrer)
+// a code just read is saved at once, unless other garage edits are pending (then: Save)
 function saveGarageIfClean(wasDirty, msg) {
   const cars = readCars();
   if (!wasDirty && cars && send({cars})) { st.carsDirty = false; garageInfo(); toast(msg); }
-  else toast(msg + " · pense à Enregistrer");
+  else toast(msg + " · " + t("remember to Save"));
 }
-$("carSave").onclick = () => { const cars = readCars(); if (cars && send({cars})) { st.carsDirty = false; toast("Garage enregistré"); garageInfo(); } };
+$("carSave").onclick = () => { const cars = readCars(); if (cars && send({cars})) { st.carsDirty = false; toast(t("Garage saved")); garageInfo(); } };
 $("carUndo").onclick = () => renderGarage(false);
 $("saveBtn").onclick = () => {
   const names = readDrivers();
-  if (names && send({names})) { st.namesDirty = false; updateSave(); toast("Pilotes enregistrés"); }
+  if (names && send({names})) { st.namesDirty = false; updateSave(); toast(t("Drivers saved")); }
 };
 $("undoBtn").onclick = () => renderDrivers(false);
 
@@ -997,7 +1215,7 @@ $("resBtn").onclick = () => { location.hash = "#results"; };
 function setRacing() {
   document.body.classList.toggle("racing", busy() && !location.hash.match(/^#(settings|results|garage|records)$/));
 }
-$("reset").onclick = () => { if (!running() || confirm("Arrêter et effacer la course en cours ?")) send({reset: 1}); };
+$("reset").onclick = () => { if (!running() || confirm(t("Stop and clear the current race?"))) send({reset: 1}); };
 $("light").onclick = () => send({light: st.conf && st.conf.light > 1 ? 0 : 255});
 $("style").onclick = e => { if (e.target.dataset.v) send({style: e.target.dataset.v}); };
 $("solo").onchange = e => send({solo: e.target.checked ? 1 : 0});
@@ -1019,10 +1237,10 @@ $("ga").oninput = e => { $("gaV").textContent = e.target.value; sendSoon({gates:
 $("db").oninput = e => { $("dbV").textContent = e.target.value + " s"; sendSoon({debounce: e.target.value}); };
 $("tol").oninput = e => { tolText(+e.target.value); sendSoon({tolerance: e.target.value}); };
 function tolText(n) {
-  $("tolV").textContent = n ? "1 sur " + n + " passages" : "jamais";
+  $("tolV").textContent = n ? t("1 in {n} passes", {n}) : t("never");
   $("tolHint").textContent = n
-    ? "Une porte sautée est acceptée si le pilote n'a fait aucune erreur de porte sur ses " + n + " derniers passages ; sinon le tour en cours n'est pas compté."
-    : "Toute porte sautée annule le tour en cours (les portes doivent être passées dans l'ordre).";
+    ? t("A skipped gate is accepted if the driver made no gate error in their last {n} passes; otherwise the current lap is not counted.", {n})
+    : t("Any skipped gate cancels the current lap (gates must be passed in order).");
 }
 $("cond").oninput = e => {
   $("condV").textContent = e.target.value;
@@ -1050,7 +1268,7 @@ addEventListener("keydown", e => {
   if (e.key === "Escape") document.body.classList.remove("disp");
 });
 document.body.addEventListener("dblclick", () => { if (document.body.classList.contains("disp")) toggleDisp(); });
-addEventListener("beforeunload", e => { if (st.namesDirty) e.preventDefault(); });
+addEventListener("beforeunload", e => { if (st.namesDirty || st.carsDirty) e.preventDefault(); });
 
 // ---- results: podium, lap-time chart, lap table ----------------------------------------
 // Built from the live messages; the last race is kept in localStorage (reload-proof).
@@ -1065,7 +1283,7 @@ function saveResult() {
 try { st.result = JSON.parse(localStorage.getItem("lastRace")); } catch (e) {}
 
 // ---- arcade records (top 10 kept by the controller) ------------------------------------------------
-const REC_KINDS = [["best", "Meilleur tour"], ["mean", "Meilleure moyenne (3 tours min.)"], ["total", "Meilleur temps total"]];
+const REC_KINDS = [["best", t("Best lap")], ["mean", t("Best average (3 laps min.)")], ["total", t("Best total time")]];
 let recGroup = null;
 function recTable(kind, group) {
   const rs = st.records.filter(r => kind === "best" ? r.best > 0 : kind === "mean" ? r.laps >= 3 && r.mean > 0
@@ -1085,14 +1303,14 @@ function renderRecords() {
     h.textContent = title;
     if (kind === "total") {
       const sel = document.createElement("select");
-      for (const g of groups) sel.append(Object.assign(document.createElement("option"), {value: g, textContent: g + " tours"}));
+      for (const g of groups) sel.append(Object.assign(document.createElement("option"), {value: g, textContent: tn(g, "{n} lap", "{n} laps")}));
       sel.value = recGroup;
       sel.onchange = () => { recGroup = +sel.value; renderRecords(); };
       h.append(sel);
     }
-    const t = document.createElement("table");
+    const tbl = document.createElement("table");
     recTable(kind, recGroup).forEach((r, i) => {
-      const tr = t.insertRow();
+      const tr = tbl.insertRow();
       tr.className = st.newUids.has(r.uid) ? "new" : "";
       tr.insertCell().textContent = ["🥇", "🥈", "🥉"][i] || i + 1;
       const n = tr.insertCell(); n.className = "n";
@@ -1102,24 +1320,25 @@ function renderRecords() {
       if (st.newUids.has(r.uid)) n.append(Object.assign(document.createElement("span"), {className: "badge", textContent: "NEW"}));
       const v = tr.insertCell(); v.className = "v"; v.textContent = fmt(r[kind], kind !== "total");
       const d = tr.insertCell(); d.className = "d";
-      d.textContent = (kind === "mean" ? r.laps + " t · " : "") + (r.at ? new Date(r.at * 1000).toLocaleDateString("fr-FR", {day: "2-digit", month: "2-digit", year: "2-digit"}) : "");
+      d.textContent = (kind === "mean" ? tn(r.laps, "{n} lap", "{n} laps") + " · " : "") +
+        (r.at ? new Date(r.at * 1000).toLocaleDateString(LOCALE, {day: "2-digit", month: "2-digit", year: "2-digit"}) : "");
       const x = tr.insertCell(), b = document.createElement("button");
-      b.className = "del"; b.textContent = "✕"; b.title = "Supprimer ce chrono";
-      b.onclick = () => { if (confirm("Supprimer le chrono de " + r.name + " (" + fmt(r[kind], kind !== "total") + ") de tous les records ?")) send({record_del: r.uid}); };
+      b.className = "del"; b.textContent = "✕"; b.title = t("Delete this time");
+      b.onclick = () => { if (confirm(t("Delete {name}'s time ({time}) from all records?", {name: r.name, time: fmt(r[kind], kind !== "total")}))) send({record_del: r.uid}); };
       x.append(b);
     });
-    div.append(h, t);
+    div.append(h, tbl);
     box.append(div);
   }
 }
 function announceRecords(news) {
   st.newUids = new Set(news.map(n => n.uid));
-  const label = {best: "meilleur tour", mean: "meilleure moyenne", total: "temps total"};
+  const label = {best: t("best lap"), mean: t("best average"), total: t("total time")};
   const top = news.filter(n => n.rank <= 3).sort((a, b) => a.rank - b.rank);
   if (!top.length) return;
   const n = top[0];
-  toast("🏆 Record ! " + n.name + " · " + label[n.kind] + (n.kind === "total" ? " " + n.race_laps + " tours" : "") +
-        " #" + n.rank + " · " + fmt(n.value, n.kind !== "total"));
+  toast(t("🏆 Record! {name} · {what} #{rank} · {time}", {name: n.name, rank: n.rank, time: fmt(n.value, n.kind !== "total"),
+        what: label[n.kind] + (n.kind === "total" ? " " + tn(n.race_laps, "{n} lap", "{n} laps") : "")}));
   [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => beep(f, .12), i * 130));   // arcade fanfare
 }
 
@@ -1134,8 +1353,8 @@ function renderResults() {
   const order = [...new Set((res.solo ? [] : res.rows.map(r => r.id)).concat(ids))].filter(id => ids.includes(id));
   const series = order.map(id => ({id, name: who2(id).name, color: hex(who2(id).color), laps: res.hist[id]}));
 
-  $("resTitle").textContent = (busy() ? "Course en cours" : "Dernière course") + " · " + STYLES[res.style] + " · " +
-    new Date(res.at).toLocaleString("fr-FR", {dateStyle: "short", timeStyle: "short"});
+  $("resTitle").textContent = (busy() ? t("Race in progress") : t("Last race")) + " · " + STYLES[res.style] + " · " +
+    new Date(res.at).toLocaleString(LOCALE, {dateStyle: "short", timeStyle: "short"});
   const pod = $("podium"); pod.textContent = "";
   (res.solo ? res.rows.slice(-1) : res.rows).forEach((r, i) => {
     const p = who2(r.id), d = document.createElement("div");
@@ -1144,8 +1363,8 @@ function renderResults() {
     d.children[0].textContent = res.solo ? "⏱" : ["🥇", "🥈", "🥉"][i] || i + 1;
     d.children[1].style.background = p.color;
     d.children[2].textContent = p.name;
-    d.children[3].textContent = r.lap + " tours · " + fmt(r.total) + " · ★ " + fmt(r.best, 1);
-    d.children[3].title = "tours · temps total · meilleur tour";
+    d.children[3].textContent = tn(r.lap, "{n} lap", "{n} laps") + " · " + fmt(r.total) + " · ★ " + fmt(r.best, 1);
+    d.children[3].title = t("laps · total time · best lap");
     pod.append(d);
   });
   const lg = $("legend"); lg.textContent = ""; lg.hidden = series.length < 2;
@@ -1181,7 +1400,7 @@ function drawChart(series) {
   const pw = W - m.l - m.r, ph = H - m.t - m.b;
   const x = i => m.l + (nLaps === 1 ? pw / 2 : i / (nLaps - 1) * pw);
   const y = v => m.t + (1 - (v - lo) / (hi - lo)) * ph;
-  const svg = svgEl("svg", {viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", "aria-label": "Temps au tour par pilote"}, box);
+  const svg = svgEl("svg", {viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img", "aria-label": t("Lap times per driver")}, box);
 
   for (let v = lo; v <= hi + 1e-6; v += step) {
     svgEl("line", {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: "grid"}, svg);
@@ -1189,7 +1408,7 @@ function drawChart(series) {
   }
   const every = Math.ceil(nLaps / Math.max(2, Math.floor(pw / 36)));
   for (let i = 0; i < nLaps; i += every) svgEl("text", {x: x(i), y: H - m.b + 20, "text-anchor": "middle", class: "ax"}, svg).textContent = i + 1;
-  svgEl("text", {x: m.l + pw / 2, y: H - 2, "text-anchor": "middle", class: "ax"}, svg).textContent = "tour";
+  svgEl("text", {x: m.l + pw / 2, y: H - 2, "text-anchor": "middle", class: "ax"}, svg).textContent = t("lap");
 
   let best = null;
   series.forEach(s => {
@@ -1224,7 +1443,7 @@ function drawChart(series) {
     const i = nLaps === 1 ? 0 : Math.max(0, Math.min(nLaps - 1, Math.round((px - m.l) / pw * (nLaps - 1))));
     hair.setAttribute("x1", x(i)); hair.setAttribute("x2", x(i)); hair.setAttribute("visibility", "visible");
     tip.textContent = "";
-    const th = document.createElement("div"); th.className = "th"; th.textContent = "Tour " + (i + 1); tip.append(th);
+    const th = document.createElement("div"); th.className = "th"; th.textContent = t("Lap {n}", {n: i + 1}); tip.append(th);
     series.map(s => ({s, v: s.laps[i]})).sort((a, b) => (a.v > 0 ? a.v : Infinity) - (b.v > 0 ? b.v : Infinity)).forEach(({s, v}) => {
       const row = document.createElement("div"), k = document.createElement("i"), b = document.createElement("b"), n = document.createElement("span");
       row.className = "tr"; k.style.background = s.color; b.textContent = v > 0 ? fmt(v, 1) : "-"; n.textContent = s.name;
@@ -1241,18 +1460,18 @@ function drawChart(series) {
 }
 // table view of the same data: one row per lap, one column per driver
 function lapTable(series) {
-  const t = $("laps"); t.textContent = "";
+  const tbl = $("laps"); tbl.textContent = "";
   const n = Math.max(...series.map(s => s.laps.length));
   const valid = s => s.laps.filter(v => v > 0);
   const bestAll = Math.min(...series.flatMap(valid));
-  const hd = t.createTHead().insertRow();
-  hd.append(Object.assign(document.createElement("th"), {textContent: "Tour"}));
+  const hd = tbl.createTHead().insertRow();
+  hd.append(Object.assign(document.createElement("th"), {textContent: t("Lap")}));
   series.forEach(s => {
     const th = document.createElement("th");
     th.innerHTML = '<span class="sw"></span>'; th.firstChild.style.background = s.color; th.append(s.name);
     hd.append(th);
   });
-  const tb = t.createTBody();
+  const tb = tbl.createTBody();
   for (let i = 0; i < n; i++) {
     const tr = tb.insertRow();
     tr.insertCell().textContent = i + 1;
@@ -1262,8 +1481,8 @@ function lapTable(series) {
       if (v > 0 && v === Math.min(...valid(s))) c.className = v === bestAll ? "best all" : "best";
     });
   }
-  const tf = t.createTFoot();
-  [["Meilleur", l => Math.min(...l)], ["Moyenne", l => l.reduce((a, b) => a + b, 0) / l.length]].forEach(([label, f]) => {
+  const tf = tbl.createTFoot();
+  [[t("Best"), l => Math.min(...l)], [t("Average"), l => l.reduce((a, b) => a + b, 0) / l.length]].forEach(([label, f]) => {
     const tr = tf.insertRow();
     tr.insertCell().textContent = label;
     series.forEach(s => { const l = valid(s); tr.insertCell().textContent = l.length ? fmt(f(l), 1) : "-"; });
@@ -1272,14 +1491,14 @@ function lapTable(series) {
 
 // ---- theme: auto (system) -> light -> dark -----------------------------------------------
 const THEMES = {
-  auto: ["Thème : auto (système)", '<path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>'],
-  light: ["Thème : clair", '<circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
-  dark: ["Thème : sombre", '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="currentColor"/>'],
+  auto: [t("Theme: auto (system)"), '<path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>'],
+  light: [t("Theme: light"), '<circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+  dark: [t("Theme: dark"), '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="currentColor"/>'],
 };
 function themeIcon() {
-  const t = document.documentElement.dataset.theme || "auto";
-  $("theme").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + THEMES[t][1] + "</svg>";
-  $("theme").title = $("theme").ariaLabel = THEMES[t][0];
+  const th = document.documentElement.dataset.theme || "auto";
+  $("theme").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + THEMES[th][1] + "</svg>";
+  $("theme").title = $("theme").ariaLabel = THEMES[th][0];
 }
 $("theme").onclick = e => {
   const order = ["auto", "light", "dark"], cur = document.documentElement.dataset.theme || "auto";
@@ -1295,6 +1514,19 @@ $("theme").onclick = e => {
   document.startViewTransition ? document.startViewTransition(apply) : apply();
 };
 themeIcon();
+
+// ---- language: English / French, per device like the theme; the page reloads in the other one -------------
+$("lang").textContent = LANG.toUpperCase();
+$("lang").title = $("lang").ariaLabel = LANG === "fr" ? "Langue : français · cliquer pour English" : "Language: English · click for Français";
+$("lang").onclick = () => {
+  if ((st.namesDirty || st.carsDirty) && !confirm(t("Unsaved changes will be lost. Change the language anyway?"))) return;
+  st.namesDirty = st.carsDirty = false;
+  const next = LANG === "fr" ? "en" : "fr", url = new URL(location.href);
+  let saved = false;
+  try { localStorage.setItem("lang", next); saved = true; } catch (e) {}
+  if (url.searchParams.has("lang") || !saved) { url.searchParams.set("lang", next); location.replace(url); }
+  else location.reload();
+};
 
 let toastT;
 function toast(msg) {

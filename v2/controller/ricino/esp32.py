@@ -411,7 +411,7 @@ def make_routes(cfg, bus):
     def allowed(req, w):
         pw = cfg["admin_password"]
         if pw and req.headers.get("x-password", "") != pw:
-            web.reply_json(w, {"error": "mot de passe requis"}, "401 Unauthorized")
+            web.reply_json(w, {"error": "password required"}, "401 Unauthorized")
             return False
         return True
 
@@ -450,12 +450,12 @@ def make_routes(cfg, bus):
         try:
             new = await req.json()
         except (ValueError, TypeError):
-            return web.reply_json(w, {"error": "JSON invalide"}, "400 Bad Request")
+            return web.reply_json(w, {"error": "invalid JSON"}, "400 Bad Request")
         h = new.get("hostname", cfg["hostname"]).strip().lower()
         if not (0 < len(h) <= 32 and all(c.isalpha() or c.isdigit() or c == "-" for c in h)):
-            return web.reply_json(w, {"error": "nom d'hôte invalide (a-z, 0-9, -)"}, "400 Bad Request")
+            return web.reply_json(w, {"error": "invalid hostname (a-z, 0-9, -)"}, "400 Bad Request")
         if "ap_password" in new and 0 < len(new["ap_password"]) < 8:
-            return web.reply_json(w, {"error": "mot de passe du point d'accès : 8 caractères minimum"}, "400 Bad Request")
+            return web.reply_json(w, {"error": "access point password: 8 characters minimum"}, "400 Bad Request")
         cfg["hostname"] = h
         for k in ("ssid", "password", "ap_password", "admin_password"):
             if k in new:
@@ -500,11 +500,11 @@ def make_routes(cfg, bus):
             return
         path = req.query.get("path", "")
         if ".." in path or not (path in UPLOAD_FILES or any(path.startswith(d) and len(path) > len(d) for d in UPLOAD_DIRS)):
-            return web.reply_json(w, {"error": "chemin refusé: " + path}, "400 Bad Request")
+            return web.reply_json(w, {"error": "path refused: " + path}, "400 Bad Request")
         n = req.length
         free, total = fs_info()
         if n <= 0 or n > free - 8192:
-            return web.reply_json(w, {"error": "taille invalide ou flash pleine"}, "400 Bad Request")
+            return web.reply_json(w, {"error": "invalid size or flash full"}, "400 Bad Request")
         dest = ROOT + path
         makedirs(path)
         tmp = dest + ".new"
@@ -514,7 +514,7 @@ def make_routes(cfg, bus):
                 while got < n:
                     chunk = await req.reader.read(min(1024, n - got))
                     if not chunk:
-                        raise OSError("connexion coupée")
+                        raise OSError("connection lost")
                     f.write(chunk)
                     got += len(chunk)
             remove(dest)
@@ -538,11 +538,11 @@ def make_routes(cfg, bus):
             return
         part = ota_partition()
         if part is None:
-            return web.reply_json(w, {"error": "firmware sans partitions OTA (prendre la variante OTA de MicroPython)"}, "400 Bad Request")
+            return web.reply_json(w, {"error": "firmware without OTA partitions (use the OTA variant of MicroPython)"}, "400 Bad Request")
         n = req.length
         size = part.info()[3]
         if n <= 0 or n > size:
-            return web.reply_json(w, {"error": "taille invalide (%d octets max)" % size}, "400 Bad Request")
+            return web.reply_json(w, {"error": "invalid size (%d bytes max)" % size}, "400 Bad Request")
         buf = bytearray(4096)
         block, got = 0, 0
         try:
@@ -551,14 +551,14 @@ def make_routes(cfg, bus):
                 while fill < 4096 and got < n:
                     chunk = await req.reader.read(min(4096 - fill, n - got))
                     if not chunk:
-                        raise OSError("connexion coupée")
+                        raise OSError("connection lost")
                     buf[fill: fill + len(chunk)] = chunk
                     fill += len(chunk)
                     got += len(chunk)
                 # app image: header magic 0xE9 + esp_app_desc magic 0xABCD5432 at byte 32
                 # (the full USB image starts with the bootloader instead: refuse it)
                 if block == 0 and (buf[0] != 0xE9 or bytes(buf[32:36]) != b"\x32\x54\xcd\xab"):
-                    raise ValueError("ce n'est pas une image d'application ESP32 : envoyer le fichier .app-bin")
+                    raise ValueError("not an ESP32 application image: send the .app-bin file")
                 for i in range(fill, 4096):
                     buf[i] = 0xFF
                 part.writeblocks(block, buf)       # erases then writes the 4 KB block
@@ -577,9 +577,9 @@ def make_routes(cfg, bus):
             info.update(bus.stats.json())
         if req.query.get("listen"):
             if not hasattr(bus, "listen"):
-                return web.reply_json(w, {"error": "écoute possible en RS485 seulement"}, "400 Bad Request")
+                return web.reply_json(w, {"error": "listening only works on RS485"}, "400 Bad Request")
             if core.START <= core.raceState <= core.FINISH:
-                return web.reply_json(w, {"error": "pas pendant une course"}, "409 Conflict")
+                return web.reply_json(w, {"error": "not during a race"}, "409 Conflict")
             ms = max(1, min(int(req.query["listen"]), 15)) * 1000
             core.paused_until = core.millis() + ms + 200       # the race loop stops polling meanwhile
             heard_before = dict(bus.stats.heard)
@@ -589,7 +589,7 @@ def make_routes(cfg, bus):
             info.update(bus.stats.json())
         if req.query.get("test") and hasattr(bus, "probe"):
             if core.START <= core.raceState <= core.FINISH:
-                return web.reply_json(w, {"error": "pas pendant une course"}, "409 Conflict")
+                return web.reply_json(w, {"error": "not during a race"}, "409 Conflict")
             test = {}
             for a in core.address_all_gates:
                 ok, raw = 0, b""

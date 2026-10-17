@@ -34,16 +34,22 @@ def recovery(err):
         ap.config(essid="RicinoNext-recovery")
         ip = ap.ifconfig()[0]
     print("RECOVERY MODE on http://%s/" % ip)
+    # English; French if chosen on the race page (same origin, so same localStorage) or if the browser is French
     page = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
-            "<title>RicinoNext - secours</title><body style='font:16px system-ui;max-width:40em;margin:2em auto;padding:0 1em'>"
-            "<h1>Mode secours</h1><p>L'application n'a pas démarré :</p><pre style='white-space:pre-wrap;background:#eee;padding:1em'>%s</pre>"
-            "<p>Renvoyer un fichier corrigé (chemin sur l'ESP32, ex. <code>/ricino/core.py</code>) :</p>"
-            "<input type=file id=f> <input id=p value='/ricino/'> <button onclick=\"up()\">Envoyer</button> "
-            "<button onclick=\"fetch('/reboot',{method:'POST'})\">Redémarrer</button><p id=m></p>"
-            "<script>async function up(){const f=document.getElementById('f').files[0],p=document.getElementById('p');"
+            "<title>RicinoNext - recovery</title><body style='font:16px system-ui;max-width:40em;margin:2em auto;padding:0 1em'>"
+            "<h1 id=h>Recovery mode</h1><p id=a>The application did not start:</p><pre style='white-space:pre-wrap;background:#eee;padding:1em'>%s</pre>"
+            "<p id=b>Upload a fixed file (path on the ESP32, e.g. <code>/ricino/core.mpy</code>):</p>"
+            "<input type=file id=f> <input id=p value='/ricino/'> <button id=u onclick=\"up()\">Upload</button> "
+            "<button id=r onclick=\"fetch('/reboot',{method:'POST'})\">Restart</button><p id=m></p>"
+            "<script>const $=i=>document.getElementById(i);let L='';try{L=localStorage.getItem('lang')||''}catch(e){}"
+            "const fr=/^fr/i.test(L||navigator.language);"
+            "if(fr){document.title='RicinoNext - secours';$('h').textContent='Mode secours';"
+            "$('a').textContent=\"L'application n'a pas démarré :\";$('u').textContent='Envoyer';$('r').textContent='Redémarrer';"
+            "$('b').innerHTML=\"Renvoyer un fichier corrigé (chemin sur l'ESP32, ex. <code>/ricino/core.mpy</code>) :\"}"
+            "async function up(){const f=$('f').files[0],p=$('p');"
             "if(!f)return;let path=p.value.endsWith('/')?p.value+f.name:p.value;"
             "const r=await fetch('/upload?path='+encodeURIComponent(path),{method:'POST',body:f});"
-            "document.getElementById('m').textContent=r.ok?'OK : '+path:'Erreur '+r.status}</script>") % (
+            "$('m').textContent=r.ok?'OK: '+path:(fr?'Erreur ':'Error ')+r.status}</script>") % (
                 err.replace("&", "&amp;").replace("<", "&lt;"))
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

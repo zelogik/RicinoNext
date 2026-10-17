@@ -1,132 +1,152 @@
-# RicinoNext — contrôleur (Python / MicroPython) · v1.0.0
+# RicinoNext: controller (Python / MicroPython) · v1.0.0
 
-Compteur de tours pour Mini-Z (émetteurs IR type Robitronic). Le même code tourne sur PC
-(simulateur) et sur ESP32 (MicroPython), à partir du firmware d'origine
+Lap counter for Mini-Z (Robitronic-style IR emitters). The same code runs on a PC
+(simulator) and on an ESP32 (MicroPython). It is derived from the original firmware
 `Software/Controller/RicinoNext-controller.ino`.
 
-**Installation sur le matériel : voir [INSTALL.md](INSTALL.md).** Firmware des gates : [../receiver](../receiver/README.md).
+**Installing on the hardware: see [INSTALL.md](INSTALL.md).** Gate firmware: [../receiver](../receiver/README.md).
 
-## Fonctions
+## Features
 
-- Course aux **tours**, au **temps** ou **libre**, mode **solo**, départ **normal** ou **lancé**,
-  décompte de départ réglable de 5 à 30 s (à l'écran : chiffres ou **feux F1**, au choix par appareil ;
-  feux F1 sur un ruban WS2812 en option), bips de départ
-  et bip à chaque passage sur la ligne (plus aigu sur un record perso).
-- Classement plein écran : écart au leader, tour en cours par secteur (gates), meilleur tour en violet
-  et record perso en vert, tendance ▲▼ par rapport au tour précédent, **dépassements animés**,
-  mode vidéoprojecteur (`F` ou `#display`).
-- **Résultats** : podium, graphique des temps au tour, détail tour par tour. L'historique est gardé par
-  le contrôleur, donc une page rechargée en pleine course le récupère.
-- **Garage** (jusqu'à 50 voitures) : nom et code IR de chaque voiture, **lecture du code** (📡) en passant la
-  voiture sur la ligne, record de la voiture. Les **pilotes** (nom, couleur) choisissent leur voiture.
-- **🏆 Records** (onglet) : top 10 meilleur tour, meilleure moyenne, meilleur temps total par nombre de tours,
-  gardés en mémoire permanente, avec pilote, voiture et date ; suppression d'un chrono.
-- **Résultats** : affichés à l'arrivée, puis rouverts par « 📊 Derniers résultats » sur la page de course.
-- Réglages de course et pilotes **conservés** entre deux redémarrages.
-- Thème clair / sombre / auto.
-- ESP32 : configuration Wi-Fi et nom d'hôte (`<nom>.local`), point d'accès de secours avec portail captif,
-  mises à jour **OTA** (fichiers et firmware MicroPython), mode démo, mode secours,
-  **bouton Start/Stop physique** et **feux de départ** sur ruban WS2812.
+- **Lap**, **time** or **free practice** race, **solo** mode, **standing** or **flying** start,
+  start countdown adjustable from 5 to 30 s (on screen: digits or **F1 lights**, chosen per device;
+  optional F1 lights on a WS2812 strip), start beeps
+  and a beep at every pass on the line (higher pitch on a personal best).
+- Full-screen standings: gap to the leader, current lap by sector (gates), best lap in purple
+  and personal best in green, ▲▼ trend compared with the previous lap, **animated overtakes**,
+  projector mode (`F` or `#display`).
+- **Results**: podium, lap-time chart, lap-by-lap details. The history is kept by
+  the controller, so a page reloaded during a race gets it back. Shown at the finish, then reopened with
+  "📊 Last results" on the race page.
+- **Garage** (up to 50 cars): name and IR code of each car, **code reading** (📡) by passing the
+  car over the line, car record. **Drivers** (name, color) pick their car.
+- **🏆 Records** (tab): top 10 best lap, best mean, best total time per lap count,
+  kept in permanent memory, with driver, car and date; a time can be deleted.
+- Race settings and drivers **kept** across restarts.
+- Light / dark / auto theme.
+- **English or French** interface: EN / FR button in the header, per device (default: the browser's language;
+  `?lang=en` / `?lang=fr` in the address forces one, handy for a projector).
+- ESP32: Wi-Fi setup and hostname (`<name>.local`), fallback access point with captive portal,
+  **OTA** updates (files and MicroPython firmware), demo mode, recovery mode,
+  **physical Start/Stop button** and **start lights** on a WS2812 strip.
 
-## Règles de comptage
+## Counting rules
 
-- **Anti-rebond** : un passage ne compte qu'après **3 s** (réglable 1-10 s) **sans aucune détection** de la même
-  voiture sur la même porte. Une voiture arrêtée sur la ligne ou une double détection ne font pas de tour.
-- **Ordre des portes** : 1 → 2 → … → 1. Le chrono d'un pilote démarre à son premier passage sur la ligne ;
-  les secteurs ne sont mesurés qu'entre deux portes consécutives.
-- **Porte sautée** : **tolérée** (détection ratée probable) si le pilote n'a fait aucune erreur de porte sur ses
-  **N derniers passages** (N = 10, réglable, 0 = jamais) ; sinon **le tour en cours n'est pas compté** et le
-  suivant part de la ligne. Les deux cas sont annoncés et comptés (⚠ tolérées, 🚫 tours non comptés).
+- **Debounce**: a pass only counts after **3 s** (adjustable 1-10 s) **without any detection** of the same
+  car at the same gate. A car stopped on the line or a double detection does not make a lap.
+- **Gate order**: 1 → 2 → … → 1. A driver's clock starts at their first pass on the line;
+  sectors are only measured between two consecutive gates.
+- **Skipped gate**: **tolerated** (probably a missed detection) if the driver made no gate error in their
+  **last N passes** (N = 10, adjustable, 0 = never); otherwise **the current lap is not counted** and the
+  next one starts from the line. Both cases are announced and counted (⚠ tolerated, 🚫 laps not counted).
 
-## Organisation
+## Layout
 
 ```
 controller/
-  main.py            point d'entrée : détecte PC ou ESP32 (+ mode secours sur ESP32)
-  ricino/core.py     course : machine à états, chronos tours/secteurs, paquets I2C, protocole JSON
-  ricino/web.py      serveur HTTP (fichiers statiques, .gz prioritaire) + WebSocket /ws
-  ricino/sim.py      gates et voitures simulées (PC, et mode démo sur ESP32)
-  ricino/pc.py       plateforme PC : options en ligne de commande, horloge, settings.json
-  ricino/esp32.py    plateforme ESP32 : bus I2C ou RS485, Wi-Fi, nom d'hôte, API système, OTA
-  ricino/lights.py   feux de départ F1 sur ruban WS2812 (ESP32)
-  ricino/button.py   bouton poussoir ou interrupteur Start/Stop (ESP32)
-  ricino/rs485.py    trames RS485 contrôleur <-> gates (référence pour le firmware des récepteurs)
-  data/index.html    page de course (classement, résultats, réglages de course)
-  data/system.html   page système : Wi-Fi, nom d'hôte, matériel, mises à jour (ESP32)
-  tools/deploy.sh    installation sur ESP32 par USB
-  test_controller.py test de bout en bout du simulateur (WebSocket brut)
-  test_esp32.py      code ESP32 exécuté avec des modules MicroPython imités
+  main.py            entry point: detects PC or ESP32 (+ recovery mode on ESP32)
+  ricino/core.py     race: state machine, lap/sector timing, I2C packets, JSON protocol
+  ricino/web.py      HTTP server (static files, .gz preferred) + WebSocket /ws
+  ricino/sim.py      simulated gates and cars (PC, and demo mode on ESP32)
+  ricino/pc.py       PC platform: command-line options, clock, settings.json
+  ricino/esp32.py    ESP32 platform: I2C or RS485 bus, Wi-Fi, hostname, system API, OTA
+  ricino/lights.py   F1 start lights on a WS2812 strip (ESP32)
+  ricino/button.py   Start/Stop push button or switch (ESP32)
+  ricino/rs485.py    RS485 frames controller <-> gates (reference for the receiver firmware)
+  data/index.html    race page (standings, results, garage, records, race settings)
+  data/system.html   system page: Wi-Fi, hostname, hardware, updates (ESP32)
+  tools/deploy.sh    USB install on the ESP32 (compiles the modules to .mpy)
+  test_controller.py end-to-end test of the simulator (raw WebSocket)
+  test_esp32.py      ESP32 code run against fake MicroPython modules
+  test_rules.py      counting rules (debounce, gate order, tolerance)
+  test_records.py    records (top 10)
+  test_i18n.py       every text of the web pages has its French translation
 ```
 
-Sur l'ESP32, les modules sont installés **précompilés en `.mpy`** (voir INSTALL.md) : sinon la compilation
-au démarrage prive le Wi-Fi de mémoire.
+On the ESP32 the modules are installed **precompiled to `.mpy`** (see INSTALL.md): otherwise compiling them
+at boot leaves the Wi-Fi without memory.
 
-`core.py`, `web.py` et `sim.py` n'utilisent que ce qui existe à la fois en CPython et en
-MicroPython (pas de `:=`, pas de f-string, pas de `os.path`). La structure de `core.py` suit
-celle du `.ino` (mêmes noms, même `loop()`) pour un éventuel portage C++. Les corrections par
-rapport au firmware d'origine sont marquées `FIX:`.
+`core.py`, `web.py` and `sim.py` only use what exists in both CPython and
+MicroPython (no `:=`, no f-strings, no `os.path`). The structure of `core.py` follows
+the `.ino` (same names, same `loop()`) for a possible C++ port. Fixes compared with
+the original firmware are marked `FIX:`.
 
-## Sur PC
+## On a PC
 
 ```
 python3 main.py                        # http://localhost:8080/
-python3 main.py --speed 5 --laptime 4  # course accélérée
-python3 main.py --settings ""          # sans garder les réglages (settings.json)
+python3 main.py --speed 5 --laptime 4  # faster race
+python3 main.py --settings ""          # do not keep the settings (settings.json)
 python3 test_controller.py
 python3 test_esp32.py
-python3 test_rules.py                  # règles de comptage (anti-rebond, ordre des portes, tolérance)
+python3 test_rules.py                  # counting rules (debounce, gate order, tolerance)
 python3 test_records.py                # records (top 10)
+python3 test_i18n.py                   # translations of the web pages
 ```
 
-Aucune dépendance (bibliothèque standard uniquement).
+No dependencies (standard library only).
 
-## Protocole WebSocket (`/ws`)
+## Translations
 
-Les valeurs `conf` envoyées par le client sont des **chaînes** (le firmware les lit avec `atoi`),
-sauf `names` (tableau d'objets).
+The pages and the code are written in English; each page holds its French version in a `FR` dictionary
+(English text → French text), next to its script.
 
-| Message | Champs |
+- Static text: mark the element with `data-t` (its content, markup included) or `data-t="title"` /
+  `data-t="placeholder"` (an attribute).
+- Text built by the script: `t("Lap {n}", {n})`, and `tn(n, "{n} lap", "{n} laps")` for plurals.
+- Texts sent by the controller (race messages, API errors) stay in English and are translated by the page.
+
+`test_i18n.py` lists every text that has no French version yet.
+
+## WebSocket protocol (`/ws`)
+
+The `conf` values sent by the client are **strings** (the firmware reads them with `atoi`),
+except `names` (array of objects).
+
+| Message | Fields |
 |---|---|
-| `conf` ↔ | laps, time (ms), players, gates, light, reset, style (0 tours, 1 temps, 2 libre), solo, warmup (s), start (0 normal, 1 lancé), read (lecture de tag 0/1), state, names[{id, name, color}] ; à la connexion en plus laps_m, time_m (min), players_m, gates_m |
-| `race` → | state, lap, time, message?, countdown? (ms, pendant le décompte) |
-| `live` → | rank, id, lap, best, last, mean, total (temps propre), cross (heure du dernier passage sur la ligne), sector (dernière gate passée), gate[] (temps des secteurs) |
-| `history` → | {id: [temps des tours]} à la connexion, pendant ou après une course |
-| `tag` → | id, gate, hit, strength (mode lecture de tag) |
+| `conf` ↔ | laps, time (ms), players, gates, light, reset, style (0 laps, 1 time, 2 free), solo, warmup (s), start (0 standing, 1 flying), read (tag reading 0/1), state, names[{id, name, color}]; on connection also laps_m, time_m (min), players_m, gates_m |
+| `race` → | state, lap, time, message?, countdown? (ms, during the countdown) |
+| `live` → | rank, id, lap, best, last, mean, total (own time), cross (time of the last pass on the line), sector (last gate passed), gate[] (sector times) |
+| `history` → | {id: [lap times]} on connection, during or after a race |
+| `tag` → | id, gate, hit, strength (tag reading mode) |
 | `debug` → | time, memory, … |
 
-## Liaison avec les gates : I2C ou RS485
+## Link to the gates: I2C or RS485
 
-Au choix dans la page système. Dans les deux cas, chaque gate fournit le même paquet de 13 octets
-(`0x82` état, `0x83` horodatage, `0x84` passage d'un émetteur) ; seul le transport change.
+Selected on the system page. In both cases each gate provides the same 13-byte packet
+(`0x82` status, `0x83` timestamp, `0x84` emitter pass); only the transport changes.
 
-- **I2C** : SDA 21, SCL 22, 100 kHz (option SoftI2C). Câble court.
-- **RS485** : UART2, TX 26, RX 25, 57600 bauds, 8N1, module à direction automatique (HW-519).
-  Câble long (dizaines de mètres), paire torsadée A+/B-, 120 Ω aux deux extrémités.
+- **I2C**: SDA 21, SCL 22, 100 kHz (SoftI2C option). Short cable.
+- **RS485**: UART2, TX 26, RX 25, 57600 baud, 8N1, auto-direction module (HW-519).
+  Long cable (tens of meters), A+/B- twisted pair. No 120 Ω termination on a short cable
+  (see [../README.md](../README.md) §3).
 
-Trames RS485 (`ricino/rs485.py`), CRC-8 Dallas/Maxim (le même que le paquet `0x84`) :
+RS485 frames (`ricino/rs485.py`), CRC-8 Dallas/Maxim (the same as in the `0x84` packet):
 
 ```
-requête  contrôleur -> gate : A5 | adresse | commande | crc8(adresse, commande)
-réponse  gate -> contrôleur : 5A | adresse | 0D | paquet[13] | crc8(adresse, 0D, paquet)
-commandes : 01 poll, 02 répéter la dernière réponse, 8A départ, 8F arrêt ; adresse 0 = toutes les gates, sans réponse
+request  controller -> gate : A5 | address | command | crc8(address, command)
+reply    gate -> controller : 5A | address | 0D | packet[13] | crc8(address, 0D, packet)
+commands: 01 poll, 02 repeat the last reply, 8A start, 8F stop; address 0 = all gates, no reply
 ```
 
-Le contrôleur interroge une gate toutes les 20 ms (attente de réponse 10 ms au plus). Si une réponse
-est perdue ou corrompue, l'interrogation suivante demande sa répétition (`02`), donc aucun passage n'est
-perdu, et un doublon est écarté. Le départ
-part en une seule trame à l'adresse 0 : toutes les gates démarrent leur horloge au même instant.
+The controller polls a gate every 20 ms (waiting 10 ms at most for the reply). If a reply
+is lost or corrupted, the next poll asks for it again (`02`), so no pass is
+lost, and a duplicate is discarded. The start
+goes out as a single frame to address 0: all gates start their clock at the same instant.
 
-## API système (ESP32, `data/system.html`)
+## System API (ESP32, `data/system.html`)
 
 `GET /api/system`, `GET /api/scan`, `POST /api/config`, `POST /api/upload?path=…`,
-`POST /api/firmware`, `POST /api/reboot`. Les routes d'écriture demandent l'en-tête `X-Password`
-si un mot de passe d'administration est défini. Sur PC, `/api/system` répond `platform: "pc"` et
-les routes d'écriture répondent 403.
+`POST /api/firmware`, `POST /api/reboot`. Write routes require the `X-Password` header
+if an administration password is set. On a PC, `/api/system` answers `platform: "pc"` and
+write routes answer 403.
 
-## Fichiers sur l'ESP32
+## Files on the ESP32
 
-| Fichier | Contenu |
+| File | Content |
 |---|---|
-| `/config.json` | Wi-Fi, nom d'hôte, mots de passe, bus (I2C / RS485), mode démo |
-| `/race.json` | réglages de course et pilotes (enregistrés 3 s après le dernier changement) |
-| `/error.log` | dernière erreur de démarrage (mode secours) |
+| `/config.json` | Wi-Fi, hostname, passwords, bus (I2C / RS485), demo mode |
+| `/race.json` | race settings, drivers and garage (saved 3 s after the last change) |
+| `/records.json` | records (top 10) |
+| `/error.log` | last boot error (recovery mode) |
