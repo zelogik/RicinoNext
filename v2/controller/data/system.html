@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RicinoNext · Système</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Cpath d='M0 0h2v2H0zM4 0h2v2H4zM2 2h2v2H2zM6 2h2v2H6zM0 4h2v2H0zM4 4h2v2H4zM2 6h2v2H2zM6 6h2v2H6z'/%3E%3C/svg%3E">
+<script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+:root{color-scheme:light dark;
+  --bg:light-dark(#f3f4f7,#0f1115);--panel:light-dark(#fff,#181b22);--line:light-dark(#dcdfe6,#262a33);
+  --fg:light-dark(#1a1c21,#e8eaed);--dim:light-dark(#6b7080,#8b909a);--ok:light-dark(#15803d,#4ade80);--bad:#f05252;
+  --warn:#f5a623;--accent:light-dark(#1769e0,#4c9aff)}
+:root[data-theme=light]{color-scheme:light}
+:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+h1{font-size:18px;margin:0}
+header a{color:var(--dim);text-decoration:none;font-weight:600;padding:6px 12px;border-radius:8px}
+header a:hover{background:var(--line);color:var(--fg)}
+#conn{margin-left:auto;font-size:14px;color:var(--dim)}
+main{max-width:1100px;margin:auto;padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card.wide{grid-column:1/-1}
+.card h2{font-size:15px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim)}
+.banner{grid-column:1/-1;border:1px solid var(--warn);background:color-mix(in oklab,var(--warn) 12%,transparent);border-radius:10px;padding:10px 14px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0;font-size:15px}
+dt{color:var(--dim)}
+dd{margin:0;font-family:ui-monospace,monospace;word-break:break-all}
+label{display:block;font-size:14px;color:var(--dim);margin:12px 0 4px}
+input[type=text],input[type=password],input[type=number]{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px}
+.row{display:flex;gap:8px;align-items:center}
+.row>input{flex:1}
+.hint{font-size:13px;color:var(--dim);margin:4px 0 0}
+.btn{padding:9px 16px;border:0;border-radius:8px;background:var(--line);cursor:pointer;font-weight:600}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.45;cursor:default}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+.check{display:flex;gap:10px;align-items:center;color:var(--fg);font-size:15px;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;padding:7px;border:0;background:none;cursor:pointer;font-weight:600;color:var(--dim)}
+.seg button.on{background:var(--accent);color:#fff}
+select{padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px}
+#nets{list-style:none;margin:8px 0 0;padding:0;max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+#nets li{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--line)}
+#nets li:last-child{border-bottom:0}
+#nets li:hover{background:var(--line)}
+#nets small{color:var(--dim);font-family:ui-monospace,monospace}
+.files{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.files li{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) 90px;gap:8px;align-items:center;font-size:14px}
+.files li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.files input{padding:4px 8px!important;font:13px ui-monospace,monospace}
+progress{width:100%;height:8px;accent-color:var(--accent)}
+table.stats{border-collapse:collapse;font-size:14px;width:100%}
+table.stats th,table.stats td{padding:5px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.stats th:first-child,table.stats td:first-child{text-align:left}
+table.stats td.raw{font:12px ui-monospace,monospace;text-align:left;color:var(--dim);white-space:normal;word-break:break-all}
+.ok{color:var(--ok)}.err{color:var(--bad)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:12px 24px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .4s}
+#toast.show{opacity:1}
+#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:color-mix(in oklab,var(--bg) 80%,transparent);backdrop-filter:blur(3px);font-size:22px;font-weight:600;z-index:5}
+@media (max-width:600px){main{padding:10px}.files li{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>RicinoNext · Système</h1>
+  <a href="/">← Course</a>
+  <span id="conn">…</span>
+</header>
+<main>
+  <div class="banner" id="pcBanner" hidden>Simulateur PC : le Wi-Fi, le matériel et les mises à jour ne sont disponibles que sur l'ESP32. Cette page est affichée pour la relire.</div>
+
+  <section class="card">
+    <h2>Appareil</h2>
+    <dl id="info"><dt>…</dt><dd></dd></dl>
+    <div class="actions"><button class="btn" id="refresh">Actualiser</button><button class="btn danger esp" id="reboot">Redémarrer</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Wi-Fi</h2>
+    <fieldset class="esp" style="border:0;padding:0;margin:0">
+      <p class="hint" id="wifiState"></p>
+      <label for="ssid">Réseau</label>
+      <div class="row"><input type="text" id="ssid" autocomplete="off" placeholder="nom du réseau (vide = point d'accès seul)"><button class="btn" id="scan">Scanner</button></div>
+      <ul id="nets" hidden></ul>
+      <label for="pw">Mot de passe du réseau</label>
+      <input type="password" id="pw" autocomplete="new-password" placeholder="inchangé">
+      <label for="host">Nom d'hôte</label>
+      <input type="text" id="host" maxlength="32" pattern="[a-z0-9-]+" autocapitalize="off">
+      <p class="hint">Adresse sur le réseau : <b id="hostUrl"></b> (lettres minuscules, chiffres, tiret).</p>
+      <label for="appw">Mot de passe du point d'accès de secours</label>
+      <input type="password" id="appw" autocomplete="new-password" placeholder="vide = ouvert, sinon 8 caractères minimum">
+      <p class="hint">Le point d'accès <b>RicinoNext-XXXX</b> s'ouvre quand le réseau ci-dessus est introuvable.</p>
+      <div class="actions"><button class="btn primary" id="saveWifi">Enregistrer et redémarrer</button></div>
+    </fieldset>
+  </section>
+
+  <section class="card">
+    <h2>Matériel</h2>
+    <fieldset class="esp" style="border:0;padding:0;margin:0">
+      <label class="check"><input type="checkbox" id="simulate"> Mode démo : gates et voitures simulées</label>
+      <p class="hint">Pour tester l'interface sur l'ESP32 sans récepteur branché.</p>
+      <label>Liaison avec les gates</label>
+      <div class="seg" id="busSel"><button type="button" data-v="i2c">I2C</button><button type="button" data-v="rs485">RS485</button></div>
+      <div id="i2cBox">
+        <div class="row" style="margin-top:8px">
+          <input type="number" id="sda" min="0" max="48" title="SDA"> <input type="number" id="scl" min="0" max="48" title="SCL">
+          <input type="number" id="freq" min="10000" max="400000" step="10000" title="Fréquence (Hz)">
+        </div>
+        <p class="hint">SDA · SCL · fréquence (Hz). Câble court (1 à 2 m).</p>
+        <label class="check"><input type="checkbox" id="softi2c"> I2C logiciel (SoftI2C)</label>
+        <p class="hint">À essayer si des gates disparaissent ou si les lectures sont erratiques (étirement d'horloge des ATmega).</p>
+      </div>
+      <div id="rsBox">
+        <div class="row" style="margin-top:8px">
+          <input type="number" id="rstx" min="0" max="48" title="TX (vers TXD du module)"> <input type="number" id="rsrx" min="0" max="48" title="RX (vers RXD du module)">
+          <select id="rsbaud" title="Débit"><option>38400</option><option selected>57600</option><option>115200</option></select>
+        </div>
+        <p class="hint">TX · RX de l'ESP32 · débit. Module à direction automatique (HW-519) alimenté en 3,3 V ; A+/B- en paire torsadée, 120 Ω aux deux bouts du bus.</p>
+      </div>
+      <p class="hint">Gates détectées : <b id="gates">-</b></p>
+      <label class="check"><input type="checkbox" id="btnOn"> Bouton Start/Stop physique</label>
+      <div class="row" style="margin-top:6px">
+        <input type="number" id="btnPin" min="0" max="48" title="GPIO (contact vers la masse)">
+        <select id="btnMode" style="flex:2"><option value="button">Bouton poussoir</option><option value="switch">Interrupteur</option></select>
+      </div>
+      <p class="hint">Contact entre le GPIO et la masse (pull-up interne : pas les GPIO 34 à 39). Poussoir : appui = départ,
+        appui long 1 s = arrêt. Interrupteur : ON = départ, OFF = arrêt. GPIO 0 = bouton BOOT de la carte, pratique pour essayer.</p>
+      <label class="check"><input type="checkbox" id="ledOn"> Feux de départ (ruban WS2812)</label>
+      <div class="row" id="ledBox" style="margin-top:6px">
+        <input type="number" id="ledPin" min="0" max="48" title="GPIO données"> <input type="number" id="ledCount" min="1" max="64" title="Nombre de LED">
+        <input type="range" id="ledLevel" min="5" max="100" step="5" title="Luminosité" style="flex:1">
+      </div>
+      <p class="hint">GPIO · nombre de LED · luminosité. Ruban alimenté en 5 V à part (8 LED ≈ 0,5 A au maximum), masses reliées.
+        Décompte orange puis feux rouges F1, vert au départ, blanc au dernier tour, damier à l'arrivée.</p>
+      <label for="adminpw">Mot de passe d'administration</label>
+      <input type="password" id="adminpw" autocomplete="new-password" placeholder="inchangé (vide = aucun)">
+      <p class="hint">Protège cette page (réglages, mises à jour, redémarrage). <span id="adminState"></span></p>
+      <div class="actions"><button class="btn primary" id="saveHw">Enregistrer et redémarrer</button></div>
+    </fieldset>
+  </section>
+
+  <section class="card wide">
+    <h2>Diagnostic de la liaison</h2>
+    <p class="hint" id="busSummary">-</p>
+    <div style="overflow-x:auto"><table class="stats" id="busTable"></table></div>
+    <div class="actions"><button class="btn" id="busRefresh">Actualiser</button><button class="btn esp" id="busListen">Écouter 8 s</button><button class="btn primary esp" id="busTest">Tester la liaison</button></div>
+    <p class="hint"><b>Écouter</b> : le contrôleur se tait 8 s et note tout ce qui arrive (sans écho possible). Pendant l'écoute,
+      <b>redémarre la gate</b> : son « hello » doit être reçu (chaîne d'émission complète de la gate). Ou, gate débranchée,
+      <b>relie l'entrée du module de la gate (fil de J1-5) à la masse</b> : le module force la ligne à 0, des octets <code>00</code>
+      doivent arriver (module de la gate et câble). Un bouclage TX↔RX côté gate est invisible d'ici : ces modules entendent déjà leur propre émission.</p>
+    <div id="busTest2"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Mise à jour (OTA)</h2>
+    <fieldset class="esp" style="border:0;padding:0;margin:0">
+      <label>Fichiers de l'application (.py, .html…)</label>
+      <input type="file" id="files" multiple>
+      <p class="hint">Destination proposée automatiquement : <code>main.py</code> → <code>/</code>, <code>*.mpy</code> / <code>*.py</code> → <code>/ricino/</code>, le reste → <code>/data/</code>.
+        Envoyer de préférence les modules <b>précompilés (.mpy)</b> : un gros <code>.py</code> compilé sur la carte peut manquer de mémoire au démarrage. Les pages HTML sont compressées (gzip) avant l'envoi.</p>
+      <ul class="files" id="fileList"></ul>
+      <div class="actions"><button class="btn primary" id="sendFiles" disabled>Envoyer</button></div>
+      <label>Firmware MicroPython (fichier .app-bin de la variante OTA)</label>
+      <div class="row"><input type="file" id="fw" accept=".app-bin,.bin"><button class="btn primary" id="sendFw" disabled>Flasher</button></div>
+      <progress id="fwProg" value="0" max="1" hidden></progress>
+      <p class="hint" id="fwHint"></p>
+    </fieldset>
+  </section>
+</main>
+<div id="overlay" hidden></div>
+<div id="toast"></div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let sys = null;
+
+function toast(msg) {
+  const e = $("toast"); e.textContent = msg; e.className = "show";
+  clearTimeout(toast.t); toast.t = setTimeout(() => e.className = "", 4000);
+}
+const kb = n => n >= 1048576 ? (n / 1048576).toFixed(1) + " Mo" : Math.round(n / 1024) + " Ko";
+const pw = () => { try { return sessionStorage.getItem("adminpw") || ""; } catch (e) { return ""; } };
+function askPw() {
+  const p = prompt("Mot de passe d'administration :");
+  if (p === null) return false;
+  try { sessionStorage.setItem("adminpw", p); } catch (e) {}
+  return true;
+}
+// fetch JSON with the admin password; asks for it on 401 and retries once
+async function api(path, opts = {}, retry = true) {
+  opts.headers = Object.assign({"X-Password": pw()}, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (r.status === 401 && retry && askPw()) return api(path, opts, false);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+  return data;
+}
+// raw upload with progress (fetch has no upload progress)
+function upload(url, body, onprog) {
+  return new Promise((ok, ko) => {
+    const send = again => {
+      const x = new XMLHttpRequest();
+      x.open("POST", url);
+      x.setRequestHeader("X-Password", pw());
+      x.upload.onprogress = e => e.lengthComputable && onprog(e.loaded / e.total);
+      x.onload = () => {
+        if (x.status === 401 && !again && askPw()) return send(true);
+        let d = {}; try { d = JSON.parse(x.responseText); } catch (e) {}
+        x.status < 300 ? ok(d) : ko(new Error(d.error || "HTTP " + x.status));
+      };
+      x.onerror = () => ko(new Error("connexion perdue"));
+      x.send(body);
+    };
+    send(false);
+  });
+}
+
+// ---- info ------------------------------------------------------------------------
+async function load() {
+  try {
+    sys = await api("/api/system");
+  } catch (e) { $("conn").textContent = "injoignable"; return; }
+  const esp = sys.platform === "esp32";
+  $("pcBanner").hidden = esp;
+  for (const f of document.querySelectorAll(".esp")) f.disabled = !esp;
+  $("conn").textContent = esp ? "ESP32 · " + (sys.ip || "") : "PC";
+  const up = s => s >= 3600 ? Math.floor(s / 3600) + " h " + Math.floor(s / 60) % 60 + " min" : Math.floor(s / 60) + " min " + s % 60 + " s";
+  const rows = esp ? [
+    ["RicinoNext", sys.version], ["MicroPython", sys.micropython], ["Carte", sys.machine],
+    ["Nom d'hôte", sys.hostname + ".local"], ["Adresse IP", sys.ip], ["MAC", sys.mac],
+    ["Mémoire libre", kb(sys.mem_free) + " / " + kb(sys.mem_free + sys.mem_alloc)],
+    ["Flash libre", kb(sys.fs_free) + " / " + kb(sys.fs_total)],
+    ["Partition", sys.partition || "-"], ["Démarré depuis", up(sys.uptime)],
+    ...(sys.stats ? [["Charge CPU", sys.stats.cpu + " % · " + sys.stats.mhz + " MHz"],
+                     ["RAM système", sys.stats.idf_free !== undefined ? kb(sys.stats.idf_free) + " libre (min " + kb(sys.stats.idf_min) + ")" : "-"],
+                     ["Pile", sys.stats.stack !== undefined ? sys.stats.stack + " octets" : "-"]] : []),
+  ] : [["RicinoNext", sys.version], ["Plateforme", "PC (simulateur)"], ["Python", sys.python], ["Machine", sys.hostname]];
+  const dl = $("info"); dl.textContent = "";
+  for (const [k, v] of rows) { dl.append(Object.assign(document.createElement("dt"), {textContent: k}), Object.assign(document.createElement("dd"), {textContent: v ?? "-"})); }
+  if (!esp) return;
+  $("wifiState").textContent = sys.mode === "sta"
+    ? "Connecté à « " + sys.ssid + " »" + (sys.rssi != null ? " (" + sys.rssi + " dBm)" : "")
+    : "Point d'accès de secours « " + sys.ssid + " » actif" + (sys.saved_ssid ? " : « " + sys.saved_ssid + " » introuvable" : "");
+  if (!load.filled) {                       // form fields: only once, so the auto refresh never erases an edit
+    load.filled = true;
+    $("ssid").value = sys.saved_ssid || "";
+    $("host").value = sys.hostname;
+    $("simulate").checked = sys.simulate;
+    $("sda").value = sys.i2c.sda; $("scl").value = sys.i2c.scl; $("freq").value = sys.i2c.freq;
+    $("softi2c").checked = !!sys.i2c.soft;
+    setBus(sys.bus || "i2c");
+    $("btnOn").checked = sys.button.enabled; $("btnPin").value = sys.button.pin; $("btnMode").value = sys.button.mode;
+    $("ledOn").checked = sys.leds.enabled; $("ledPin").value = sys.leds.pin; $("ledCount").value = sys.leds.count;
+    $("ledLevel").value = Math.round(sys.leds.brightness * 100);
+    $("rstx").value = sys.rs485.tx; $("rsrx").value = sys.rs485.rx; $("rsbaud").value = sys.rs485.baud;
+  }
+  $("hostUrl").textContent = "http://" + $("host").value + ".local/";
+  $("appw").placeholder = sys.ap_secure ? "inchangé (protégé)" : "vide = ouvert, sinon 8 caractères minimum";
+  $("gates").textContent = sys.simulate ? "simulées" : sys.gates.length ? sys.gates.map(a => a + " (0x" + a.toString(16) + ")").join(", ") : "aucune";
+  $("adminState").textContent = sys.admin ? "Actuellement : protégé." : "Actuellement : aucun.";
+  $("fwHint").textContent = sys.ota
+    ? "Partition active : " + sys.partition + ". Le nouveau firmware est écrit dans l'autre partition ; s'il ne démarre pas correctement, l'ESP32 revient automatiquement à l'actuel."
+    : "Ce firmware n'a pas de partitions OTA : flasher une fois par USB la variante « OTA » de MicroPython (ESP32_GENERIC-OTA) pour activer cette fonction.";
+  $("fw").disabled = !sys.ota;
+}
+$("refresh").onclick = load;
+$("host").oninput = () => $("hostUrl").textContent = "http://" + $("host").value + ".local/";
+
+// ---- reboot + wait for the device to come back ------------------------------------------
+async function waitBack(msg) {
+  const o = $("overlay"); o.hidden = false; o.textContent = msg;
+  await new Promise(r => setTimeout(r, 4000));
+  for (let i = 0; i < 40; i++) {
+    try { const r = await fetch("/api/system", {cache: "no-store"}); if (r.ok) { location.reload(); return; } } catch (e) {}
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  o.textContent = "L'ESP32 ne répond plus à cette adresse : il a peut-être changé de réseau ou de nom (http://" + $("host").value + ".local/).";
+}
+$("reboot").onclick = async () => {
+  if (!confirm("Redémarrer l'ESP32 ? Une course en cours sera perdue.")) return;
+  try { await api("/api/reboot", {method: "POST"}); waitBack("Redémarrage…"); } catch (e) { toast(e.message); }
+};
+
+// ---- Wi-Fi ----------------------------------------------------------------------------
+$("scan").onclick = async () => {
+  const b = $("scan"); b.disabled = true; b.textContent = "…";
+  try {
+    const nets = await api("/api/scan"), ul = $("nets");
+    ul.textContent = ""; ul.hidden = !nets.length;
+    for (const n of nets) {
+      const li = document.createElement("li");
+      li.append(Object.assign(document.createElement("span"), {textContent: (n.secure ? "🔒 " : "") + n.ssid}),
+                Object.assign(document.createElement("small"), {textContent: n.rssi + " dBm"}));
+      li.onclick = () => { $("ssid").value = n.ssid; ul.hidden = true; $("pw").focus(); };
+      ul.append(li);
+    }
+    if (!nets.length) toast("Aucun réseau trouvé");
+  } catch (e) { toast(e.message); }
+  b.disabled = false; b.textContent = "Scanner";
+};
+async function saveConfig(cfg, msg) {
+  try { await api("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cfg)}); waitBack(msg); }
+  catch (e) { toast(e.message); }
+}
+$("saveWifi").onclick = () => {
+  const host = $("host").value.trim().toLowerCase();
+  if (!/^[a-z0-9-]{1,32}$/.test(host)) return toast("Nom d'hôte invalide");
+  if ($("appw").value && $("appw").value.length < 8) return toast("Mot de passe du point d'accès : 8 caractères minimum");
+  const cfg = {ssid: $("ssid").value.trim(), hostname: host};
+  if ($("pw").value) cfg.password = $("pw").value;
+  if ($("appw").value) cfg.ap_password = $("appw").value;
+  saveConfig(cfg, "Redémarrage… Si l'ESP32 change de réseau, rejoins-le puis ouvre http://" + host + ".local/");
+};
+
+// ---- hardware ---------------------------------------------------------------------------
+let bus = "i2c";
+function setBus(b) {
+  bus = b;
+  for (const x of $("busSel").children) x.className = x.dataset.v === b ? "on" : "";
+  $("i2cBox").hidden = b !== "i2c"; $("rsBox").hidden = b !== "rs485";
+}
+$("busSel").onclick = e => { if (e.target.dataset.v) setBus(e.target.dataset.v); };
+setBus("i2c");
+$("saveHw").onclick = () => {
+  const cfg = {simulate: $("simulate").checked, bus,
+    i2c: {sda: +$("sda").value, scl: +$("scl").value, freq: +$("freq").value, soft: $("softi2c").checked},
+    rs485: {tx: +$("rstx").value, rx: +$("rsrx").value, baud: +$("rsbaud").value},
+    button: {enabled: $("btnOn").checked, pin: +$("btnPin").value, mode: $("btnMode").value},
+    leds: {enabled: $("ledOn").checked, pin: +$("ledPin").value, count: +$("ledCount").value, brightness: +$("ledLevel").value / 100}};
+  if ($("adminpw").value) cfg.admin_password = $("adminpw").value;
+  saveConfig(cfg, "Redémarrage…");
+};
+
+// ---- OTA: application files -----------------------------------------------------------------
+function target(name) {
+  if (name === "main.py" || name === "boot.py") return "/" + name;
+  if (name.endsWith(".py") || name.endsWith(".mpy")) return "/ricino/" + name;
+  return "/data/" + name + (/\.(html|css|js|svg)$/.test(name) ? ".gz" : "");
+}
+async function gzip(file) {
+  if (!window.CompressionStream) return file;
+  return new Response(file.stream().pipeThrough(new CompressionStream("gzip"))).blob();
+}
+$("files").onchange = () => {
+  const ul = $("fileList"); ul.textContent = "";
+  for (const f of $("files").files) {
+    const li = document.createElement("li");
+    li.innerHTML = '<span></span><input type="text"><progress value="0" max="1"></progress>';
+    li.firstChild.textContent = f.name + " (" + kb(f.size) + ")";
+    li.children[1].value = target(f.name);
+    li.file = f;
+    ul.append(li);
+  }
+  $("sendFiles").disabled = !$("files").files.length;
+};
+$("sendFiles").onclick = async () => {
+  $("sendFiles").disabled = true;
+  let n = 0, needReboot = false;
+  for (const li of $("fileList").children) {
+    const path = li.children[1].value.trim(), prog = li.children[2];
+    try {
+      const body = path.endsWith(".gz") && !li.file.name.endsWith(".gz") ? await gzip(li.file) : li.file;
+      await upload("/api/upload?path=" + encodeURIComponent(path), body, p => prog.value = p);
+      prog.value = 1; li.firstChild.className = "ok"; n++;
+      if (path.endsWith(".py")) needReboot = true;
+    } catch (e) { li.firstChild.className = "err"; li.firstChild.textContent += " : " + e.message; }
+  }
+  toast(n + " fichier(s) envoyé(s)" + (needReboot ? " : redémarrer pour appliquer le code" : ""));
+  if (needReboot && confirm("Fichiers Python mis à jour. Redémarrer maintenant ?")) {
+    try { await api("/api/reboot", {method: "POST"}); waitBack("Redémarrage…"); } catch (e) { toast(e.message); }
+  }
+  $("sendFiles").disabled = false;
+};
+
+// ---- OTA: firmware ------------------------------------------------------------------------------
+$("fw").onchange = () => $("sendFw").disabled = !$("fw").files.length;
+$("sendFw").onclick = async () => {
+  const f = $("fw").files[0];
+  if (!f || !confirm("Flasher « " + f.name + " » (" + kb(f.size) + ") puis redémarrer ?")) return;
+  const p = $("fwProg"); p.hidden = false; $("sendFw").disabled = true;
+  try {
+    await upload("/api/firmware", f, v => p.value = v);
+    waitBack("Firmware écrit, redémarrage…");
+  } catch (e) { toast(e.message); $("sendFw").disabled = false; }
+};
+
+// ---- link diagnostic ----------------------------------------------------------------------
+function cell(tr, v, cls) { const td = tr.insertCell(); td.textContent = v; if (cls) td.className = cls; }
+function busExplain(d) {
+  const g = Object.values(d.gates || {}), ok = g.some(x => x.ok);
+  if (d.bus === "simulated") return "Gates simulées : rien à diagnostiquer.";
+  if (ok) return "Liaison OK : au moins une gate répond.";
+  if (d.bus === "i2c") return "Aucune réponse en I2C : câblage SDA/SCL, masse, pull-ups, adresses des gates.";
+  const hello = Object.keys(d.heard || {});
+  if (hello.length) return "La gate " + hello.join(", ") + " a dit « hello » à son démarrage : son émission arrive bien jusqu'ici. " +
+    "Elle ne répond pas aux interrogations : elle ne les reçoit pas (fil vers son RX, A/B, débit).";
+  if (d.rx_bytes && !d.other_bytes) return "L'ESP32 n'entend que l'écho de ses propres requêtes (son RX et la ligne A/B sont bons) : " +
+    "aucune gate n'émet. Vérifier l'adresse de la gate (clignotements au démarrage), le fil J1-5 et le module de la gate.";
+  if (!d.rx_bytes) return "Aucun octet reçu par l'ESP32 depuis le démarrage : rien n'arrive sur son RX. " +
+    "Vérifier le fil RX de l'ESP32, puis l'émission de la gate (fil J1-5 vers le module, module de la gate). " +
+    "Astuce : redémarrer la gate (elle envoie un « hello ») puis Actualiser.";
+  return "Des octets arrivent mais aucune réponse valide : débit différent, A/B inversés ou parasites (voir les octets bruts).";
+}
+async function busInfo(test) {
+  let d;
+  try { d = await api("/api/bus" + (test ? "?test=1" : "")); } catch (e) { $("busSummary").textContent = e.message; return; }
+  const t = $("busTable"); t.textContent = "";
+  const gates = d.gates || {};
+  if (Object.keys(gates).length) {
+    const h = t.createTHead().insertRow();
+    for (const x of ["Gate", "Interrogations", "Réponses", "Invalides", "Sans réponse", "Derniers octets invalides"]) h.append(Object.assign(document.createElement("th"), {textContent: x}));
+    const b = t.createTBody();
+    for (const a in gates) {
+      const g = gates[a], tr = b.insertRow();
+      cell(tr, a + (d.heard && d.heard[a] !== undefined ? " (hello il y a " + d.heard[a] + " s)" : ""));
+      cell(tr, g.polls); cell(tr, g.ok, g.ok ? "ok" : ""); cell(tr, g.bad, g.bad ? "err" : ""); cell(tr, g.timeouts); cell(tr, g.raw, "raw");
+    }
+  }
+  $("busSummary").textContent = "Liaison : " + d.bus + (d.rx_bytes !== undefined ? " · octets reçus : " + d.rx_bytes + " (hors écho : " + d.other_bytes + ")" : "") + ". " + busExplain(d);
+  const box = $("busTest2"); box.textContent = "";
+  if (d.test) {
+    const lines = Object.entries(d.test).filter(([a, r]) => r.ok || r.bytes);
+    const p = document.createElement("p"); p.className = "hint";
+    p.textContent = lines.length ? "Test : " + lines.map(([a, r]) => a + " → " + r.ok + "/" + r.tries + " réponses" + (r.ok ? "" : " (" + r.bytes + " octets : " + r.raw + ")")).join(" · ")
+                                 : "Test : aucune réponse de 21 à 28, aucun octet reçu.";
+    box.append(p);
+  }
+}
+$("busRefresh").onclick = () => busInfo(false);
+$("busListen").onclick = async () => {
+  const b = $("busListen"); b.disabled = true;
+  let n = 8; b.textContent = "Écoute… " + n;
+  const tm = setInterval(() => { n = Math.max(0, n - 1); b.textContent = "Écoute… " + n; }, 1000);
+  let d;
+  try { d = await api("/api/bus?listen=8"); } catch (e) { toast(e.message); }
+  clearInterval(tm); b.disabled = false; b.textContent = "Écouter 8 s";
+  if (!d) return;
+  const l = d.listen, box = $("busTest2"), p = document.createElement("p");
+  p.className = "hint";
+  p.textContent = "Écoute : " + l.bytes + " octets reçus" + (l.bytes ? " (dont " + l.zeros + " octets 00) : " + l.sample : "") + ". " +
+    (l.hello.length ? "« hello » reçu de la gate " + l.hello.join(", ") + " : son émission arrive jusqu'ici ✅" :
+     l.zeros > 20 ? "Ligne forcée à 0 : le module de la gate émet et le câble transmet ✅" :
+     l.bytes ? "Octets inattendus : débit différent, A/B inversés ou parasites." :
+     "Silence complet : rien n'est émis par la gate, ou rien n'arrive (fil J1-5, entrée du module, câble).");
+  box.textContent = ""; box.append(p);
+  busInfo(false);
+};
+$("busTest").onclick = async () => { const b = $("busTest"); b.disabled = true; b.textContent = "Test…"; await busInfo(true); b.disabled = false; b.textContent = "Tester la liaison"; };
+busInfo(false);
+
+load();
+setInterval(() => { if (document.visibilityState === "visible" && $("overlay").hidden) load(); }, 15000);
+</script>
+</body>
+</html>
