@@ -1,5 +1,7 @@
 > **Nouvelle version (ESP32 + RS485) : voir [v2/README.md](v2/README.md)**
-
+ie: Same hardware, but micropython for controller, and C++ for receiver.
+ie2: Sorry some VibeCoding was mandatory to get something more polished.
+> 
 # RicinoNext
 Dream to be yet another self container DIY hardware solution for a complete Lap Counter with a bunch of micro-controller (attiny,atmega,samd21,esp, and more ...) ?! focused on RC car/drone ?!
 
