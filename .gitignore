@@ -1,1 +1,7 @@
 .vscode/
+# v2 : builds PlatformIO, caches Python, données locales du simulateur PC
+.pio/
+__pycache__/
+*.pyc
+v2/controller/settings.json*
+v2/controller/records.json*
