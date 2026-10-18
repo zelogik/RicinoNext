@@ -5,3 +5,4 @@ controller/settings.json.new
 receiver/.pio/
 controller/records.json
 controller/records.json.new
+emitter/.pio/

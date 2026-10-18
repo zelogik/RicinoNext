@@ -68,8 +68,9 @@ manufacturing **and assembly** at JLCPCB with LCSC parts):
 - **Gate extension** (extra sensor for a wide track):
   [`Hardware/Receiver/irda_robi_extension`](../Hardware/Receiver/irda_robi_extension).
 - **Emitter** (panel of 6): [`Hardware/Emitter/irda_robi/Schematics`](../Hardware/Emitter/irda_robi/Schematics);
-  firmware and pinout: [`Software/Emitter/irda_robi`](../Software/Emitter/irda_robi/README.md). Every emitter
-  picks a random code on first power-up and keeps it in EEPROM.
+  firmware: [emitter/README.md](emitter/README.md) (v2; the first one is in
+  [`Software/Emitter/irda_robi`](../Software/Emitter/irda_robi/README.md)). Every emitter picks a random code on
+  first power-up and keeps it in EEPROM.
 
 ⚠ The bill of materials says **ATmega328P**, but assembled boards often carry an **ATmega328PB**
 (signature `1E 95 16`). The v2 firmware targets the **328PB**; see [receiver/README.md](receiver/README.md)
@@ -196,6 +197,20 @@ uvx platformio run -t upload          # USBtinyISP; -e rs485-usbasp or -e rs485-
 
 Details, LED codes and tests: [receiver/README.md](receiver/README.md).
 
+### 4.3 The emitters (one per car)
+
+Same ISP programmer, on the emitter's 6-pin header (1 GND · 2 VCC · 3 MOSI · 4 MISO · 5 SCK · 6 RESET):
+
+```bash
+cd v2/emitter
+uvx platformio run -t fuses           # first, once per chip: 8 MHz, BOD, EEPROM kept on reflash
+uvx platformio run -t upload
+```
+
+At first power-up the emitter draws its ID (12 quick blinks), then blinks like a heartbeat: read it in the
+**Garage** (📡). An emitter flashed with the first firmware keeps its ID if the fuses are written first.
+Details: [emitter/README.md](emitter/README.md).
+
 ## 5. Program the ESP32 controller
 
 Once over USB; afterwards everything updates **over the air** from the System page.
@@ -271,5 +286,7 @@ python3 main.py --speed 5            # faster race
 | [controller/INSTALL.md](controller/INSTALL.md) | detailed installation checklist of the controller |
 | [receiver/README.md](receiver/README.md) | gate firmware, LED codes, RS485 protocol, bench tests |
 | [receiver/atmega16-decoder/README.md](receiver/atmega16-decoder/README.md) | original ATmega16 decoder |
+| [emitter/README.md](emitter/README.md) | car emitter firmware v2, ID, fuses, tests |
 
-Automated tests (PC, no hardware): `controller/test_*.py` and `receiver/test/test_receiver.py`.
+Automated tests (PC, no hardware): `controller/test_*.py`, `receiver/test/test_receiver.py` and
+`emitter/test/test_emitter.py`.
